@@ -3,16 +3,21 @@
 
 Fetches the public endpoints defined in references/data-contract.md
 (meta.json, paginated products.json, collections.json, sitemap, homepage,
-best-selling order, RDAP, Wayback CDX; plus policy and about pages at L1),
+best-selling order, RDAP, Wayback CDX; plus policy, about, one main
+collection page and three sample product pages at L1),
 records every request in ``raw/_status.json`` and then runs summarize.py
 unless ``--no-summarize`` is given. A failing request never aborts the run.
 
 CLI:
-    python collect.py <store_url_or_domain> [--out DIR] [--depth L0|L1]
-                      [--max-pages 100] [--skip-offsite] [--delay 0.5]
-                      [--timeout 20] [--no-summarize]
+    python collect.py <store_url_or_domain> [--out-root DIR | --out DIR]
+                      [--depth L0|L1] [--max-pages 100] [--skip-offsite]
+                      [--delay 0.5] [--timeout 20] [--no-summarize]
 
-Default ``--out`` is ``./store-teardown/<domain>/<YYYY-MM-DD>/``.
+By default a new run folder ``<root>/<domain> 对标拆解 <YYYY-MM-DD>[ (N)]/``
+is created, where <root> is resolved by delivery.resolve_output_root
+(``--out-root`` > $CHUHAI_OUTPUT_DIR > cloud sandbox > Documents/出海拆解报告),
+and data goes to its ``原始数据/`` subfolder. ``--out`` names that raw-data
+folder directly (legacy behaviour).
 Python 3.8+, standard library only. TLS verification is always on.
 """
 
@@ -25,6 +30,7 @@ import os
 import re
 import socket
 import ssl
+import subprocess
 import sys
 import time
 import zlib
@@ -33,6 +39,7 @@ from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import delivery  # noqa: E402
 import summarize  # noqa: E402
 
 TOOL_VERSION = summarize.TOOL_VERSION
@@ -48,7 +55,34 @@ PRODUCTS_OFFSET_CAP = 25000
 COLLECTIONS_MAX_PAGES = 4
 SITEMAP_CHILD_CAP = 50
 ABOUT_SLUGS = ["about", "about-us", "our-story"]
-CERT_NOTE = "证书校验失败, macOS python.org 版本可运行 Install Certificates.command"
+# L1 sample product pages: skip add-ons (rule shared with summarize.py).
+NON_PRODUCT_RE = summarize.NON_PRODUCT_RE
+MIN_SAMPLE_PRICE = summarize.MIN_REAL_PRICE
+L1_SAMPLE_ROLES = ("entry", "main", "premium")
+
+
+def cert_note(platform=None):
+    """Plain-language hint for a certificate verification failure."""
+    platform = platform or sys.platform
+    if platform == "darwin":
+        return (
+            "证书校验失败. 如果 Python 是从 python.org 下载安装的, 请到 应用程序 → "
+            "Python 文件夹里双击运行一次 Install Certificates.command, 然后重试"
+        )
+    if platform == "win32":
+        return (
+            "证书校验失败. 请先用浏览器 (Edge 或 Chrome) 打开一次该网站, "
+            "或等几分钟后重试 (Windows 会自动补齐证书)"
+        )
+    return (
+        "证书校验失败. 请更新系统证书 (例如 sudo apt install ca-certificates, "
+        "或 sudo yum update ca-certificates) 后重试"
+    )
+
+
+CERT_NOTE = cert_note()
+WIN_ROOT_REFRESH_NOTE = "windows root certificate refresh triggered, retried once"
+WIN_ROOT_REFRESH_TIMEOUT = 20
 SECOND_LEVEL = {
     "co.uk",
     "org.uk",
@@ -114,14 +148,92 @@ class _Redirect(HTTPRedirectHandler):
     max_redirections = 8
 
 
+def make_ssl_context():
+    """Default verifying context, minus VERIFY_X509_STRICT.
+
+    Python 3.13+ turns on VERIFY_X509_STRICT by default, which rejects some
+    public CA chains that browsers accept (e.g. "Basic Constraints of CA cert
+    not marked critical"). Clearing only that flag is a compatibility fix, not
+    a downgrade: chain verification (CERT_REQUIRED) and hostname checking stay
+    on. On Windows the context reads the system store via load_default_certs,
+    so a fresh context also picks up roots Windows downloaded meanwhile.
+    """
+    ctx = ssl.create_default_context()
+    strict = getattr(ssl, "VERIFY_X509_STRICT", None)
+    if strict is not None:
+        ctx.verify_flags &= ~strict
+    ctx.check_hostname = True
+    ctx.verify_mode = ssl.CERT_REQUIRED
+    return ctx
+
+
+def site_root(url):
+    """``scheme://host[:port]/`` of url, or None when it is unsafe to quote."""
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https"):
+        return None
+    if not re.match(r"^[A-Za-z0-9.\-]+(:\d+)?$", parts.netloc or ""):
+        return None
+    return "%s://%s/" % (parts.scheme, parts.netloc)
+
+
+def refresh_windows_roots(url, run=None):
+    """Ask Windows to fetch missing root certificates for url's site.
+
+    A fresh Windows install downloads trusted roots on demand (AuthRoot
+    auto-update) only when a Windows TLS client meets them; OpenSSL never
+    triggers that. One PowerShell HEAD request does. Returns True when
+    PowerShell ran (whatever the HTTP result), False when it is unavailable.
+    """
+    root = site_root(url)
+    if root is None:
+        return False
+    run = run or subprocess.run
+    script = (
+        "try { Invoke-WebRequest -UseBasicParsing -Method Head -Uri '%s' "
+        "-TimeoutSec 15 | Out-Null } catch {}" % root
+    )
+    try:
+        run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=WIN_ROOT_REFRESH_TIMEOUT,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except subprocess.TimeoutExpired:
+        return True  # it ran; the roots may still have been fetched
+    except (OSError, ValueError):
+        return False
+    return True
+
+
 class Fetcher(object):
     def __init__(self, timeout=20.0, delay=0.5, retries=2):
         self.timeout = timeout
         self.delay = delay
         self.retries = retries
-        self.ctx = ssl.create_default_context()  # verification stays on
-        self.opener = build_opener(HTTPSHandler(context=self.ctx), _Redirect())
+        self._refreshed_hosts = set()
+        self._build_opener()
         self._last = 0.0
+
+    def _build_opener(self):
+        self.ctx = make_ssl_context()  # verification stays on
+        self.opener = build_opener(HTTPSHandler(context=self.ctx), _Redirect())
+
+    def _try_cert_refresh(self, url):
+        """Windows only, at most once per host: refresh roots, rebuild context."""
+        if sys.platform != "win32":
+            return False
+        host = (urlsplit(url).hostname or "").lower()
+        if not host or host in self._refreshed_hosts:
+            return False
+        self._refreshed_hosts.add(host)
+        if not refresh_windows_roots(url):
+            return False
+        self._build_opener()
+        return True
 
     def _sleep_polite(self):
         wait = self.delay - (time.time() - self._last)
@@ -132,6 +244,7 @@ class Fetcher(object):
         """Return dict(status, body(bytes|None), final_url, elapsed_ms, note, net_error)."""
         attempt = 0
         note = ""
+        refreshed = False
         while True:
             self._sleep_polite()
             t0 = time.time()
@@ -180,6 +293,11 @@ class Fetcher(object):
                     note = "body truncated at %d bytes" % MAX_BYTES
             if err is not None:
                 note = describe_error(err)
+                if refreshed:
+                    note += "; " + WIN_ROOT_REFRESH_NOTE
+                if is_cert_error(err) and not refreshed and self._try_cert_refresh(url):
+                    refreshed = True
+                    continue
                 if is_cert_error(err) or attempt >= self.retries:
                     return {
                         "status": None,
@@ -201,6 +319,8 @@ class Fetcher(object):
                     wait = min(float(ra), 15.0)
                 time.sleep(wait)
                 continue
+            if refreshed:
+                note = (note + "; " if note else "") + WIN_ROOT_REFRESH_NOTE
             if attempt:
                 note = (note + "; " if note else "") + "retried %d" % attempt
             return {
@@ -289,6 +409,10 @@ class Collector(object):
         self.f = fetcher
         self.requests = []
         self.started = utc_now()
+        self.products = []
+        self.collections = []
+        self.best_selling = []
+        self.l1_samples = []
 
     def fetch(self, key, url, fname, kind):
         """Fetch url, save to raw/fname on success, log status. Returns text or None."""
@@ -335,13 +459,16 @@ class Collector(object):
         self.collect_products()
         self.collect_collections()
         self.collect_sitemap()
-        self.fetch(
+        best_txt = self.fetch(
             "best_selling",
             self.base + "/collections/all?sort_by=best-selling",
             "best-selling.html",
             "html",
         )
+        if best_txt:
+            self.best_selling = summarize.best_selling_handles(best_txt, limit=30)
         if self.depth == "L1":
+            self.collect_l1_pages()
             for name in summarize.POLICY_NAMES:
                 self.fetch(
                     "policy_" + name.replace("-", "_"),
@@ -378,6 +505,7 @@ class Collector(object):
                 break
             if not items:
                 break
+            self.products.extend(p for p in items if isinstance(p, dict))
             page += 1
 
     def collect_collections(self):
@@ -396,6 +524,8 @@ class Collector(object):
                 items = json.loads(text).get("collections")
             except (ValueError, AttributeError):
                 break
+            if items:
+                self.collections.extend(c for c in items if isinstance(c, dict))
             if not items or len(items) < PRODUCTS_LIMIT:
                 break
 
@@ -407,6 +537,34 @@ class Collector(object):
         children = [summarize.html.unescape(u) for u in locs if "sitemap_products" in u]
         for i, url in enumerate(children[:SITEMAP_CHILD_CAP], 1):
             self.fetch("sitemap_products", url, "sitemap-products-%d.xml" % i, "xml")
+
+    def collect_l1_pages(self):
+        """One main collection page and three sample product pages."""
+        if not self.fetch(
+            "page_collection",
+            self.base + "/collections/all",
+            "page-collection-all.html",
+            "html",
+        ):
+            handle = pick_collection(self.collections)
+            if handle:
+                self.fetch(
+                    "page_collection",
+                    "%s/collections/%s" % (self.base, quote(handle, safe="")),
+                    "page-collection-%s.html" % safe_slug(handle),
+                    "html",
+                )
+        self.l1_samples = select_l1_samples(self.products, self.best_selling)
+        for sample in self.l1_samples:
+            fname = "page-product-%s.html" % safe_slug(sample["handle"])
+            sample["file"] = "raw/" + fname
+            self.fetch(
+                "page_product",
+                "%s/products/%s" % (self.base, quote(sample["handle"], safe="")),
+                fname,
+                "html",
+            )
+            sample["result"] = self.requests[-1]["result"]
 
     def collect_offsite(self):
         reg = registrable_domain(self.domain)
@@ -438,6 +596,7 @@ class Collector(object):
             "depth": self.depth,
             "started_at_utc": self.started,
             "finished_at_utc": utc_now(),
+            "l1_samples": self.l1_samples,
             "requests": self.requests,
         }
         with open(os.path.join(self.raw, "_status.json"), "w", encoding="utf-8") as fh:
@@ -445,11 +604,132 @@ class Collector(object):
             fh.write("\n")
 
 
+def safe_slug(handle):
+    """File-name-safe version of a URL handle."""
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", str(handle or "")).strip("-.")
+    return slug[:80] or "item"
+
+
+def pick_collection(collections):
+    """Fallback main collection: first non-empty one that is not ``all``."""
+    for c in collections:
+        handle = c.get("handle")
+        count = c.get("products_count")
+        if not handle or handle == "all":
+            continue
+        if count is None or (isinstance(count, (int, float)) and count > 0):
+            return handle
+    return None
+
+
+sample_price = summarize.lowest_price
+is_real_product = summarize.is_real_product
+SAMPLE_BASIS = {
+    "entry": "closest_to_p25_excluding_virtual",
+    "main": "best_selling_in_p25_p75_excluding_virtual",
+    "main_fallback": "closest_to_median_excluding_virtual",
+    "premium": "max_excluding_virtual",
+}
+
+
+def select_l1_samples(products, best_selling=None):
+    """Pick entry (~P25), main (~median, best-selling first) and premium (max).
+
+    Returns up to three dicts ``{handle, role, price, basis, basis_value,
+    basis_pool}`` with distinct handles. Percentiles are computed on real
+    products only (same rule as summary ``price_excluding_virtual``); when at
+    least three are in stock, only in-stock items form the pool, so
+    ``basis_value`` can differ slightly from the summary figures.
+    """
+    pool = []
+    for p in products or []:
+        handle = p.get("handle")
+        price = sample_price(p)
+        if handle and is_real_product(p, price):
+            pool.append(
+                {"handle": handle, "price": price, "available": summarize.in_stock(p)}
+            )
+    if not pool:
+        return []
+    avail = [x for x in pool if x["available"]]
+    basis_pool = "all_real_products"
+    if len(avail) >= 3:
+        pool = avail
+        basis_pool = "in_stock_real_products"
+    prices = sorted(x["price"] for x in pool)
+    p25 = summarize.percentile(prices, 0.25)
+    med = summarize.percentile(prices, 0.5)
+    p75 = summarize.percentile(prices, 0.75)
+    rank = {}
+    for i, h in enumerate(best_selling or []):
+        rank.setdefault(h, i)
+    chosen = []
+
+    def free(x):
+        return all(x["handle"] != c["handle"] for c in chosen)
+
+    def take(role, item, basis, value):
+        if item is not None:
+            chosen.append(
+                {
+                    "handle": item["handle"],
+                    "role": role,
+                    "price": item["price"],
+                    "basis": basis,
+                    "basis_value": summarize.r2(value),
+                    "basis_pool": basis_pool,
+                }
+            )
+
+    # premium: highest price
+    top = max(pool, key=lambda x: (x["price"], -rank.get(x["handle"], 1e9)))
+    take("premium", top, SAMPLE_BASIS["premium"], top["price"])
+    # main: best-selling item in the P25-P75 band, else closest to the median
+    band = [
+        x for x in pool if free(x) and x["handle"] in rank and p25 <= x["price"] <= p75
+    ]
+    main_basis, main_value = SAMPLE_BASIS["main"], med
+    if band:
+        main = min(band, key=lambda x: rank[x["handle"]])
+    else:
+        main_basis = SAMPLE_BASIS["main_fallback"]
+        rest = [x for x in pool if free(x)]
+        main = (
+            min(rest, key=lambda x: (abs(x["price"] - med), rank.get(x["handle"], 1e9)))
+            if rest
+            else None
+        )
+    take("main", main, main_basis, main_value)
+    rest = [x for x in pool if free(x)]
+    if rest:
+        take(
+            "entry",
+            min(
+                rest,
+                key=lambda x: (
+                    abs(x["price"] - p25),
+                    rank.get(x["handle"], 1e9),
+                    x["price"],
+                ),
+            ),
+            SAMPLE_BASIS["entry"],
+            p25,
+        )
+    order = {r: i for i, r in enumerate(L1_SAMPLE_ROLES)}
+    return sorted(chosen, key=lambda c: order[c["role"]])
+
+
 def main(argv=None):
+    delivery.safe_console()
     ap = argparse.ArgumentParser(description="Collect public Shopify storefront data.")
     ap.add_argument("store", help="domain or any URL of the store")
     ap.add_argument(
-        "--out", help="run directory (default ./store-teardown/<domain>/<date>/)"
+        "--out-root",
+        help="delivery root folder (default: Documents/%s)" % delivery.ROOT_NAME,
+    )
+    ap.add_argument(
+        "--out",
+        help="raw-data folder itself (legacy; overrides --out-root)",
     )
     ap.add_argument("--depth", choices=["L0", "L1"], default="L0")
     ap.add_argument("--max-pages", type=int, default=100)
@@ -464,15 +744,25 @@ def main(argv=None):
     except ValueError as e:
         print("错误: 无法解析店铺地址: %s" % e, file=sys.stderr)
         return 2
-    out = args.out or os.path.join(
-        "store-teardown", strip_www(host), datetime.date.today().isoformat()
-    )
-    out = os.path.abspath(os.path.expanduser(out))
+    try:
+        if args.out:
+            out = os.path.abspath(os.path.expanduser(args.out))
+            run_dir = os.path.dirname(out)
+        else:
+            root = delivery.resolve_output_root(args.out_root)
+            run_dir = delivery.create_run_dir(root, strip_www(host))
+            out = os.path.join(run_dir, delivery.RAW_DIRNAME)
+        os.makedirs(out, exist_ok=True)
+        delivery.write_readme(out)
+    except OSError as e:
+        print("错误: 无法创建输出文件夹: %s" % e, file=sys.stderr)
+        return 2
     fetcher = Fetcher(timeout=args.timeout, delay=max(args.delay, 0.0))
     col = Collector(
         args.store, out, args.depth, max(args.max_pages, 1), args.skip_offsite, fetcher
     )
-    print("开始采集 %s (深度 %s), 输出到 %s" % (col.base, args.depth, out))
+    print("开始采集 %s (深度 %s)" % (col.base, args.depth))
+    print("原始数据保存到: %s" % out)
     col.run()
 
     counts = {}
@@ -482,11 +772,12 @@ def main(argv=None):
         "请求 %d 个: %s"
         % (len(col.requests), ", ".join("%s=%d" % kv for kv in sorted(counts.items())))
     )
-    certs = [r for r in col.requests if r.get("note") == CERT_NOTE]
+    certs = [r for r in col.requests if CERT_NOTE in (r.get("note") or "")]
     if certs:
         print("提示: %s" % CERT_NOTE)
     if args.no_summarize:
-        print("已跳过汇总. 之后可运行: python summarize.py %s" % out)
+        print('已跳过汇总. 之后可运行: python summarize.py "%s"' % out)
+        print_next_step(run_dir, out)
         return 0
     try:
         summary = summarize.summarize_run(out)
@@ -494,8 +785,22 @@ def main(argv=None):
         print("汇总失败 (原始数据已保存): %s" % e, file=sys.stderr)
         return 1
     print(summarize.human_digest(summary))
-    print("产物: %s" % out)
+    print_next_step(run_dir, out)
     return 0
+
+
+def print_next_step(run_dir, out):
+    print("")
+    print("本次拆解文件夹: %s" % run_dir)
+    print(
+        '下一步: agent 把报告写到 %s, 然后运行 deliver.py "%s"'
+        % (os.path.join(out, "report.md"), run_dir)
+    )
+    if os.path.basename(out) != delivery.RAW_DIRNAME:
+        print(
+            '注意: --out 指定的文件夹不叫 "%s", deliver.py 需要'
+            " <拆解文件夹>/%s/ 结构." % (delivery.RAW_DIRNAME, delivery.RAW_DIRNAME)
+        )
 
 
 if __name__ == "__main__":

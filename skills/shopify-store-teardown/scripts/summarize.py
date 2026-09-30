@@ -13,7 +13,7 @@ were saved manually by a web-reading tool. Missing, corrupted, truncated or
 markdown-wrapped files are tolerated and reported instead of crashing.
 
 CLI:
-    python summarize.py <run_dir> [--domain example.com] [--quiet]
+    python summarize.py <run folder | 原始数据 folder> [--domain example.com] [--quiet]
 
 Python 3.8+, standard library only.
 """
@@ -28,7 +28,8 @@ import sys
 from collections import Counter
 
 SCHEMA = "store-teardown/summary/1"
-TOOL_VERSION = "0.1.1"
+RAW_DIRNAME = "原始数据"  # same as delivery.RAW_DIRNAME
+TOOL_VERSION = "0.2.0"
 
 POLICY_NAMES = [
     "refund-policy",
@@ -39,6 +40,15 @@ POLICY_NAMES = [
 ]
 
 PRICE_EDGES = [0, 10, 25, 50, 100, 200, 500, 1000, 2000, 5000]
+# Add-ons that are not real merchandise (shipping protection, gift cards,
+# insurance...). Shared by products.price_excluding_virtual and the L1
+# sample picker in collect.py so both use the same price basis.
+NON_PRODUCT_RE = re.compile(
+    r"protect|insurance|guarantee|gift[\s-]*card|e-?gift|warranty|shipping|"
+    r"\broute\b|donation|\btips?\b|运费|保障|保险|退货险|礼品卡",
+    re.I,
+)
+MIN_REAL_PRICE = 5.0
 
 POLICY_MIN_CHARS = 200
 COLLECTIONS_MISMATCH_RATIO = 0.20
@@ -274,6 +284,56 @@ def r2(v):
     return None if v is None else round(v, 2)
 
 
+def lowest_price(product):
+    """Lowest variant price of a product, or None."""
+    vals = [
+        x
+        for x in (
+            to_float(v.get("price"))
+            for v in product.get("variants") or []
+            if isinstance(v, dict)
+        )
+        if x is not None
+    ]
+    return min(vals) if vals else None
+
+
+def is_real_product(product, price):
+    """False for add-ons such as shipping protection, gift cards, insurance."""
+    if price is None or price < MIN_REAL_PRICE:
+        return False
+    text = " ".join(
+        str(product.get(k) or "") for k in ("handle", "title", "product_type")
+    )
+    if NON_PRODUCT_RE.search(text):
+        return False
+    variants = [v for v in product.get("variants") or [] if isinstance(v, dict)]
+    if variants and all(v.get("requires_shipping") is False for v in variants):
+        return False  # gift cards and other non-shipping items
+    return True
+
+
+def in_stock(product):
+    """True unless every variant is explicitly unavailable (L1 sample rule)."""
+    return any(
+        v.get("available") is not False
+        for v in product.get("variants") or []
+        if isinstance(v, dict)
+    )
+
+
+def price_quartiles(sorted_vals):
+    """{min, p25, median, p75, max} of an ascending list (None when empty)."""
+    sp = sorted_vals
+    return {
+        "min": r2(sp[0]) if sp else None,
+        "p25": r2(percentile(sp, 0.25)),
+        "median": r2(percentile(sp, 0.5)),
+        "p75": r2(percentile(sp, 0.75)),
+        "max": r2(sp[-1]) if sp else None,
+    }
+
+
 def top_n(counter, n=10):
     return [[k, c] for k, c in counter.most_common(n)]
 
@@ -379,7 +439,7 @@ class Run(object):
     def _guess_domain(self):
         parent = os.path.basename(os.path.dirname(self.run_dir))
         if "." in parent:
-            return parent
+            return parent.split(" ")[0]
         base = os.path.basename(self.run_dir)
         return base if "." in base else "unknown"
 
@@ -673,11 +733,22 @@ def summarize_run(run_dir, domain=None):
         )
     if pstats.get("price", {}).get("median") is not None:
         pr = pstats["price"]
+        pv = pstats.get("price_excluding_virtual") or {}
         run.add_evidence(
             "E1",
             "price_summary",
-            "商品最低价中位数 %s %s (P25 %s, P75 %s, 基础币种)"
-            % (pr["median"], pr.get("currency") or "", pr["p25"], pr["p75"]),
+            "商品最低价中位数 %s %s (P25 %s, P75 %s, 基础币种); "
+            "排除虚拟商品后 (%s 款) 中位数 %s, P25 %s, P75 %s"
+            % (
+                pr["median"],
+                pr.get("currency") or "",
+                pr["p25"],
+                pr["p75"],
+                pv.get("count"),
+                pv.get("median"),
+                pv.get("p25"),
+                pv.get("p75"),
+            ),
             run.url_for("products-1.json", "/products.json?limit=250&page=1"),
             "raw/products-*.json",
         )
@@ -743,6 +814,22 @@ def summarize_run(run_dir, domain=None):
     )
     if "page-about.html" in page_files or "page-about.html" in run.by_file:
         endpoints["page_about"] = run.status_entry("page-about.html", None)
+    l1_samples = build_l1_samples(run, products, page_files)
+    for sample in l1_samples:
+        if sample.get("result") == "ok":
+            run.add_evidence(
+                "E1",
+                "l1_sample_page",
+                "商品页样本 (%s): %s, 最低价 %s %s"
+                % (
+                    L1_ROLE_LABELS.get(sample.get("role"), "未标注"),
+                    sample["handle"],
+                    sample.get("price"),
+                    currency or "",
+                ),
+                run.url_for(sample["file"][4:], "/products/%s" % sample["handle"]),
+                sample["file"],
+            )
 
     # html signals -------------------------------------------------------------
     sources = []
@@ -789,6 +876,7 @@ def summarize_run(run_dir, domain=None):
         "theme": theme,
         "products": pstats,
         "best_selling_top": best,
+        "l1_samples": l1_samples,
         "offsite": offsite,
         "policies": policies,
         "html_signals": html_signals,
@@ -798,6 +886,57 @@ def summarize_run(run_dir, domain=None):
 
     write_outputs(run, summary, rows)
     return summary
+
+
+L1_ROLE_LABELS = {"entry": "入门款", "main": "主力款", "premium": "高价款"}
+
+
+def build_l1_samples(run, products, page_files):
+    """L1 sample product pages from _status.json, else from file names."""
+    prices = {}
+    for p in products:
+        vals = [
+            x
+            for x in (to_float(v.get("price")) for v in p.get("variants") or [])
+            if x is not None
+        ]
+        if p.get("handle") and vals:
+            prices[p["handle"]] = min(vals)
+    out = []
+    listed = run.status.get("l1_samples")
+    if isinstance(listed, list) and listed:
+        for item in listed:
+            if not isinstance(item, dict) or not item.get("handle"):
+                continue
+            fname = (item.get("file") or "")[4:] or (
+                "page-product-%s.html" % item["handle"]
+            )
+            exists = fname in page_files
+            entry = {
+                "handle": item["handle"],
+                "role": item.get("role"),
+                "price": item.get("price", prices.get(item["handle"])),
+                "file": "raw/" + fname,
+                "result": "ok" if exists else (item.get("result") or "missing"),
+            }
+            for key in ("basis", "basis_value", "basis_pool"):
+                if key in item:
+                    entry[key] = item[key]
+            out.append(entry)
+        return out
+    for fname in page_files:
+        if fname.startswith("page-product-"):
+            handle = fname[len("page-product-") : -len(".html")]
+            out.append(
+                {
+                    "handle": handle,
+                    "role": None,
+                    "price": prices.get(handle),
+                    "file": "raw/" + fname,
+                    "result": "ok",
+                }
+            )
+    return out
 
 
 def load_products(run):
@@ -961,6 +1100,8 @@ def parse_theme(home_txt):
 def product_stats(products, currency, base):
     rows = []
     prices = []
+    real_prices = []
+    real_in_stock = []
     depths = []
     on_sale = 0
     var_counts = []
@@ -980,6 +1121,10 @@ def product_stats(products, currency, base):
         pmax = max(vprices) if vprices else None
         if pmin is not None:
             prices.append(pmin)
+            if is_real_product(p, pmin):
+                real_prices.append(pmin)
+                if in_stock(p):
+                    real_in_stock.append(pmin)
         cmp_max = None
         best_depth = None
         for v in variants:
@@ -1070,15 +1215,23 @@ def product_stats(products, currency, base):
     stats = {
         "count": n,
         "count_source": None,
-        "price": {
-            "currency": currency,
-            "basis": "per-product lowest variant price",
-            "min": r2(sp[0]) if sp else None,
-            "p25": r2(percentile(sp, 0.25)),
-            "median": r2(percentile(sp, 0.5)),
-            "p75": r2(percentile(sp, 0.75)),
-            "max": r2(sp[-1]) if sp else None,
-        },
+        "price": dict(
+            {"currency": currency, "basis": "per-product lowest variant price"},
+            **price_quartiles(sp),
+        ),
+        "price_excluding_virtual": dict(
+            {
+                "currency": currency,
+                "basis": "per-product lowest variant price, excluding virtual "
+                "items and prices below %g" % MIN_REAL_PRICE,
+                "count": len(real_prices),
+                "excluded": len(prices) - len(real_prices),
+            },
+            in_stock=dict(
+                {"count": len(real_in_stock)}, **price_quartiles(sorted(real_in_stock))
+            ),
+            **price_quartiles(sorted(real_prices)),
+        ),
         "price_bands": bands,
         "on_sale_share": round(on_sale / float(n), 4) if n else None,
         "discount_depth_median": round(median(depths), 4) if depths else None,
@@ -1310,6 +1463,12 @@ def human_digest(summary):
             "价格中位数: %s %s (P25 %s / P75 %s)"
             % (pr["median"], pr.get("currency") or "", pr["p25"], pr["p75"])
         )
+        pv = p.get("price_excluding_virtual") or {}
+        if pv.get("median") is not None:
+            lines.append(
+                "排除虚拟商品后: 中位数 %s (P25 %s / P75 %s, 排除 %s 款)"
+                % (pv["median"], pv["p25"], pv["p75"], pv.get("excluded"))
+            )
     lines.append("失败端点: %s" % (", ".join(failed) if failed else "无"))
     if summary.get("warnings"):
         lines.append("警告: %s" % ", ".join(summary["warnings"]))
@@ -1320,22 +1479,39 @@ def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Summarize a store-teardown run dir (offline)."
     )
-    ap.add_argument("run_dir", help="run directory that contains raw/")
+    ap.add_argument(
+        "run_dir",
+        help=(
+            'the "<domain> 对标拆解 <date>" run folder (its %s/ subfolder is used '
+            "automatically) or the %s/ folder itself, i.e. the folder that "
+            "contains raw/" % (RAW_DIRNAME, RAW_DIRNAME)
+        ),
+    )
     ap.add_argument("--domain", help="override domain name")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
-    raw = os.path.join(args.run_dir, "raw")
+    data_dir = resolve_data_dir(args.run_dir)
+    raw = os.path.join(data_dir, "raw")
     if not os.path.isdir(raw):
         print(
             "错误: 找不到 %s, 请先运行 collect.py 或手动保存原始文件." % raw,
             file=sys.stderr,
         )
         return 2
-    summary = summarize_run(args.run_dir, args.domain)
+    summary = summarize_run(data_dir, args.domain)
     if not args.quiet:
         print(human_digest(summary))
-        print("产物: %s" % os.path.abspath(args.run_dir))
+        print("产物: %s" % os.path.abspath(data_dir))
     return 0
+
+
+def resolve_data_dir(path):
+    """Accept the top-level run folder or its 原始数据/ folder."""
+    path = os.path.abspath(os.path.expanduser(path))
+    nested = os.path.join(path, RAW_DIRNAME)
+    if not os.path.isdir(os.path.join(path, "raw")) and os.path.isdir(nested):
+        return nested
+    return path
 
 
 if __name__ == "__main__":

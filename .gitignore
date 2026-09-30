@@ -3,3 +3,5 @@ __pycache__/
 .DS_Store
 dist/
 store-teardown/
+.ruff_cache/
+出海拆解报告/

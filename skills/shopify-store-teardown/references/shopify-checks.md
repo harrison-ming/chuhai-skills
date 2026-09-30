@@ -10,11 +10,11 @@
 
 | 端点 | 能拿到什么 | 用法与纪律 |
 |---|---|---|
-| `/meta.json` | 店名, shop id, `myshopify_domain`, 基础币种, 国家, `ships_to_countries` | 身份信号. shop id 偏小暗示开店早, 只算 `[推断]` 弱证据 |
+| `/meta.json` | 店名, shop id, `myshopify_domain`, 基础币种, 国家, `ships_to_countries` | 身份信号. shop id 偏小暗示开店早, 只算 `[推测]` 弱证据 |
 | `/products.json?limit=250&page=N` | 全部公开商品: 价格, 变体, 选项, tags, 类型, `created_at` / `published_at` | 商品量, 价格带, 上新节奏, 变体策略. 翻到空数组为止; page x limit 上限 25000. 价格是**基础币种**, 各市场价要另查 `/<market>/products/<handle>.js` |
 | `/sitemap.xml` 的商品子地图 | 商品 URL 数 | 与 products.json 交叉核对商品量 |
 | `/collections.json` | 集合列表 | 只用来看分类方式. **其中的 `products_count` 常常虚高 (可达真实商品数的数倍), 不得当商品量** |
-| `/collections/all?sort_by=best-selling` | 按"畅销"排序的商品顺序 | 只能当相对排名的线索, 标 `[推断]`: 排序由商家配置, 不是销量数据 |
+| `/collections/all?sort_by=best-selling` | 按"畅销"排序的商品顺序 | 只能当相对排名的线索, 标 `[推测]`: 排序由商家配置, 不是销量数据 |
 | 首页源码中的 `Shopify.theme` / `Shopify.shop` | 主题名, `schema_name`, `theme_store_id`, myshopify 域名 | 主题的 E1 证据, 身份信号 |
 
 ## 2. 身份确认
@@ -40,7 +40,7 @@
 ## 4. 主题
 
 - 优先读源码 `Shopify.theme`: `schema_name` 就是主题来源.
-- `schema_name` 是自定义名称且 `theme_store_id` 为 null: `[推断]` 这是经过 Git 连接定制的主题.
+- `schema_name` 是自定义名称且 `theme_store_id` 为 null: `[推测]` 这是经过 Git 连接定制的主题.
 - 读不到这个对象, 又没有其他直接证据: 写 `unknown`, **不按样式猜主题名**.
 - 用免费主题不是负面结论, 重点是信息架构和执行质量.
 
@@ -60,8 +60,8 @@
 
 前端能看到的很有限, 只能这样写:
 
-- `[观察]` 页面显示了某支付图标或快捷按钮.
-- `[未知]` 商户后台是否开通, 是否所有市场可用, 交易能否成功.
+- `[页面显示]` 页面显示了某支付图标或快捷按钮.
+- `[查不到]` 商户后台是否开通, 是否所有市场可用, 交易能否成功.
 
 **禁止**仅凭图标断言 Shopify Payments 已开通, PayPal 已连接, 或某支付方式在所有地区可用. 不进入结账, 不提交订单, 不用虚假信息测试.
 
@@ -74,18 +74,18 @@
 ## 9. 政策与运营配置
 
 - 查 Shipping, Returns/Refund, Privacy, Terms, Contact 五类政策页: 在不在, 是不是平台默认模板 (正文极短), 公司名称和地址是否写明.
-- L1 必做**政策一致性对照**: 至少比对 ① 发货/处理天数 ② 免费退货的适用范围 ③ 退货条件 ④ 站内评价数 vs 独立评价平台 ⑤ About 的创始人故事 vs 站外资料. 商品页或首页的说法与政策原文不一致, 标 `[存疑]`.
+- L1 必做**政策一致性对照**: 至少比对 ① 发货/处理天数 ② 免费退货的适用范围 ③ 退货条件 ④ 站内评价数 vs 独立评价平台 ⑤ About 的创始人故事 vs 站外资料. 商品页或首页的说法与政策原文不一致, 标 `[有矛盾]`.
 
 ## 10. 输出字段
 
-报告的 Shopify 专项节至少给出:
+报告附录的"技术细节"至少给出 (正文只用一两句大白话概括, 例如"用的是自己定制的店铺模板"):
 
 ```text
 shopify_identity: confirmed|probable|unconfirmed|not_shopify (+ 信号列表)
 storefront_type: theme_os20|theme_legacy|headless_hydrogen|headless_other|unknown
 theme_claim: {value, confidence, evidence}
 apps_or_services: [{name, confidence, evidence}]
-payment_surfaces_observed: [...]   # 仅 [观察]
+payment_surfaces_observed: [...]   # 仅 [页面显示]
 markets / languages / currencies observed: [...]
 unknowns: [...]
 ```

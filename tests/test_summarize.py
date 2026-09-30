@@ -333,10 +333,178 @@ class FakeStore(BaseHTTPRequestHandler):
             self.send(
                 200, '<div class="shopify-policy__body"><p>%s</p></div>' % ("x " * 150)
             )
+        elif path.startswith("/products/item-"):
+            self.send(200, "<html><body>Product %s</body></html>" % path)
         elif path == "/pages/about-us":
             self.send(200, "<html><body>About</body></html>")
         else:
             self.send(404, "not found")
+
+
+def fake_product(handle, price, title=None, ptype="Shoes", **variant):
+    v = {"price": "%.2f" % price, "available": True}
+    v.update(variant)
+    return {
+        "handle": handle,
+        "title": title or handle,
+        "product_type": ptype,
+        "variants": [v],
+    }
+
+
+class TestL1Samples(unittest.TestCase):
+    def test_roles_by_price_and_best_selling(self):
+        products = [
+            fake_product("p%d" % i, float(p))
+            for i, p in enumerate([20, 30, 40, 60, 80, 95, 100, 110, 120, 150, 300])
+        ]
+        best = ["p10", "p7", "p5"]  # p10 is premium; p7 (100) is inside P25-P75
+        picks = collect.select_l1_samples(products, best)
+        roles = {x["role"]: x["handle"] for x in picks}
+        self.assertEqual([x["role"] for x in picks], ["entry", "main", "premium"])
+        self.assertEqual(roles["premium"], "p10")
+        self.assertEqual(roles["main"], "p7")
+        self.assertEqual(
+            roles["entry"], "p2"
+        )  # 40 and 60 tie around P25 = 50; cheaper wins
+        self.assertEqual(len({x["handle"] for x in picks}), 3)
+
+    def test_main_falls_back_to_median(self):
+        products = [
+            fake_product("p%d" % i, float(p))
+            for i, p in enumerate([10, 20, 30, 40, 50])
+        ]
+        roles = {x["role"]: x for x in collect.select_l1_samples(products, [])}
+        self.assertEqual(roles["main"]["handle"], "p2")
+        self.assertEqual(roles["main"]["price"], 30.0)
+
+    def test_excludes_virtual_and_cheap_items(self):
+        products = [
+            fake_product("shipping-protection", 500.0, "Shipping Protection"),
+            fake_product("route-insurance", 400.0, "Route Package Protection"),
+            fake_product("gift-card", 300.0, "Gift Card", "Gift Card"),
+            fake_product("digital", 250.0, "Digital Thing", requires_shipping=False),
+            fake_product("return-cover", 200.0, "退货险"),
+            fake_product("sock", 3.0),
+            fake_product("runner", 100.0),
+            fake_product("lounger", 80.0),
+            fake_product("slipper", 60.0),
+        ]
+        picks = collect.select_l1_samples(products, ["shipping-protection"])
+        handles = {x["handle"] for x in picks}
+        self.assertEqual(handles, {"runner", "lounger", "slipper"})
+        self.assertEqual(
+            [x for x in picks if x["role"] == "premium"][0]["handle"], "runner"
+        )
+
+    def test_prefers_available_and_handles_small_pools(self):
+        sold = fake_product("sold-out", 999.0)
+        sold["variants"][0]["available"] = False
+        products = [sold] + [fake_product("a%d" % i, 10.0 * (i + 1)) for i in range(3)]
+        picks = collect.select_l1_samples(products, [])
+        self.assertNotIn("sold-out", [x["handle"] for x in picks])
+        self.assertEqual(len(collect.select_l1_samples([fake_product("x", 9)])), 1)
+        self.assertEqual(collect.select_l1_samples([]), [])
+
+    def test_samples_record_basis(self):
+        products = [
+            fake_product("p%d" % i, float(p))
+            for i, p in enumerate([20, 30, 40, 60, 80, 95, 100, 110, 120, 150, 300])
+        ]
+        products.append(fake_product("returns-cover", 1.0, "Free Returns Coverage"))
+        roles = {x["role"]: x for x in collect.select_l1_samples(products, ["p7"])}
+        self.assertEqual(roles["entry"]["basis"], "closest_to_p25_excluding_virtual")
+        self.assertEqual(roles["entry"]["basis_value"], 50.0)  # P25 of 11 real
+        self.assertEqual(roles["main"]["basis"], collect.SAMPLE_BASIS["main"])
+        self.assertEqual(roles["premium"]["basis_value"], 300.0)
+        self.assertEqual(roles["entry"]["basis_pool"], "in_stock_real_products")
+        fallback = {
+            x["role"]: x
+            for x in collect.select_l1_samples(
+                [fake_product("q%d" % i, 10.0 * (i + 1)) for i in range(5)], []
+            )
+        }
+        self.assertEqual(
+            fallback["main"]["basis"], "closest_to_median_excluding_virtual"
+        )
+
+    def test_price_excluding_virtual_matches_sample_rule(self):
+        products = [
+            fake_product("a", 62.0),
+            fake_product("b", 75.0),
+            fake_product("c", 100.0),
+            fake_product("d", 120.0),
+            fake_product("cover", 0.8, "Free Returns Coverage"),
+            fake_product("card", 50.0, "Gift Card", "Gift Card"),
+            fake_product("sock", 3.0),
+        ]
+        stats, _rows = summarize.product_stats(products, "USD", "https://x.com")
+        pv = stats["price_excluding_virtual"]
+        self.assertEqual(pv["count"], 4)
+        self.assertEqual(pv["excluded"], 3)
+        self.assertEqual((pv["min"], pv["max"]), (62.0, 120.0))
+        self.assertEqual(pv["median"], 87.5)
+        self.assertEqual(stats["price"]["min"], 0.8)  # raw stats keep everything
+        entry = [
+            x for x in collect.select_l1_samples(products, []) if x["role"] == "entry"
+        ][0]
+        self.assertEqual(entry["basis_value"], pv["p25"])  # same basis
+        # sold-out cheap items: sample pool is in-stock only, see in_stock stats
+        for h, price in (("old1", 20.0), ("old2", 25.0), ("old3", 30.0)):
+            sold = fake_product(h, price)
+            sold["variants"][0]["available"] = False
+            products.append(sold)
+        stats, _rows = summarize.product_stats(products, "USD", "https://x.com")
+        pv = stats["price_excluding_virtual"]
+        entry = [
+            x for x in collect.select_l1_samples(products, []) if x["role"] == "entry"
+        ][0]
+        self.assertEqual(pv["count"], 7)
+        self.assertEqual(pv["in_stock"]["count"], 4)
+        self.assertNotEqual(pv["p25"], pv["in_stock"]["p25"])
+        self.assertEqual(entry["basis_pool"], "in_stock_real_products")
+        self.assertEqual(entry["basis_value"], pv["in_stock"]["p25"])
+
+    def test_pick_collection_and_slug(self):
+        cols = [
+            {"handle": "all", "products_count": 9},
+            {"handle": "empty", "products_count": 0},
+            {"handle": "mens-shoes", "products_count": 12},
+        ]
+        self.assertEqual(collect.pick_collection(cols), "mens-shoes")
+        self.assertIsNone(collect.pick_collection([{"handle": "all"}]))
+        self.assertEqual(collect.safe_slug("a/b c?"), "a-b-c")
+
+    def test_summarize_reads_samples_from_file_names(self):
+        tmp = tempfile.mkdtemp(prefix="store-teardown-test-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        run = os.path.join(tmp, "x.com 对标拆解 2026-09-30")
+        data = os.path.join(run, "原始数据")
+        os.makedirs(os.path.join(data, "raw"))
+        with open(os.path.join(data, "raw", "products-1.json"), "w") as fh:
+            json.dump({"products": [fake_product("wool", 95.0)]}, fh)
+        with open(os.path.join(data, "raw", "page-product-wool.html"), "w") as fh:
+            fh.write("<html>wool</html>")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = summarize.main([run, "--quiet"])  # top-level run folder
+        self.assertEqual(rc, 0)
+        with open(os.path.join(data, "summary.json"), encoding="utf-8") as fh:
+            s = json.load(fh)
+        self.assertEqual(s["tool_version"], "0.2.0")
+        self.assertEqual(s["domain"], "x.com")
+        self.assertEqual(
+            s["l1_samples"],
+            [
+                {
+                    "handle": "wool",
+                    "role": None,
+                    "price": 95.0,
+                    "file": "raw/page-product-wool.html",
+                    "result": "ok",
+                }
+            ],
+        )
 
 
 class TestCollectLocal(FixtureCase):
@@ -367,7 +535,7 @@ class TestCollectLocal(FixtureCase):
             server.shutdown()
             server.server_close()
         self.assertEqual(rc, 0)
-        self.assertIn("产物", buf.getvalue())
+        self.assertIn("deliver.py", buf.getvalue())
         raw = os.path.join(out, "raw")
         for name in (
             "homepage.html",
@@ -392,6 +560,21 @@ class TestCollectLocal(FixtureCase):
         self.assertEqual(s["best_selling_top"], ["item-3", "item-1"])
         self.assertEqual(s["endpoints"]["collections_json"]["result"], "blocked")
         self.assertEqual(s["policies"]["refund-policy"]["result"], "ok")
+        # L1: main collection page + three sample product pages
+        self.assertTrue(os.path.isfile(os.path.join(raw, "page-collection-all.html")))
+        for h in ("item-1", "item-2", "item-3"):
+            self.assertTrue(
+                os.path.isfile(os.path.join(raw, "page-product-%s.html" % h)), h
+            )
+        roles = {x["role"]: x for x in s["l1_samples"]}
+        self.assertEqual(sorted(roles), ["entry", "main", "premium"])
+        self.assertEqual(roles["premium"]["handle"], "item-3")
+        self.assertEqual(roles["premium"]["price"], 30.0)
+        self.assertEqual(roles["main"]["file"], "raw/page-product-item-2.html")
+        self.assertTrue(all(x["result"] == "ok" for x in s["l1_samples"]))
+        self.assertTrue(all("basis" in x for x in s["l1_samples"]))
+        self.assertIn("l1_samples", status)
+        self.assertIn("price_excluding_virtual", s["products"])
 
 
 if __name__ == "__main__":
