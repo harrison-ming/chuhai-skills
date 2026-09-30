@@ -1,0 +1,16 @@
+{
+ "collections": [
+  {
+   "id": 1,
+   "handle": "all",
+   "title": "All",
+   "products_count": 3
+  },
+  {
+   "id": 2,
+   "handle": "shoes",
+   "title": "Shoes",
+   "products_count": 1
+  }
+ ]
+}

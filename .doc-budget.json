@@ -1,0 +1,5 @@
+{
+  "soft_line_budget": 250,
+  "hard_line_budget": 500,
+  "exempt": ["CHANGELOG.md"]
+}

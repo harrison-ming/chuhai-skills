@@ -1,0 +1,10 @@
+{
+ "collections": [
+  {
+   "id": 1,
+   "handle": "all",
+   "title": "All",
+   "products_count": 50
+  }
+ ]
+}

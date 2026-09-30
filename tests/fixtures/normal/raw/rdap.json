@@ -1,0 +1,39 @@
+{
+ "objectClassName": "domain",
+ "ldhName": "EXAMPLE-STORE.COM",
+ "events": [
+  {
+   "eventAction": "registration",
+   "eventDate": "2017-11-02T18:00:00Z"
+  },
+  {
+   "eventAction": "expiration",
+   "eventDate": "2027-11-02T18:00:00Z"
+  }
+ ],
+ "entities": [
+  {
+   "objectClassName": "entity",
+   "roles": [
+    "registrar"
+   ],
+   "vcardArray": [
+    "vcard",
+    [
+     [
+      "version",
+      {},
+      "text",
+      "4.0"
+     ],
+     [
+      "fn",
+      {},
+      "text",
+      "Example Registrar Inc."
+     ]
+    ]
+   ]
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+ "id": 12345678,
+ "name": "Example Store",
+ "city": "Springfield",
+ "province": "Oregon",
+ "country": "US",
+ "currency": "USD",
+ "domain": "example-store.com",
+ "url": "https://example-store.com",
+ "myshopify_domain": "example-store.myshopify.com",
+ "description": "A synthetic test shop",
+ "ships_to_countries": [
+  "US",
+  "CA",
+  "GB"
+ ],
+ "money_format": "${{amount}}",
+ "published_collections_count": 2,
+ "published_products_count": 0
+}
