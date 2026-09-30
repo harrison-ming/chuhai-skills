@@ -57,6 +57,8 @@ npx skills add harrison-ming/chuhai-skills
 | Claude Code, 禁用采集脚本 | 网页读取 + 离线脚本 | L0 报告 (商品全量统计受读取工具截断限制) | 2026-09-30 |
 <!-- VERIFIED:END -->
 
+安装方式实测 (2026-09-30): `/plugin marketplace add` 安装, `npx skills add` 安装, Releases zip 下载均通过.
+
 未列出的环境理论上兼容 (格式是开放标准), 但未经实测. 欢迎在 Issues 反馈.
 
 ## 运行要求
