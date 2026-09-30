@@ -28,7 +28,7 @@ import sys
 from collections import Counter
 
 SCHEMA = "store-teardown/summary/1"
-TOOL_VERSION = "0.1.0"
+TOOL_VERSION = "0.1.1"
 
 POLICY_NAMES = [
     "refund-policy",

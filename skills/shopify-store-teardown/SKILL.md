@@ -1,9 +1,10 @@
 ---
 name: shopify-store-teardown
-description: 拆解任意公开 Shopify 独立站 (对标店/竞品店). 核实店铺身份与店龄, 全量统计商品数/价格带/折扣/上新节奏, 识别主题/应用/Markets/追踪标签, 检查政策页一致性, 输出带证据分级的中文报告. 用于: 对标店分析, 竞品独立站拆解, "这家店是真的吗/开了多久", "它靠什么卖这个价", Shopify store teardown, competitor store analysis. 只读公开页面, 不登录, 不下单.
+description: >-
+  拆解任意公开 Shopify 独立站 (对标店/竞品店). 核实店铺身份与店龄, 全量统计商品数/价格带/折扣/上新节奏, 识别主题/应用/Markets/追踪标签, 检查政策页一致性, 输出带证据分级的中文报告. 用于: 对标店分析, 竞品独立站拆解, "这家店是真的吗/开了多久", "它靠什么卖这个价", Shopify store teardown, competitor store analysis. 只读公开页面, 不登录, 不下单.
 license: MIT
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
   author: StellarByte
   homepage: https://github.com/harrison-ming/chuhai-skills
   status: experimental
