@@ -71,6 +71,7 @@ npx skills add harrison-ming/chuhai-skills
 <!-- VERIFIED:BEGIN -->
 | 环境 | 取数模式 | 结果 | 验证日期 |
 |---|---|---|---|
+| Claude Code (macOS), v0.2.0 | 脚本联网 | 大白话 PDF + 商品清单, 报告自检通过 | 2026-09-30 |
 | Claude Code (macOS) | 脚本联网 | 快速核验 / 深度拆解完整报告 (v0.1.x) | 2026-09-30 |
 | Claude Code, 禁用采集脚本 | 网页读取 + 离线脚本 | 快速核验报告 (商品全量统计受读取工具截断限制, v0.1.x) | 2026-09-30 |
 | Windows 11 中文版 (ARM64, 裸系统 + Chrome), Python 3.14 与 3.8 | 脚本联网 | 采集, PDF (微软雅黑), 商品清单, 自动打开文件夹均通过; 需先装 Python | 2026-09-30 |

@@ -29,7 +29,7 @@ from collections import Counter
 
 SCHEMA = "store-teardown/summary/1"
 RAW_DIRNAME = "原始数据"  # same as delivery.RAW_DIRNAME
-TOOL_VERSION = "0.2.0"
+TOOL_VERSION = "0.2.1"
 
 POLICY_NAMES = [
     "refund-policy",

@@ -19,19 +19,23 @@
 
 ## 2. 身份确认
 
-至少 2 个**相互独立**的信号, 才写"已确认是 Shopify".
+`summarize.py` 按**信号个数**判定, 不区分来源: ≥2 个为 `confirmed`, 1 个为 `probable`. 脚本认的信号有 4 个:
 
-可用信号:
-
-- `/meta.json` 返回 `myshopify_domain`, 或源码 `Shopify.shop` 是 `*.myshopify.com`
+- `/meta.json` 返回 `myshopify_domain`
 - `/products.json` 返回 Shopify 结构 (products 数组, 含 variants)
-- 页面源码含 `cdn.shopify.com` 静态资源或 `Shopify.theme` 对象
+- 首页源码含 `Shopify.shop`, `Shopify.theme`, `cdn.shopify.com` 或 `myshopify.com` (同一页面里出现几个都只算 1 个信号)
 - sitemap 含 `sitemap_products_*` 子地图
-- 品牌或官方资料明确说明使用 Shopify
+
+`meta.json` 和 `products.json` 同属 Shopify 的公开数据接口. 如果只有这两个信号, 脚本也会给 `confirmed`, 但 agent 写 `[已核实]` 前要再找一个非接口信号佐证: 首页源码里的 `Shopify.shop` / `cdn.shopify.com`, 或 sitemap 的商品子地图. 品牌或官方资料明确说明使用 Shopify, 也可以作为佐证.
 
 **不能单独作为依据**: 页面长得像某个 Shopify 主题; 有 Shop Pay 图标; 某个技术识别网站的单次结果; 历史缓存里出现过 Shopify 脚本.
 
-输出: `confirmed` (≥2 个独立信号) / `probable` (1 个) / `unconfirmed` (端点被拦, 信号不足) / `not_shopify` (端点都可访问且无任何信号).
+输出:
+
+- `confirmed`: ≥2 个信号.
+- `probable`: 1 个信号.
+- `not_shopify`: 0 个信号, 且首页正常取得, meta.json / products.json / 首页 / sitemap 都没有被截断, 每个都是正常返回或 404 (404 也算可访问).
+- `unconfirmed`: 其余情况 (0 个信号, 但有端点被拦, 出错, 被截断, 或首页没取到).
 
 ## 3. Storefront 类型
 

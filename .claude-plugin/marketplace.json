@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "出海电商 Agent Skills: 面向想出海的卖家, 只读公开信息, 输出带证据分级的中文报告.",
-    "version": "0.2.0"
+    "version": "0.2.1"
   },
   "plugins": [
     {
       "name": "shopify-store-teardown",
       "description": "拆解任意公开 Shopify 独立站 (对标店/竞品店): 身份与店龄核验, 全量商品与价格统计, 主题/应用/Markets 识别, 政策一致性检查.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "author": { "name": "StellarByte" },
       "homepage": "https://github.com/harrison-ming/chuhai-skills",
       "license": "MIT",

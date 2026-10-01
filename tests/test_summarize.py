@@ -491,7 +491,7 @@ class TestL1Samples(unittest.TestCase):
         self.assertEqual(rc, 0)
         with open(os.path.join(data, "summary.json"), encoding="utf-8") as fh:
             s = json.load(fh)
-        self.assertEqual(s["tool_version"], "0.2.0")
+        self.assertEqual(s["tool_version"], "0.2.1")
         self.assertEqual(s["domain"], "x.com")
         self.assertEqual(
             s["l1_samples"],

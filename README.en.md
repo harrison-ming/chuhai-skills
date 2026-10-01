@@ -39,9 +39,11 @@ Use `--out-root <dir>` or the `CHUHAI_OUTPUT_DIR` environment variable to save e
 /plugin install shopify-store-teardown@chuhai-skills
 ```
 
-**Claude.ai / Claude Desktop**: download `shopify-store-teardown-<version>.zip` from [Releases](https://github.com/harrison-ming/chuhai-skills/releases) and upload it on the Skills page in settings (code execution must be on).
+**Claude.ai / Claude Desktop**: download `shopify-store-teardown-<version>.zip` from [Releases](https://github.com/harrison-ming/chuhai-skills/releases) and upload it on the Skills page in settings (code execution must be on). The personal-plan sandbox cannot reach arbitrary websites, so the skill switches to the web-fetch tool automatically.
 
 **Other SKILL.md-compatible tools**: copy `skills/shopify-store-teardown/` into the tool's skills directory, or run `npx skills add harrison-ming/chuhai-skills`.
+
+**Coze and other cloud platforms**: upload the zip from Releases.
 
 ## Requirements
 
@@ -54,9 +56,26 @@ Restart your AI assistant or terminal afterwards. On Windows the command is `pyt
 
 PDF output uses the Edge or Chrome already on your computer. Works best with network access; without it the skill falls back to your agent's web-fetch tool or to pasted content.
 
-Known limitations: when the assistant runs as a background service, the browser may be unable to print, and you get an HTML report instead (print it to PDF from the browser). On a freshly installed Windows, the first HTTPS request to some sites can fail certificate checks until Windows downloads the root certificate; the collector triggers that download once and retries, with verification always on.
+### Known limitations
 
-Verified: macOS (Claude Code) and Windows 11 Chinese edition (ARM64, clean install + Chrome, Python 3.14 and 3.8), 2026-09-30.
+- From mainland China, some off-site sources (such as the web archive at web.archive.org) may be unreachable. The report marks them as not found; other conclusions are unaffected.
+- When the assistant runs as a background service (for example remotely or as a scheduled task), the browser may be unable to print a PDF. You get an HTML report instead; open it in a browser and print to PDF if needed.
+- On a freshly installed Windows, the first HTTPS request to some sites can fail certificate checks until Windows downloads the root certificate. The collector triggers that download once and retries, with verification always on; if it still fails, open the site once in a browser or try again a few minutes later.
+
+## Verified environments
+
+<!-- VERIFIED:BEGIN -->
+| Environment | Data collection | Result | Date |
+|---|---|---|---|
+| Claude Code (macOS), v0.2.0 | Scripts with network access | Plain-language PDF + product list, report self-check passed | 2026-09-30 |
+| Claude Code (macOS) | Scripts with network access | Full quick-check / deep-teardown reports (v0.1.x) | 2026-09-30 |
+| Claude Code, collector script disabled | Web-fetch tool + offline script | Quick-check report (full catalog stats limited by fetch-tool truncation, v0.1.x) | 2026-09-30 |
+| Windows 11 Chinese edition (ARM64, clean install + Chrome), Python 3.14 and 3.8 | Scripts with network access | Collection, PDF (Microsoft YaHei), product list and auto-open folder all passed; Python must be installed first | 2026-09-30 |
+<!-- VERIFIED:END -->
+
+Install methods tested on 2026-09-30: `/plugin marketplace add`, `npx skills add` and the Releases zip all work.
+
+Environments not listed should work (the format is an open standard) but have not been tested. Please report results in Issues.
 
 ## Boundaries
 
@@ -64,7 +83,16 @@ Reads public pages and public endpoints only. No login, no checkout, no orders, 
 
 ## More
 
-The free skill fully covers single-store quick checks and deep teardowns. A Pro pack (multi-store comparison, scorecard with anchors, gap list against your own store, browser checks) is in preparation. For a done-for-you teardown, [contact StellarByte](https://stellarbyte.ca/contact/?ref=skill-teardown).
+The free skill fully covers single-store quick checks and deep teardowns, with nothing held back. If you need more:
+
+| | What | How |
+|---|---|---|
+| **Pro** | Comparison across 3-8 stores, anchored scorecard, gap list against your own store, browser checks (cart / mobile / popups / review widgets, run locally), ongoing updates | In preparation |
+| **Done-for-you teardown** | StellarByte tears down 1 benchmark store end to end, compares it with your store and gives improvement suggestions, including a 30-minute call | [Contact StellarByte](https://stellarbyte.ca/contact/?ref=skill-teardown) |
+
+## Feedback
+
+Found a wrong conclusion, or the skill does not run in some AI tool? Open an [Issue](https://github.com/harrison-ming/chuhai-skills/issues) with the tool name, the store URL and the error.
 
 ## License
 

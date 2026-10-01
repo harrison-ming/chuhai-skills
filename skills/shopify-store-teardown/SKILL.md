@@ -4,7 +4,7 @@ description: >-
   拆解任意公开 Shopify 独立站 (对标店/竞品店). 核实店铺身份与店龄, 全量统计商品数/价格带/折扣/上新节奏, 识别主题/应用/Markets/追踪标签, 检查政策页一致性, 交付一份大白话的中文 PDF 报告 (保留证据标签) 和一张可用 Excel 打开的商品清单. 用于: 对标店分析, 竞品独立站拆解, "这家店是真的吗/开了多久", "它靠什么卖这个价", Shopify store teardown, competitor store analysis. 只读公开页面, 不登录, 不下单.
 license: MIT
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
   author: StellarByte
   homepage: https://github.com/harrison-ming/chuhai-skills
   status: experimental
@@ -67,7 +67,7 @@ python3 <skill 目录>/scripts/collect.py <店铺网址> --depth L1
 
 脚本最后会打印**运行目录**的路径, 形如 `<文档>/出海拆解报告/<域名> 对标拆解 <YYYY-MM-DD>/`. 数据都在 `<运行目录>/原始数据/` 下: `summary.json` (统计与端点状态), `products.tsv` (全部商品), `evidence.jsonl` (证据条目), `raw/` (原始页面).
 
-- **用户没有指定保存位置时, 不要加 `--out-root` 或 `--out`**, 也不要自作主张写到当前目录: 默认会存到用户的"文档/出海拆解报告" (Windows 自动识别 OneDrive 下的文档; 找不到就用用户主目录; 云端沙箱存在 `/mnt/user-data/outputs` 时自动写到那里). 已设置环境变量 `CHUHAI_OUTPUT_DIR` 时脚本会自动用它, 同样不要加参数. 只有用户明确说了存哪, 才加 `--out-root <目录>`.
+- **用户没有指定保存位置时, 不要加 `--out-root` 或 `--out`**, 也不要自作主张写到当前目录: 默认会存到用户的"文档/出海拆解报告" (Windows 自动识别 OneDrive 下的文档; 找不到就用用户主目录; 云端沙箱 (`/mnt/user-data/outputs` 存在且可写) 时自动写到 `/mnt/user-data/outputs/出海拆解报告`). 已设置环境变量 `CHUHAI_OUTPUT_DIR` 时脚本会自动用它, 同样不要加参数. 只有用户明确说了存哪, 才加 `--out-root <目录>`.
 - 同一天重复拆同一家店, 文件夹会自动加 "(2)", 不会覆盖.
 - 如果输出显示几乎所有端点都是网络错误 (不是 404 或 403), 说明环境不能联网, 换模式 B.
 

@@ -1,12 +1,18 @@
 # Changelog
 
+## v0.2.1 (2026-09-30)
+
+- 修复: Windows 上证书错误触发 PowerShell 补根证书并重试成功后, 控制台不再误打印 "证书校验失败" 提示; 只有请求最终仍失败时才提示. `_status.json` 的 note 仍记录 `windows root certificate refresh triggered, retried once` 以便追溯.
+- 文档核查修正: 手动取数兜底说明, 店铺身份判定口径, 价格口径, 附录前技术词清单, 证据等级说明, 云端沙箱输出路径; 英文 README 与中文版同步.
+- Release 说明只包含当前版本的 CHANGELOG 段落, 不再附带全部历史.
+
 ## v0.2.0 (2026-09-30)
 
 面向不懂技术的卖家重做交付和报告写法.
 
 - 交付改为 PDF 报告 + `商品清单.csv` (中文表头, Excel/WPS 直接打开). 找不到 Edge/Chrome 时生成 HTML, 可在浏览器里打印为 PDF. 新增 `deliver.py`, 完成后自动打开文件夹.
 - 统一存到 "文档/出海拆解报告/<域名> 对标拆解 <日期>/" (Windows 自动识别 OneDrive 的文档, 云端沙箱写到输出区), 可用 `--out-root` 或 `CHUHAI_OUTPUT_DIR` 指定位置; 不再散落在 agent 的工作目录.
-- 原始数据 (raw/, summary.json, products.tsv, evidence.jsonl, report.md) 收进子文件夹 "原始数据/".
+- 原始数据 (raw/, summary.json, products.tsv, evidence.jsonl, report.md, report.html, 说明.txt) 收进子文件夹 "原始数据/".
 - 报告改为大白话写法: 开头 "一页看懂" 摘要卡片, 正文以问题为标题, 结论先行, 技术细节和证据表移到附录.
 - 证据纪律保留, 正文标签换成 `[已核实]` `[店铺自称]` `[第三方说法]` `[页面显示]` `[推测]` `[有矛盾]` `[查不到]` 并渲染为彩色徽章; 附录仍用 E1-E6 等级. 对照表见 `references/evidence.md`.
 - 可迁移策略改为 "直接学 / 改一改再学 / 先小范围试 / 别学", 列为 做法 / 为什么有用 / 适合什么情况 / 花多少功夫 / 怎么看效果 / 风险.

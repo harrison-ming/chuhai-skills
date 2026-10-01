@@ -243,9 +243,11 @@ class Fetcher(object):
     def get(self, url, accept):
         """Return dict(status, body(bytes|None), final_url, elapsed_ms, note, net_error)."""
         attempt = 0
-        note = ""
         refreshed = False
         while True:
+            # Per-attempt note: a cert error that a retry fixed must not leak
+            # into the final result (only the refresh marker is kept).
+            note = ""
             self._sleep_polite()
             t0 = time.time()
             status, body, final_url, headers, err = None, None, url, {}, None
@@ -354,6 +356,19 @@ def is_cert_error(err):
     if isinstance(reason, ssl.SSLCertVerificationError):
         return True
     return "CERTIFICATE_VERIFY_FAILED" in str(err)
+
+
+def cert_failures(requests):
+    """Requests that finally failed on certificate verification.
+
+    A request that succeeded after the Windows root refresh is not counted;
+    its note only carries WIN_ROOT_REFRESH_NOTE for traceability.
+    """
+    return [
+        r
+        for r in requests
+        if r.get("http_status") is None and CERT_NOTE in (r.get("note") or "")
+    ]
 
 
 def describe_error(err):
@@ -772,8 +787,7 @@ def main(argv=None):
         "请求 %d 个: %s"
         % (len(col.requests), ", ".join("%s=%d" % kv for kv in sorted(counts.items())))
     )
-    certs = [r for r in col.requests if CERT_NOTE in (r.get("note") or "")]
-    if certs:
+    if cert_failures(col.requests):
         print("提示: %s" % CERT_NOTE)
     if args.no_summarize:
         print('已跳过汇总. 之后可运行: python summarize.py "%s"' % out)

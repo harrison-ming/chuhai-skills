@@ -149,6 +149,7 @@ class TestWindowsRootRefresh(unittest.TestCase):
         self.assertEqual(state["opens"], 2)
         self.assertEqual(state["builds"], 2)  # context rebuilt after refresh
         self.assertIn(collect.WIN_ROOT_REFRESH_NOTE, r["note"])
+        self.assertNotIn(collect.CERT_NOTE, r["note"])
 
     def test_windows_refresh_at_most_once_per_host(self):
         f, state = self.make_fetcher(fail=99)
@@ -177,6 +178,59 @@ class TestWindowsRootRefresh(unittest.TestCase):
         self.assertEqual(run.call_count, 1)
         self.assertIsNone(r["status"])
         self.assertEqual(state["opens"], 1)
+
+    def run_main(self, fail):
+        """Run collect.main on win32 with a fake opener; return stdout + status."""
+        import io
+        import json
+        import shutil
+        import tempfile
+
+        state = {"opens": 0, "fail": fail, "builds": 0}
+        tmp = tempfile.mkdtemp(prefix="store-teardown-tls-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        out = os.path.join(tmp, "raw")
+        run = mock.Mock(return_value=None)
+        buf = io.StringIO()
+        with self.patches(state, "win32", run), contextlib.redirect_stdout(buf):
+            collect.main(
+                [
+                    "example-store.com",
+                    "--depth",
+                    "L0",
+                    "--skip-offsite",
+                    "--no-summarize",
+                    "--delay",
+                    "0",
+                    "--out",
+                    out,
+                ]
+            )
+        status = []
+        for root, _dirs, files in os.walk(out):
+            if "_status.json" in files:
+                with open(os.path.join(root, "_status.json"), encoding="utf-8") as fh:
+                    status = json.load(fh).get("requests", [])
+        return buf.getvalue(), status
+
+    def test_retry_success_prints_no_cert_hint(self):
+        stdout, status = self.run_main(fail=1)
+        self.assertNotIn(collect.CERT_NOTE, stdout)
+        self.assertNotIn("提示:", stdout)
+        self.assertTrue(status)
+        self.assertIn(collect.WIN_ROOT_REFRESH_NOTE, status[0]["note"])
+        self.assertEqual(collect.cert_failures(status), [])
+
+    def test_final_failure_prints_cert_hint(self):
+        stdout, status = self.run_main(fail=99)
+        self.assertIn("提示: %s" % collect.CERT_NOTE, stdout)
+        self.assertTrue(collect.cert_failures(status))
+
+    def test_cert_failures_only_counts_failed_requests(self):
+        ok = {"http_status": 200, "note": collect.WIN_ROOT_REFRESH_NOTE}
+        stale = {"http_status": 200, "note": collect.CERT_NOTE}
+        bad = {"http_status": None, "note": collect.CERT_NOTE}
+        self.assertEqual(collect.cert_failures([ok, stale, bad]), [bad])
 
     def test_refresh_timeout_counts_as_ran(self):
         run = mock.Mock(side_effect=subprocess.TimeoutExpired("powershell", 20))

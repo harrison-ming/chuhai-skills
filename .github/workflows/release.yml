@@ -24,7 +24,31 @@ jobs:
             name=$(basename "$d")
             (cd skills && zip -r "../dist/${name}-${GITHUB_REF_NAME}.zip" "$name" -x "*/__pycache__/*" "*.DS_Store")
           done
+      - name: Extract release notes for this tag
+        run: |
+          python - <<'PY'
+          import os
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          with open("CHANGELOG.md", encoding="utf-8") as fh:
+              lines = fh.read().splitlines()
+          out, inside = [], False
+          for line in lines:
+              if line.startswith("## "):
+                  if inside:
+                      break
+                  inside = line.startswith("## %s " % tag) or line.strip() == "## " + tag
+                  continue
+              if inside:
+                  out.append(line)
+          notes = "\n".join(out).strip()
+          if not notes:
+              print("No CHANGELOG section for %s, using the whole file" % tag)
+              notes = "\n".join(lines).strip()
+          with open("release-notes.md", "w", encoding="utf-8") as fh:
+              fh.write(notes + "\n")
+          PY
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "$GITHUB_REF_NAME" --notes-file CHANGELOG.md
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "$GITHUB_REF_NAME" --notes-file release-notes.md

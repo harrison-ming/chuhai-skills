@@ -4,7 +4,7 @@
 
 ## 1. 运行目录
 
-交付根目录 `出海拆解报告/` 默认在用户的"文档"文件夹下 (Windows 自动识别 OneDrive 的文档; 找不到用主目录); 云端沙箱 (存在 `/mnt/user-data/outputs`) 写到那里; 可用 `--out-root <目录>` 或环境变量 `CHUHAI_OUTPUT_DIR` 指定. 每次运行一个文件夹, 重名自动加 " (2)":
+交付根目录 `出海拆解报告/` 默认在用户的"文档"文件夹下 (Windows 自动识别 OneDrive 的文档; 找不到用主目录); 云端沙箱 (`/mnt/user-data/outputs` 存在且可写) 写到 `/mnt/user-data/outputs/出海拆解报告`; 可用 `--out-root <目录>` 或环境变量 `CHUHAI_OUTPUT_DIR` 指定. 每次运行一个文件夹, 重名自动加 " (2)":
 
 ```text
 出海拆解报告/
@@ -36,7 +36,7 @@
 | `best-selling.html` | `https://<domain>/collections/all?sort_by=best-selling` | 可选 |
 | `rdap.json` | `https://rdap.org/domain/<registrable-domain>` | L0 |
 | `wayback.json` | `https://web.archive.org/cdx/search/cdx?url=<domain>&output=json&fl=timestamp&collapse=timestamp:6` | L0 |
-| `policy-<name>.html` | `https://<domain>/policies/<name>`, name 取 `refund-policy` `shipping-policy` `privacy-policy` `terms-of-service` `contact-information` | L1 |
+| `policy-<name>.html` | `https://<domain>/policies/<name>`, name 取 `refund-policy` `shipping-policy` `privacy-policy` `terms-of-service` `contact-information`; summarize 会从中派生正文 `raw/policy-<name>.txt` | L1 |
 | `page-about.html` | `https://<domain>/pages/about` (依次试 `about-us` `our-story`) | L1 |
 | `page-collection-<handle>.html` | 主要集合页: 优先 `/collections/all`, 取不到用 collections.json 第一个非空集合 | L1 |
 | `page-product-<handle>.html` | 3 个样本商品页 (入门/主力/高价), 选择结果写进 `_status.json` 的 `l1_samples` | L1 |
@@ -49,7 +49,7 @@
 ```json
 {
   "schema": "store-teardown/summary/1",
-  "tool_version": "0.2.0",
+  "tool_version": "0.2.1",
   "domain": "example.com",
   "captured_at_utc": "2026-09-30T08:00:00Z",
   "endpoints": {
@@ -63,7 +63,7 @@
     "signals": [{"name": "meta_myshopify_domain", "value": "x.myshopify.com", "source": "raw/meta.json"}]
   },
   "shop": {"name": "", "shop_id": null, "myshopify_domain": "", "currency": "USD", "country": "", "ships_to_count": 0},
-  "theme": {"name": "", "schema_name": "", "schema_version": "", "theme_store_id": null, "role": "", "source": "Shopify.theme|not_observed"},
+  "theme": {"name": "", "schema_name": "", "schema_version": "", "theme_store_id": null, "role": "", "source": "Shopify.theme|not_observed|null"},
   "products": {
     "count": 398, "count_source": "products_json",
     "sitemap_product_urls": 398,

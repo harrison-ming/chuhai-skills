@@ -13,8 +13,10 @@
 |---|---|---|
 | 1 | `https://<domain>/meta.json` | `raw/meta.json` |
 | 2 | `https://<domain>/products.json?limit=250&page=1`, 然后 page=2, 3 ... 直到返回 `{"products":[]}` | `raw/products-1.json`, `raw/products-2.json` ... |
+| 2a (可选) | `https://<domain>/collections.json?limit=250&page=<N>`, 翻到空数组为止 | `raw/collections-1.json`, `raw/collections-2.json` ... |
 | 3 | `https://<domain>/sitemap.xml`, 以及其中 `sitemap_products_1.xml` 等子地图 | `raw/sitemap.xml`, `raw/sitemap-products-1.xml` ... |
 | 4 | `https://<domain>/` (要 HTML 源码, 不要转成 markdown 的正文) | `raw/homepage.html` |
+| 4a (可选) | `https://<domain>/collections/all?sort_by=best-selling` (HTML 源码) | `raw/best-selling.html` |
 | 5 | `https://rdap.org/domain/<domain>` | `raw/rdap.json` |
 | 6 | `https://web.archive.org/cdx/search/cdx?url=<domain>&output=json&fl=timestamp&collapse=timestamp:6` | `raw/wayback.json` |
 | 7 (L1) | `https://<domain>/policies/refund-policy` 等 5 个政策页 | `raw/policy-<name>.html` |
@@ -29,8 +31,8 @@
 - 读取工具返回的 JSON 如果太长被截断, 改用 `limit=50` 分页重取; 实在取不全, 就不要保存残缺文件, 在 `raw/_status.json` 里记一笔, 报告里写明"商品统计缺失".
 - 商品数的兜底来源: `meta.json` 里的 `published_products_count` (店铺自报的公开商品数). 用它时注明"店铺自报, 未与 products.json 交叉核对".
 - 读取工具如果只给 markdown 正文拿不到源码, 主题, 应用, 追踪代码, hreflang 就写 `[查不到]`, 不要猜.
-- `rdap.org` 被拦截时, 改用注册局的官方 RDAP, 例如 `.com` / `.net` 用 `https://rdap.verisign.com/com/v1/domain/<domain>`.
-- Wayback CDX 访问不了时, 改用 `https://archive.org/wayback/available?url=<domain>&timestamp=19900101` 取最早一次快照 (只有首抓日期, 没有逐年分布).
+- `rdap.org` 被拦截时, 改用注册局的官方 RDAP, 例如 `.com` / `.net` 用 `https://rdap.verisign.com/com/v1/domain/<domain>`. 它返回的是标准 RDAP 格式, 可以照样存为 `raw/rdap.json`.
+- Wayback CDX 访问不了时, 可以改读 `https://archive.org/wayback/available?url=<domain>&timestamp=19900101`, 它只返回最早一次快照. **不要把它存成 `raw/wayback.json`** (脚本只认 CDX 格式, 存了也不会被解析); 把首次存档日期直接写进报告, 并注明来源是这个接口.
 - 读取工具如果返回的是模型转述而不是原文, 引用时可信度降一级, 并在报告里注明.
 - 某个 URL 取不到 (404, 被拦截, 网络不通), 跳过, 不要停.
 
