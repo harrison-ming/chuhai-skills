@@ -105,7 +105,7 @@ class ScenarioTest(Base):
         s = r["summary"]
         self.assertEqual(s["status"], "complete")
         self.assertEqual((s["counts"]["P0"], s["counts"]["P1"]), (0, 0), r["findings"])
-        self.assertEqual(s["identity"], "confirmed")
+        self.assertEqual(s["identity"]["status"], "confirmed")
         for row in r["fees"]["rows"]:
             self.assertIn(row["status"], ("verified", "user", "unknown", "inferred"))
             if row["status"] == "verified":
@@ -164,7 +164,7 @@ class ScenarioTest(Base):
         r = self.run_fixture("non_shopify")
         s = r["summary"]
         self.assertEqual(s["status"], "partial")
-        self.assertEqual(s["identity"], "not_shopify")
+        self.assertEqual(s["identity"]["status"], "not_shopify")
         self.assertIn("not_shopify", s["warnings"])
         self.assertEqual(r["by_id"]["S02"][0]["badge"], "inferred")
         self.assertIn("Stripe", [x["name"] for x in s["signals"]["payment_scripts"]])

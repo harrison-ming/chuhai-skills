@@ -19,6 +19,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import skill_config as cfg  # noqa: E402
 from _shared import checks, i18n, output  # noqa: E402
 
+# First line of the zh fixed ending; tools/acceptance reads this constant.
+FIXED_ENDING = "本报告没有覆盖的"
+
 
 def detect_lang(path, lang=None):
     """--lang wins; else summary.json "lang" in either language layout."""

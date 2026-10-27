@@ -38,7 +38,7 @@ CONTACT_SLUGS = ["/pages/contact", "/pages/contact-us", "/contact", "/contact-us
 FAQ_SLUGS = ["/pages/faq", "/pages/faqs", "/pages/help", "/faq"]
 CHECKOUT_RE = re.compile(r"(?i)/checkouts?(?:/|\?|$)|/checkout\b")
 NON_PRODUCT_RE = re.compile(
-    r"protect|insurance|guarantee|gift[\s-]*card|e-?gift|warranty|shipping|"
+    r"protect|insurance|guarantee|gift[\s-]*(?:card|wrap|box|bag)|e-?gift|warranty|shipping|"
     r"\broute\b|donation|\btips?\b",
     re.I,
 )

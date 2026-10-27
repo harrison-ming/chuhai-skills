@@ -449,7 +449,7 @@ def build(summary, findings, fees, ev, facts, q, rates, lang="zh", today=None):
     sig = summary["signals"]
     out.append(
         "- identity: %s (%s)"
-        % (summary["identity"], ", ".join(facts["markers"]) or "-")
+        % (summary["identity"]["status"], ", ".join(facts["markers"]) or "-")
     )
     out.append("- mode: %s; visitor market: %s" % (summary["mode"], facts["market"]))
     out.append("- payment icons: %s" % (", ".join(sig["payment_icons"]) or "-"))

@@ -385,7 +385,8 @@ def summarize(data_dir, lang="zh", today=None):
         "summarized_at_utc": fetch.utc_now(),
         "status": status,
         "warnings": warnings,
-        "identity": facts["identity"],
+        # same shape as shopify-store-teardown (tools read identity.status)
+        "identity": {"status": facts["identity"], "markers": facts["markers"]},
         "visitor_market": facts["market"],
         "base_currency": facts["base_currency"],
         "store_country": facts["meta_country"],
