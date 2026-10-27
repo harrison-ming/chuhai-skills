@@ -117,6 +117,8 @@ npx skills add harrison-ming/chuhai-skills
 
 发现结论有误, 或在某个 AI 工具里跑不通, 请开 [Issue](https://github.com/harrison-ming/chuhai-skills/issues), 附上工具名称, 店铺网址和报错.
 
+开发新 skill 的流程, 质量底线和约定见 [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## 许可
 
 [MIT](LICENSE). 由 [StellarByte](https://stellarbyte.ca/?ref=skill-teardown) 维护.

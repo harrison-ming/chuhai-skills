@@ -94,6 +94,8 @@ The free skill fully covers single-store quick checks and deep teardowns, with n
 
 Found a wrong conclusion, or the skill does not run in some AI tool? Open an [Issue](https://github.com/harrison-ming/chuhai-skills/issues) with the tool name, the store URL and the error.
 
+How new skills are built (pipeline, quality bar, conventions): [CONTRIBUTING.md](CONTRIBUTING.md) (Chinese).
+
 ## License
 
 [MIT](LICENSE). Maintained by [StellarByte](https://stellarbyte.ca/?ref=skill-teardown).

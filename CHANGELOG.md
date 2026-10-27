@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- 生产线: 公共代码抽到 `shared/` (采集, 交付, 自检引擎, 证据标签, 中英双语), 每个 skill 带一份 `scripts/_shared/` 副本; 新增 `skills/_template/`, `tools/new_skill.py`, `tools/sync_shared.py`, `tools/gen_marketplace.py`, `tools/run_tests.py`, `CONTRIBUTING.md`.
+- shopify-store-teardown 改用 `_shared`, 输出不变 (黄金输出比对测试逐字节一致); 新增 `acceptance.json`.
+- marketplace.json 改为由 SKILL.md 生成, 版本号只在 SKILL.md 维护. Release 工作流检查副本同步, marketplace 与全部测试, zip 不含模板, 测试与验收文件.
+
 ## v0.2.1 (2026-09-30)
 
 - 修复: Windows 上证书错误触发 PowerShell 补根证书并重试成功后, 控制台不再误打印 "证书校验失败" 提示; 只有请求最终仍失败时才提示. `_status.json` 的 note 仍记录 `windows root certificate refresh triggered, retried once` 以便追溯.
