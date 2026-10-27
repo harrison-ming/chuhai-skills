@@ -46,6 +46,30 @@
       "skills": [
         "./skills/shopify-store-teardown"
       ]
+    },
+    {
+      "name": "tracking-audit",
+      "description": "广告与追踪体检: 查清网站装了哪些广告/分析追踪代码, 重复安装, 模板编号, 旧版代码, 成交与服务端回传的确认清单, 隐私同意提示.",
+      "version": "0.1.0",
+      "author": {
+        "name": "StellarByte"
+      },
+      "homepage": "https://github.com/harrison-ming/chuhai-skills",
+      "license": "MIT",
+      "keywords": [
+        "tracking",
+        "pixel",
+        "meta-pixel",
+        "ga4",
+        "gtm",
+        "shopify",
+        "出海"
+      ],
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/tracking-audit"
+      ]
     }
   ]
 }

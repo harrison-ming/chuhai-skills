@@ -1,0 +1,20 @@
+{
+ "schema": "tracking-audit/status/1",
+ "domain": "epsilon.example",
+ "base_url": "https://epsilon.example",
+ "started_at_utc": "2026-10-27T01:00:00Z",
+ "finished_at_utc": "2026-10-27T01:01:00Z",
+ "requests": [
+  {
+   "key": "homepage",
+   "file": null,
+   "url": "https://epsilon.example/homepage",
+   "final_url": null,
+   "http_status": null,
+   "result": "error",
+   "bytes": 0,
+   "elapsed_ms": 1,
+   "note": ""
+  }
+ ]
+}
