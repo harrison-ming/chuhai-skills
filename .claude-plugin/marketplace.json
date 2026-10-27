@@ -10,6 +10,22 @@
   },
   "plugins": [
     {
+      "name": "competitor-change-radar",
+      "description": "竞品变化雷达: 盯住一家对标 Shopify 独立站, 把 \"上次\" 和 \"这次\" 两份公开数据快照对比, 交付一份大白话中文 PDF 报告和 3 张 Excel 表: 上了什么新品, 下了什么, 哪些降价/涨价, 什么时候开始/结束打折, 首页促销文案, 换了什么主题/应用/追踪代码, 币种和多国站点, 政策页改了哪几句; 每条变化都能追溯到两次的原始数据.",
+      "version": "0.1.0",
+      "author": {
+        "name": "StellarByte"
+      },
+      "homepage": "https://github.com/harrison-ming/chuhai-skills",
+      "license": "MIT",
+      "keywords": [],
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/competitor-change-radar"
+      ]
+    },
+    {
       "name": "launch-readiness",
       "description": "开店上线前体检 (自己的独立站, Shopify 为主, 其他平台降级): 上线或投谷歌购物广告前, 把会被谷歌拒审, 会被买家投诉, 一看就像没做完的问题按 P0-P3 列出来.",
       "version": "0.1.0",

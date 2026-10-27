@@ -12,6 +12,7 @@
 |---|---|---|
 | [shopify-store-teardown](skills/shopify-store-teardown/) | 拆解任意公开 Shopify 独立站: 身份与店龄核验, 全量商品/价格带/上新节奏统计, 主题/应用/Markets 识别, 政策一致性检查 | 可用 (experimental) |
 | [payments-readiness](skills/payments-readiness/) | 收款上线体检: 对照通道方公开清单检查政策页, 联系方式, 付款图标, 币种显示与前后矛盾, 核对主体/通道/提现链路, 按客单价和单量估算手续费 (费率快照带官方出处和日期) | 开发中 (experimental) |
+| [competitor-change-radar](skills/competitor-change-radar/) | 竞品变化雷达: 盯住一家对标店, 两次快照对比上新/下架/调价/打折/首页促销/主题应用/政策改动, 每条变化可追溯; 第一次自动建基线并给出下次运行日期 | 开发中 (experimental) |
 | [profit-model](skills/profit-model/) | 利润与定价测算: 每单贡献, 广告后利润, 盈亏平衡 ROAS 与最高获客成本, 底线价/目标价, 三情景, 开张现金; 内置带日期的 Shopify/Stripe/PayPal 费率表, 每个数字可追溯 | 可用 (experimental) |
 | [tracking-audit](skills/tracking-audit/) | 广告与追踪体检: 网站装了哪些广告/分析追踪代码, 重复安装, 模板编号, 旧版代码; 成交与服务端回传的后台确认清单; 隐私同意提示 | 可用 (experimental) |
 
