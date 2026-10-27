@@ -1,0 +1,44 @@
+{
+  "skill": "launch-readiness",
+  "cases": [
+    {
+      "id": "normal",
+      "prompt": "<一句真实用户会说的话, 带一个正常的目标网址>",
+      "lang": "zh",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["summary.json", "E1", "E6"],
+        "must_contain_any": ["[已核实]", "[推测]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "not-target",
+      "prompt": "<同样的问题, 换一个不是目标平台或打不开的网址>",
+      "lang": "zh",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html"],
+        "status_in": ["partial", "failed"],
+        "must_not_contain": ["summary.json"],
+        "must_contain_any": ["[查不到]", "[已核实]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "english",
+      "prompt": "<the same question in English, with a normal target URL>",
+      "lang": "en",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["summary.json", "E1", "E6"],
+        "must_contain_any": ["[Verified]", "[Inferred]"],
+        "fixed_ending": true
+      }
+    }
+  ]
+}
