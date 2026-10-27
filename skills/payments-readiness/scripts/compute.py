@@ -88,6 +88,11 @@ def gather(data_dir):
     # Mode B: pages saved by hand (into an --offline run folder or without
     # any _status.json) are a manual collection, not an offline quote.
     manual = not status.get("requests") and (mode != "offline" or home_name is not None)
+    # an online run whose homepage request failed but whose page was then
+    # saved by hand (mode B after a network error) is a manual collection too
+    home_req = endpoints.get("homepage", {}).get("result")
+    if home_name is not None and home_req not in (None, "ok"):
+        manual = True
     if manual:
         mode = "manual"
     if (
@@ -124,6 +129,13 @@ def gather(data_dir):
     identity = (
         signals.identity_status(markers, endpoints) if mode != "offline" else "unknown"
     )
+    if identity == "not_shopify" and (
+        mode == "manual"
+        or not re.search(r"(?i)<(?:html|head|script|div)\b", home or "")
+    ):
+        # pages saved by a web-reading tool lose scripts and markup, so the
+        # absence of Shopify markers proves nothing
+        identity = "unconfirmed"
     policies = {}
     for name in signals.POLICY_NAMES:
         fname, src = find_file(raw, "policy-" + name)

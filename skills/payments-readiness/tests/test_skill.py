@@ -856,8 +856,23 @@ class CollectTest(Base):
             s = json.load(fh)
         self.assertEqual((s["mode"], s["status"]), ("manual", "partial"))
         self.assertIn("manual_collection", s["warnings"])
+        self.assertEqual(s["identity"]["status"], "unconfirmed")
         rc, _ = quiet(collect.main, [])
         self.assertEqual(rc, 2)
+
+
+class ManualAfterNetworkErrorTest(Base):
+    def test_online_run_filled_by_hand(self):
+        r = self.run_fixture("blocked")
+        raw = os.path.join(r["data"], "raw")
+        with open(os.path.join(raw, "homepage.md"), "w", encoding="utf-8") as fh:
+            fh.write("# Shop\nFree 30-day returns. Email hi@shop.example")
+        rc, _ = quiet(compute.main, [r["run"]])
+        with open(os.path.join(r["data"], "summary.json"), encoding="utf-8") as fh:
+            s = json.load(fh)
+        self.assertEqual(s["mode"], "manual")
+        self.assertEqual(s["identity"]["status"], "unconfirmed")
+        self.assertNotEqual(s["status"], "failed")
 
 
 class ReportCheckTest(Base):
