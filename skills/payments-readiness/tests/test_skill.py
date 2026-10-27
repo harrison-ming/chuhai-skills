@@ -823,6 +823,11 @@ class CollectTest(Base):
             st = json.load(fh)
         self.assertEqual(st["mode"], "online")
 
+    def test_checkout_regex(self):
+        for path in ("/checkouts/cn/abc", "/en-ca/checkout", "/checkout?step=1"):
+            self.assertTrue(collect.CHECKOUT_RE.search(path), path)
+        self.assertFalse(collect.CHECKOUT_RE.search("/products/checkout-bag"))
+
     def test_checkout_redirect_not_saved(self):
         class Redirecting(object):
             def get(self, url, accept=None, headers=None):
