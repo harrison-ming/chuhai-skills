@@ -13,6 +13,7 @@ import sys
 from decimal import Decimal, InvalidOperation
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import edition  # noqa: E402
 from _shared import checks, evidence  # noqa: E402
 
 NAME = "profit-model"
@@ -105,6 +106,9 @@ CSV_TABLES = [
         ],
     },
 ]
+
+# The Pro edition adds its own tables (channel comparison, cash plan ...).
+CSV_TABLES = CSV_TABLES + list(getattr(edition, "EXTRA_CSV_TABLES", []))
 
 BADGE_KEYS = evidence.DEFAULT_BADGE_KEYS + ("user_input",)
 # Internal words kept out of the report body: (regex, plain hint).

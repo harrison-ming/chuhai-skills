@@ -45,7 +45,7 @@ LEDGER_ROWS = (
 
 
 class Writer(object):
-    def __init__(self, result, norm, lang, today=None):
+    def __init__(self, result, norm, lang, today=None, raw_dir=None):
         self.r = result
         self.n = norm
         self.lang = lang
@@ -55,6 +55,7 @@ class Writer(object):
         self.sym = X.SYMBOL.get(self.cur, self.cur + " ")
         self.today = today or datetime.date.today().isoformat()
         self.lines = []
+        self.raw_dir = raw_dir  # where extra files (charts) may be written
         self.assume_by_id = dict((a["id"], a) for a in result.get("assumptions", []))
         self.fees = pm_fees.FeeTable(pm_fees.load())
 
@@ -1052,7 +1053,7 @@ def render(run_raw, lang, today=None):
         result = json.load(fh)
     with open(os.path.join(run_raw, "inputs.normalized.json"), encoding="utf-8") as fh:
         norm = json.load(fh)
-    md = Writer(result, norm, lang, today).build()
+    md = Writer(result, norm, lang, today, raw_dir=run_raw).build()
     limit = None if result.get("edition") == "pro" else 3
     per_order, breakdown, startup, sens = csv_rows(result, norm, lang, limit)
     skus = result["skus"]
