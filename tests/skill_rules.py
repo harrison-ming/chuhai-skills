@@ -115,8 +115,12 @@ def check_acceptance(skill_dir):
     except (OSError, ValueError) as e:
         return ["acceptance.json unreadable: %s" % e]
     problems = []
-    if set(data) != {"skill", "cases"}:
-        problems.append("top-level keys must be skill, cases")
+    # script_cmds / network_domains are optional harness hints (tools/acceptance)
+    extra = set(data) - {"skill", "cases", "script_cmds", "network_domains"}
+    if not {"skill", "cases"} <= set(data) or extra:
+        problems.append(
+            "top-level keys must be skill, cases (+ optional script_cmds, network_domains)"
+        )
     if data.get("skill") != os.path.basename(skill_dir):
         problems.append("skill must equal the folder name")
     cases = data.get("cases") or []
