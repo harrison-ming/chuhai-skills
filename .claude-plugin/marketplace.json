@@ -10,6 +10,29 @@
   },
   "plugins": [
     {
+      "name": "competitor-change-radar",
+      "description": "盯住一家对标 Shopify 店: 两次公开数据快照对比, 上新/下架/调价/打折/首页促销/主题应用/政策改动, 每条变化可追溯.",
+      "version": "0.1.0",
+      "author": {
+        "name": "StellarByte"
+      },
+      "homepage": "https://github.com/harrison-ming/chuhai-skills",
+      "license": "MIT",
+      "keywords": [
+        "shopify",
+        "ecommerce",
+        "competitor-monitoring",
+        "price-tracking",
+        "cross-border",
+        "出海"
+      ],
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/competitor-change-radar"
+      ]
+    },
+    {
       "name": "shopify-store-teardown",
       "description": "拆解任意公开 Shopify 独立站 (对标店/竞品店): 身份与店龄核验, 全量商品与价格统计, 主题/应用/Markets 识别, 政策一致性检查.",
       "version": "0.2.1",
