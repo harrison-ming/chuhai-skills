@@ -653,8 +653,6 @@ def summarize_run(run_dir, domain=None):
             }
         )
     identity = {"status": identity_status(signals, endpoints), "signals": signals}
-    if site_unreachable(endpoints):
-        run.warnings.append("site_unreachable")
     for sig in signals:
         run.add_evidence(
             "E1",
@@ -774,6 +772,13 @@ def summarize_run(run_dir, domain=None):
     # offsite --------------------------------------------------------------
     offsite, off_eps = build_offsite(run)
     endpoints.update(off_eps)
+    if site_unreachable(endpoints):
+        # other hosts unreachable too: this machine is offline, not the site
+        run.warnings.append(
+            "network_unavailable"
+            if network_unavailable(off_eps)
+            else "site_unreachable"
+        )
 
     # policies -------------------------------------------------------------
     policies = {}
@@ -1463,6 +1468,15 @@ def site_unreachable(endpoints):
     )
 
 
+def network_unavailable(off_eps):
+    """True when the off-site lookups (registry, archive) were tried and got
+    no HTTP answer either: the environment has no network."""
+    tried = [e for e in off_eps.values() if e.get("result") != "not_checked"]
+    return bool(tried) and all(
+        e.get("result") == "error" and e.get("http_status") is None for e in tried
+    )
+
+
 def human_digest(summary):
     """Short Chinese digest printed by both CLIs."""
     p = summary.get("products") or {}
@@ -1496,6 +1510,12 @@ def human_digest(summary):
     lines.append("失败端点: %s" % (", ".join(failed) if failed else "无"))
     if summary.get("warnings"):
         lines.append("警告: %s" % ", ".join(summary["warnings"]))
+    if "network_unavailable" in (summary.get("warnings") or []):
+        lines.append(
+            "注意: 当前环境连不上网 (店铺和其他网站都没有响应), 不代表网站不存在. "
+            "有网页读取工具就按 SKILL.md 模式 B 取数; 没有就写 failed 短报告, "
+            "说明是当前环境不能联网, 并运行 deliver.py 交付."
+        )
     if "site_unreachable" in (summary.get("warnings") or []):
         lines.append(
             "注意: 网站打不开 (域名不存在, 拼错或当前网络不通). 不要改用别的方式"

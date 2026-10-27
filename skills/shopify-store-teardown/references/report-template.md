@@ -175,7 +175,7 @@
 
 ## 失败短报告模板: 网站打不开或确认不了是 Shopify 店
 
-`summary.json` 的 `warnings` 有 `site_unreachable`, 或 `identity.status` 不是 `confirmed` / `probable` 时用. **只问了一句"是不是 Shopify 店"也要写这份并交付**, 不要只在对话里回答. 正文同样不出现技术词.
+`summary.json` 的 `warnings` 有 `site_unreachable` (或 `network_unavailable` 且没法换模式 B), 或 `identity.status` 不是 `confirmed` / `probable` 时用. **只问了一句"是不是 Shopify 店"也要写这份并交付**, 不要只在对话里回答. 正文同样不出现技术词.
 
 ```markdown
 # <域名> 对标拆解报告
@@ -199,6 +199,8 @@
 - 完成状态: failed
 - 平台身份: <identity.status>, 失败的数据来源和原因: <endpoints 里的 result / note>
 ```
+
+`network_unavailable` 时第一条写 "当前环境连不上网, 这次没能查 [查不到]", 不要写成网站不存在.
 
 能打开但不是 Shopify 店 (`not_shopify` / `unconfirmed`) 时, 第一条改成 "这家店不是用 Shopify 搭的 [推测] 依据: ..." 或 "看不出是不是 Shopify 店 [查不到]", 完成状态写 `partial` (看到了首页) 或 `failed` (什么都没拿到).
 

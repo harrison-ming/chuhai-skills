@@ -11,7 +11,7 @@
 首轮跨 agent 自动验收 (Claude / Codex) 暴露的问题修复.
 
 - 触发: description 加入用户原话式短问句 ("xx.com 是 Shopify 店吗", "这个网站用什么建站的", "is xx.com a Shopify store" 等), 只问一句也会用这个 skill.
-- 失败路径: 网站打不开时 `summary.json` 新增警告 `site_unreachable`, 采集摘要直接提示写短报告; 报告模板新增"失败短报告模板"; SKILL.md 写明打不开或不是 Shopify 店也要交付 `failed` / `partial` 短报告, 不只在对话里回答, 也不要停下来提问.
+- 失败路径: 网站打不开时 `summary.json` 新增警告 `site_unreachable`, 采集摘要直接提示写短报告; 店铺和站外查询都没响应时改报 `network_unavailable` (环境不能联网, 不说成网站不存在, 优先换模式 B); 报告模板新增"失败短报告模板"; SKILL.md 写明打不开或不是 Shopify 店也要交付 `failed` / `partial` 短报告, 不只在对话里回答, 也不要停下来提问.
 - 采集更稳更快: 传输中断 (IncompleteRead, 连接重置, 对端断开) 带退避重试 (最多 3 次, 单次等待不超过 8 秒), 重试时请求不压缩的正文; 正文比声明长度短时不再当成完整页面. 域名解析失败立即结束且不再重复请求同一主机, 不存在的域名从约 77 秒降到约 2 秒.
 - 交付位置: 新增 `collect.py --init-only` (不联网, 只在交付根目录建运行目录), 模式 B 不再把目录建到当前目录; SKILL.md 写明所有模式的文件只进交付根目录.
 - 无浏览器时生成 `.html` 即算交付完成, SKILL.md 写明不要另找 PDF 工具.

@@ -71,7 +71,7 @@ python3 <skill 目录>/scripts/collect.py <店铺网址> --depth L1
 
 - **用户没有指定保存位置时, 不要加 `--out-root` 或 `--out`**, 也不要自作主张写到当前目录: 默认会存到用户的"文档/出海拆解报告" (Windows 自动识别 OneDrive 下的文档; 找不到就用用户主目录; 云端沙箱 (`/mnt/user-data/outputs` 存在且可写) 时自动写到 `/mnt/user-data/outputs/出海拆解报告`). 已设置环境变量 `CHUHAI_OUTPUT_DIR` 时脚本会自动用它, 同样不要加参数. 只有用户明确说了存哪, 才加 `--out-root <目录>`.
 - 同一天重复拆同一家店, 文件夹会自动加 "(2)", 不会覆盖.
-- 如果输出显示几乎所有端点都是网络错误 (不是 404 或 403), 说明环境不能联网, 换模式 B.
+- 输出里有 `network_unavailable` (店铺和其他网站都没响应), 说明当前环境不能联网, 不代表网站不存在: 有网页读取工具就换模式 B, 没有就按"失败时"交付短报告并说明是环境不能联网.
 
 **模式 B: 能运行 Python 但不能联网, 有网页读取工具** → 先让脚本建好运行目录 (不联网, 位置规则和模式 A 相同), **不要自己在当前目录建**:
 
@@ -79,7 +79,7 @@ python3 <skill 目录>/scripts/collect.py <店铺网址> --depth L1
 python3 <skill 目录>/scripts/collect.py <店铺网址> --init-only
 ```
 
-它打印运行目录和 `raw/` 的位置. 按 `references/manual-collection.md` 取数存到这个 `raw/`, 再运行:
+它打印运行目录和 `raw/` 的位置 (刚用模式 A 试过而没联网的, 直接用那次的运行目录, 不用再建). 按 `references/manual-collection.md` 取数存到这个 `raw/`, 再运行:
 
 ```bash
 python3 <skill 目录>/scripts/summarize.py "<运行目录>"
@@ -97,7 +97,7 @@ python3 <skill 目录>/scripts/summarize.py "<运行目录>"
 
 读 `<运行目录>/原始数据/summary.json`. 字段含义见 `references/data-contract.md`. 必须先看:
 
-1. `warnings` 有 `site_unreachable` (网站打不开), 或 `identity.status` 不是 `confirmed` / `probable`: 直接按"失败时"写短报告并交付, 不做后面的分析.
+1. `warnings` 有 `site_unreachable` (网站打不开; `network_unavailable` 见第 2 步), 或 `identity.status` 不是 `confirmed` / `probable`: 直接按"失败时"写短报告并交付, 不做后面的分析.
 2. 其他 `warnings`: 每一条都要在报告里交代 (正文用大白话, 附录写原值和实际数值), 不要自行解释原因. 例如 `collections_count_mismatch` 时写出 `collections_all_products_count` 与 `products.count` 两个数, 并说明商品量以 `products.count` 为准.
 3. `endpoints` 里失败的项: 写进"还有哪些没查清", **拿不到不等于不存在**.
 

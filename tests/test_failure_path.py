@@ -71,7 +71,9 @@ class TestCollectUnresolvable(FailurePathCase):
             os.path.join(run_dir, RAW_DIRNAME, "summary.json"), encoding="utf-8"
         ) as fh:
             summary = json.load(fh)
-        self.assertIn("site_unreachable", summary["warnings"])
+        # every host failed: the machine is offline, not the site missing
+        self.assertIn("network_unavailable", summary["warnings"])
+        self.assertNotIn("site_unreachable", summary["warnings"])
         self.assertEqual(summary["identity"]["status"], "unconfirmed")
         self.assertIn("failed", out.getvalue())
 
@@ -108,6 +110,22 @@ class TestFailedReportDelivered(FailurePathCase):
         self.assertIn("site_unreachable", summary["warnings"])
         self.assertIn("site_unreachable", summarize.human_digest(summary))
 
+    def test_offline_when_offsite_fails_too(self):
+        run_dir = os.path.join(self.tmp, "offline")
+        raw = os.path.join(run_dir, "raw")
+        shutil.copytree(FIXTURE, raw)
+        path = os.path.join(raw, "_status.json")
+        with open(path, encoding="utf-8") as fh:
+            status = json.load(fh)
+        for req in status["requests"]:
+            if req["key"] == "rdap":
+                req.update(http_status=None, result="error", note="gaierror")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(status, fh)
+        summary = summarize.summarize_run(run_dir)
+        self.assertIn("network_unavailable", summary["warnings"])
+        self.assertNotIn("site_unreachable", summary["warnings"])
+
     def test_reachable_fixtures_not_flagged(self):
         for name in ("normal", "blocked", "not_shopify"):
             run_dir = os.path.join(self.tmp, name)
@@ -116,7 +134,8 @@ class TestFailedReportDelivered(FailurePathCase):
                 os.path.join(run_dir, "raw"),
             )
             summary = summarize.summarize_run(run_dir)
-            self.assertNotIn("site_unreachable", summary["warnings"], name)
+            for warn in ("site_unreachable", "network_unavailable"):
+                self.assertNotIn(warn, summary["warnings"], name)
 
     def test_failed_report_passes_check(self):
         with open(FAILED_REPORT, encoding="utf-8") as fh:
