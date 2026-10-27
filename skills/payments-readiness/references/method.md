@@ -18,7 +18,7 @@
 
 | 字段 | 含义 |
 |---|---|
-| `status` | `complete` 全部取到 / `partial` 部分没取到, 不是 Shopify, 平台没确认, 或离线测算 / `failed` 首页都没取到 |
+| `status` | `complete` 全部取到 / `partial` 部分没取到 (含首页没取到但读到了政策页), 不是 Shopify, 平台没确认, 或离线测算 / `failed` 首页和政策页都没取到 |
 | `mode` | `online` 脚本联网 / `manual` 手动存页面 (模式 B) / `offline` 没有网站 |
 | `warnings` | 见下表 |
 | `identity` | `confirmed` / `probable` / `not_shopify` / `unconfirmed` / `unknown` |

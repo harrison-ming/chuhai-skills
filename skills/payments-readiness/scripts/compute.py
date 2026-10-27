@@ -261,6 +261,10 @@ def run_status(facts):
         warnings.append("homepage_unavailable")
         if home == "blocked":
             warnings.append("blocked")
+        if facts["policies_seen"]:
+            # policy pages were still read (often saved by hand after a
+            # network error): part of the check is real, so not "failed"
+            return "partial", warnings
         return "failed", warnings
     if facts["mode"] == "manual":
         warnings.append("manual_collection")

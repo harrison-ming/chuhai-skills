@@ -880,6 +880,21 @@ class ManualAfterNetworkErrorTest(Base):
         self.assertNotEqual(s["status"], "failed")
 
 
+class PoliciesWithoutHomepageTest(Base):
+    def test_partial_not_failed(self):
+        r = self.run_fixture("blocked")
+        raw = os.path.join(r["data"], "raw")
+        with open(
+            os.path.join(raw, "policy-refund-policy.md"), "w", encoding="utf-8"
+        ) as fh:
+            fh.write("Returns accepted within 30 days. Items must be unused. " * 5)
+        quiet(compute.main, [r["run"]])
+        with open(os.path.join(r["data"], "summary.json"), encoding="utf-8") as fh:
+            s = json.load(fh)
+        self.assertEqual(s["status"], "partial")
+        self.assertIn("homepage_unavailable", s["warnings"])
+
+
 class ReportCheckTest(Base):
     def check(self, text, lang="zh"):
         return checks.check_text(text, cfg.profile(lang))
