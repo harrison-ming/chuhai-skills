@@ -171,6 +171,49 @@ class ScenarioTest(Base):
         self.assertEqual(rec["status"], "failed")
         self.assertTrue(rec["check"]["ok"], rec["check"])
 
+    def unreachable_with_probe(self, probe, lang="zh"):
+        run = os.path.join(self.tmp, "probe %s 2026-10-27" % lang)
+        data = os.path.join(run, "原始数据" if lang == "zh" else "data")
+        shutil.copytree(
+            os.path.join(FIXTURES, "unreachable", "raw"), os.path.join(data, "raw")
+        )
+        path = os.path.join(data, "raw", "_status.json")
+        with open(path, encoding="utf-8") as fh:
+            status = json.load(fh)
+        status["network_probe"] = probe
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(status, fh)
+        rc, out = quiet(audit.main, [run, "--lang", lang, "--mode", "other"])
+        self.assertEqual(rc, 0, out)
+        with open(os.path.join(data, "summary.json"), encoding="utf-8") as fh:
+            s = json.load(fh)
+        with open(os.path.join(data, "report.draft.md"), encoding="utf-8") as fh:
+            return run, data, s, fh.read(), out
+
+    def test_network_unavailable_draft_is_deliverable(self):
+        probe = {"url": collect.PROBE_URL, "http_status": None, "result": "error"}
+        for lang in ("zh", "en"):
+            run, data, s, text, out = self.unreachable_with_probe(probe, lang)
+            self.assertEqual(s["status"], "failed")
+            self.assertIn("network_unavailable", s["warnings"])
+            self.assertNotIn("site_unreachable", s["warnings"])
+            self.assertIn("deliver.py", out)
+            self.assertIn("连不上网" if lang == "zh" else "no network access", text)
+            rc, out = quiet(deliver.main, [run, "--html-only", "--no-open"])
+            self.assertEqual(rc, 0, out)
+            with open(os.path.join(data, "delivery.json"), encoding="utf-8") as fh:
+                rec = json.load(fh)
+            self.assertEqual(rec["status"], "failed")
+            self.assertTrue(rec["check"]["ok"], rec["check"])
+            shutil.rmtree(run)
+
+    def test_site_unreachable_when_probe_answers(self):
+        probe = {"url": collect.PROBE_URL, "http_status": 404, "result": "answered"}
+        _run, _data, s, text, _out = self.unreachable_with_probe(probe)
+        self.assertIn("site_unreachable", s["warnings"])
+        self.assertNotIn("network_unavailable", s["warnings"])
+        self.assertIn("首页打不开", text)
+
     def test_consent_inventory_is_not_an_install(self):
         _run, _data, s = self.run_fixture("consent_inventory")
         platforms = {t["platform"] for t in s["tags"]}
@@ -327,6 +370,7 @@ class CollectTest(unittest.TestCase):
         try:
             status = collect.collect("dead.example", os.path.join(tmp, "d"), Dead())
             self.assertEqual(status["requests"][0]["result"], "error")
+            self.assertEqual(status["network_probe"]["result"], "error")
             self.assertTrue(
                 os.path.isfile(os.path.join(tmp, "d", "raw", "_status.json"))
             )

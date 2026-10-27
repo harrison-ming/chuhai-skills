@@ -40,7 +40,7 @@ Shopify 的应用像素和自定义像素运行在沙箱里, 结账里的事件�
 
 | 字段 | 含义 |
 |---|---|
-| `status`, `warnings` | 完成状态; 提醒代码 (`homepage_unavailable`, `blocked:<页>`, `not_shopify`, `page_missing:<页>`, `container_missing:<编号>`, `data_file_stale:<文件>`) |
+| `status`, `warnings` | 完成状态; 提醒代码 (`homepage_unavailable`, `network_unavailable` (本机不能联网), `site_unreachable` (只有这个网站没响应), `blocked:<页>`, `not_shopify`, `page_missing:<页>`, `container_missing:<编号>`, `data_file_stale:<文件>`) |
 | `mode` | `own` 自家店 / `other` 别人的店 (只做公开页面观察) |
 | `identity` | `status`: confirmed / probable / not_shopify / unknown; `other_platform`: 识别到的其他建站平台 |
 | `tags` | 每个平台 + 编号一项: `install_via` (app_pixel / custom_pixel / theme_code / gtm_container / google_tag_script), `sources`, `calibrated`, `badge_key` |

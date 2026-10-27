@@ -1180,12 +1180,27 @@ class Audit(object):
             partial = True
         return "partial" if partial else "complete"
 
+    def unreachable_reason(self):
+        """network_unavailable when the homepage and the probe host both got
+        no HTTP answer (this machine is offline); site_unreachable when only
+        the homepage did (wrong address or site down); None otherwise."""
+        home = self.endpoints.get("homepage") or {}
+        if home.get("result") != "error" or home.get("http_status") is not None:
+            return None
+        probe = self.status.get("network_probe") or {}
+        if probe.get("result") == "error" and probe.get("http_status") is None:
+            return "network_unavailable"
+        return "site_unreachable"
+
     def run(self):
         self.load_pages()
         if self.status.get("exports_only"):
             self.warnings.append("pages_not_checked")
         elif "homepage" not in self.texts:
             self.warnings.append("homepage_unavailable")
+            reason = self.unreachable_reason()
+            if reason:
+                self.warnings.append(reason)
         self.detect_all()
         self.tag_list = self.tags()
         self.check_identity()
@@ -1356,7 +1371,30 @@ def main(argv=None):
     )
     print("summary: %s" % os.path.join(data_dir, "summary.json"))
     print("draft: %s" % os.path.join(data_dir, "report.draft.md"))
+    for note in next_step_notes(summary):
+        print(note)
     return 0
+
+
+def next_step_notes(summary):
+    """What the agent must do next when nothing could be read (printed)."""
+    w = summary.get("warnings") or []
+    out = []
+    if "network_unavailable" in w:
+        out.append(
+            "note: this environment has no network (the site and a reference host "
+            "both gave no answer); that does not mean the site is down. With a "
+            "page-source reader, follow SKILL.md mode B; otherwise copy "
+            "report.draft.md to report.md, run check_report.py and deliver.py "
+            "(status failed). Do not answer in chat only."
+        )
+    elif "site_unreachable" in w:
+        out.append(
+            "note: the site could not be opened (wrong address, DNS failure or site "
+            "down). Copy report.draft.md to report.md, run check_report.py and "
+            "deliver.py (status failed). Do not answer in chat only."
+        )
+    return out
 
 
 if __name__ == "__main__":

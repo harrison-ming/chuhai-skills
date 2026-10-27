@@ -29,7 +29,23 @@
           "[页面显示]",
           "[已核实]"
         ],
-        "fixed_ending": true
+        "fixed_ending": true,
+        "status_by_runner": {
+          "codex-nonet": [
+            "complete",
+            "partial",
+            "failed"
+          ]
+        },
+        "expect_by_runner": {
+          "codex-nonet": {
+            "must_contain_any": [
+              "[页面显示]",
+              "[已核实]",
+              "[查不到]"
+            ]
+          }
+        }
       }
     },
     {
@@ -59,7 +75,14 @@
           "非 Shopify",
           "[查不到]"
         ],
-        "fixed_ending": true
+        "fixed_ending": true,
+        "status_by_runner": {
+          "codex-nonet": [
+            "complete",
+            "partial",
+            "failed"
+          ]
+        }
       }
     },
     {
@@ -89,7 +112,24 @@
           "[Verified]",
           "[Inferred]"
         ],
-        "fixed_ending": true
+        "fixed_ending": true,
+        "status_by_runner": {
+          "codex-nonet": [
+            "complete",
+            "partial",
+            "failed"
+          ]
+        },
+        "expect_by_runner": {
+          "codex-nonet": {
+            "must_contain_any": [
+              "[Shown on page]",
+              "[Verified]",
+              "[Inferred]",
+              "[Not found]"
+            ]
+          }
+        }
       }
     }
   ],

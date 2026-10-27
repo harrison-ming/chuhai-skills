@@ -590,14 +590,26 @@ def failed_tail(summary, lang):
     T = TXT[lang]
     home = next((p for p in summary.get("pages") or [] if p["key"] == "homepage"), {})
     note = home.get("note") or home.get("result") or "-"
-    line = {
-        "zh": "首页打不开 (%s), 所以这次没法检查追踪代码 %s",
-        "en": "The homepage could not be opened (%s), so tracking code could not be checked %s",
-    }[lang] % (esc(note)[:120], evidence.badge("not_found", lang))
-    nxt = {
-        "zh": "请确认网址是否正确, 或过一会儿再试; 网站对自动访问有拦截时, 可以用浏览器打开页面后把源码保存给我.",
-        "en": "Check the address or retry later; if the site blocks automated visits, open it in a browser and save the page source for me.",
-    }[lang]
+    warnings = summary.get("warnings") or []
+    badge = evidence.badge("not_found", lang)
+    if "network_unavailable" in warnings:
+        line = {
+            "zh": "这次运行的环境连不上网 (这个网站和其他网站都没有响应), 所以没法检查追踪代码 %s. 问题出在这次的运行环境, 网站本身可能是正常的",
+            "en": "The environment this ran in had no network access (neither this site nor other sites answered), so tracking code could not be checked %s. The problem was the environment, not necessarily the site",
+        }[lang] % badge
+        nxt = {
+            "zh": '换一个能联网的环境重新体检一次; 或者用浏览器打开首页, 右键 "查看网页源代码" 全选复制给我.',
+            "en": 'Run the audit again somewhere with internet access, or open the homepage in a browser, right-click "View page source", and paste it to me.',
+        }[lang]
+    else:
+        line = {
+            "zh": "首页打不开 (%s), 所以这次没法检查追踪代码 %s",
+            "en": "The homepage could not be opened (%s), so tracking code could not be checked %s",
+        }[lang] % (esc(note)[:120], badge)
+        nxt = {
+            "zh": "请确认网址是否正确, 或过一会儿再试; 网站对自动访问有拦截时, 可以用浏览器打开页面后把源码保存给我.",
+            "en": "Check the address or retry later; if the site blocks automated visits, open it in a browser and save the page source for me.",
+        }[lang]
     return (
         ["", "- " + line, "", T["open"], "", "- " + nxt, ""]
         + appendix(summary, lang)

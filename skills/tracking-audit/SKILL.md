@@ -49,6 +49,8 @@ py -3 --version
 
 脚本在本技能目录的 `scripts/` 下, 只用 Python 标准库, 不需要装任何包.
 
+**不管遇到什么情况, 都走完整流程: 采集 → 写报告 → 交付文件.** 不要先用别的方式 (命令行下载工具, 网页读取工具) 看一眼就在对话里回答. 网站打不开, 当前环境不能联网, 网页读取工具只拿到正文拿不到源码, 不是 Shopify 店, 都照样从 `report.draft.md` 写 `report.md`, 跑 check_report.py 和 deliver.py 交付文件 (完成状态按实际写 `partial` 或 `failed`, 见"失败时"). 对话里的回答只是已交付报告的摘要, 不能代替报告; 同样只用大白话, 不出现技术词.
+
 **模式 A (首选): 能运行 Python 且能联网**
 
 ```bash
@@ -58,13 +60,16 @@ python3 <技能目录>/scripts/collect.py <网址> [--mode other] [--lang en]
 它抓首页, 1 个集合页, 1 个商品页, 空购物车页, 隐私政策, 以及页面引用的公开谷歌代码容器 (最多 5 个), 然后自动运行 `audit.py`. 最后打印**运行目录**; 数据在 `<运行目录>/原始数据/` (英文 `data/`).
 
 - **用户没有指定保存位置时, 不要加 `--out-root` 或 `--out`, 也不要写到当前目录**: 默认存到用户的 "文档/出海体检报告"; 已设置环境变量 `CHUHAI_OUTPUT_DIR` 时自动用它, **不要自己设置或改写这个变量**. 只有用户明确说了存哪, 才加 `--out-root <目录>`.
-- 输出里几乎全是网络错误 (不是 404/403): 说明环境不能联网, 换模式 B. 网站本身打不开: 照样往下走, 交付 `failed` 短报告 (见 "失败时").
+- 输出里有 `network_unavailable` (网站和其他网站都没响应): 说明当前环境不能联网, 不代表网站打不开. 有网页读取工具就换模式 B, 没有就按"失败时"交付短报告, 说明是环境不能联网.
+- 输出里有 `site_unreachable` (只有这个网站没响应): 网址可能拼错或网站暂时打不开. 不要改用别的工具绕过去, 按"失败时"交付 `failed` 短报告.
 
 **模式 B: 能运行 Python, 不能联网, 有网页读取工具** → 先用 `collect.py <网址> --no-audit` 建好运行目录 (它会记录网络失败, 目录仍在交付根目录下); 再用网页读取工具按 `references/method.md` 第 6 节把页面源码存进 `<运行目录>/原始数据/raw/`, 然后:
 
 ```bash
 python3 <技能目录>/scripts/audit.py "<运行目录>" [--mode other] [--lang en]
 ```
+
+网页读取工具也读取失败, 或只给出页面正文 (看不到 `<script>` 代码) 时: **不要把正文当源码存进 `raw/`** (会被误判成 "没装"), 照样运行上面的 `audit.py` (`raw/` 里只有网络失败记录), 它会写好 `failed` 草稿, 再按"失败时"交付. 正文里看到的线索 (例如隐私政策写了用谷歌分析) 可以补进报告, 标 [店铺自称], 不能写成 [页面显示].
 
 **模式 C: 不能运行 Python, 有网页读取工具** → 按 `references/method.md` 第 7 节和 `references/checks.md` 手工判断, 在对话里给完整报告 (同样按模板), 完成状态最多 `partial`.
 
@@ -76,7 +81,7 @@ python3 <技能目录>/scripts/audit.py "<运行目录>" [--mode other] [--lang 
 
 读 `原始数据/summary.json` (字段见 `references/method.md` 第 5 节):
 
-1. `status`: `complete` / `partial` / `failed`, 报告附录必须写同一个值.
+1. `status`: `complete` / `partial` / `failed`, 报告附录必须写同一个值. `failed` (或 `warnings` 里有 `network_unavailable` / `site_unreachable`) 时直接按"失败时"写短报告并交付, 不做后面的分析.
 2. `warnings`: 每一条都要在报告里用大白话交代 (例: `not_shopify` → 不是 Shopify 店, Shopify 专项不适用; `blocked:...` → 页面被网站拦了; `page_missing:...` → 哪个页面没拿到; `data_file_stale:...` → 识别规则超过 90 天没复测).
 3. 拿不到不等于不存在, 没看到不等于没装.
 
@@ -112,7 +117,8 @@ python3 <技能目录>/scripts/deliver.py "<运行目录>"
 
 ## 失败时
 
-- **网站打不开或被拦**: 仍然走完第 5-6 步, 交付一份 `failed` (首页打不开) 或 `partial` (被拦) 的短报告文件, 写清卡在哪一步和下一步怎么办; 不要只在对话里说一句.
+- **网站打不开 (`site_unreachable`), 当前环境不能联网 (`network_unavailable`), 或网页读取工具拿不到源码**: `audit.py` 已把 `failed` 短报告写好在 `report.draft.md`. 复制为 `report.md`, 用大白话写清卡在哪一步 (例如 "这次运行的环境连不上网, 网站本身可能是正常的") 和下一步怎么做, 技术原因只放附录; 照常跑 check_report.py 和 deliver.py 交付文件. 完成状态: 首页没拿到写 `failed`, 被拦或只拿到部分页面写 `partial`. 不要改用其他工具绕过去, 也不要只在对话里回答.
+- **不是 Shopify 店**: 不算失败, 照常走完第 3-6 步; 报告写明 Shopify 专项不适用.
 - 证书错误: 脚本已自动兼容. 仍失败时把脚本打印的提示用大白话转告用户. **不要关闭证书校验.**
 - 被限流 (429): 过几分钟用更大的 `--delay` 重试一次, 不要并发.
 - `deliver.py` 失败: 报告仍在 `原始数据/report.md`, 告诉用户位置, 在对话里给摘要.

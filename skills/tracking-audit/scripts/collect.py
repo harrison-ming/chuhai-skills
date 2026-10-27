@@ -30,6 +30,10 @@ from _shared import fetch, i18n, output  # noqa: E402
 
 GTM_URL = "https://www.googletagmanager.com/gtm.js?id=%s"
 GTAG_URL = "https://www.googletagmanager.com/gtag/js?id=%s"
+# One request to a well-known host when the homepage got no HTTP answer: tells
+# "this machine is offline" (network_unavailable) from "the site is down or
+# the address is wrong" (site_unreachable). Nothing is saved from it.
+PROBE_URL = "https://www.googletagmanager.com/"
 CHECKOUT_RE = re.compile(r"/checkouts?(/|\?|$)|/account|/orders", re.I)
 HREF_RE = re.compile(r"""href\s*=\s*["']([^"'#]+)["']""", re.I)
 PRODUCT_RE = re.compile(r"^(?:/[a-z]{2}(?:-[a-z]{2})?)?/products/[^/?]+$", re.I)
@@ -137,6 +141,10 @@ class Collector(object):
         started = fetch.utc_now()
         files = cfg.PAGE_FILES
         home, home_url = self.get("homepage", self.base + "/", files["homepage"])
+        probe = None
+        first = self.requests[0] if self.requests else {}
+        if home is None and first.get("http_status") is None:
+            probe = self.probe_network()
         if home is not None:
             final_host = urlsplit(home_url).hostname or self.host
             self.host = final_host
@@ -185,10 +193,21 @@ class Collector(object):
             "finished_at_utc": fetch.utc_now(),
             "requests": self.requests,
         }
+        if probe is not None:
+            status["network_probe"] = probe
         with open(os.path.join(self.raw, "_status.json"), "w", encoding="utf-8") as fh:
             json.dump(status, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
         return status
+
+    def probe_network(self):
+        r = self.fetcher.get(PROBE_URL, "*/*")
+        return {
+            "url": PROBE_URL,
+            "http_status": r.get("status"),
+            "result": "error" if r.get("status") is None else "answered",
+            "note": (r.get("note") or "")[:200],
+        }
 
     def fetch_containers(self):
         gtm, gtag = [], []
