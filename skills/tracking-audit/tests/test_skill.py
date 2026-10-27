@@ -334,6 +334,49 @@ class CollectTest(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+class RegressionTest(Base):
+    """False positives found on real stores (2026-10-27), rebuilt synthetically."""
+
+    def test_prefixless_gtm_and_merchant_center(self):
+        sigs = detect.load_signatures()
+        page = "(window,document,'script','dataLayer','KV427CV');"
+        hits = detect.scan_page(page, sigs, "x")[0]
+        self.assertEqual(
+            [(h["id"], h["problem"]) for h in hits], [("GTM-KV427CV", None)]
+        )
+        cfg_json = json.dumps(
+            {"config": json.dumps({"google_tag_ids": ["GT-ABCD1234", "MC-ZZZZ12345"]})}
+        )
+        hits, _inv = detect.app_pixel_hits(
+            [{"type": "APP", "apiClientId": 1780363, "configuration": cfg_json}],
+            sigs,
+            "x",
+        )
+        self.assertEqual([h["id"] for h in hits], ["GT-ABCD1234"])
+
+    def test_script_twice_or_own_gtag_script_is_not_duplicate(self):
+        run, data, _s = self.run_fixture("well_tracked")
+        path = os.path.join(data, "raw", "homepage.html")
+        with open(path, encoding="utf-8") as fh:
+            html = fh.read()
+        extra = (
+            '<link rel="preload" as="script" href="https://static.klaviyo.com/onsite/js/AbC123/klaviyo.js?company_id=AbC123">'
+            '<script async src="https://static.klaviyo.com/onsite/js/AbC123/klaviyo.js?company_id=AbC123"></script>'
+            "<script async src='https://www.googletagmanager.com/gtag/js?id=AW-555555555'></script>"
+        )
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(html.replace("</head>", extra + "</head>", 1))
+        with open(os.path.join(data, "raw", "container-AW-555555555.js"), "w") as fh:
+            fh.write('var x={"vtp_conversionId":"AW-555555555","id":"AW-555555555"};')
+        rc, out = quiet(audit.main, [run])
+        self.assertEqual(rc, 0, out)
+        with open(os.path.join(data, "summary.json"), encoding="utf-8") as fh:
+            s = json.load(fh)
+        self.assertEqual(
+            [r["result"] for r in s["checks"] if r["id"] == "D01"], ["pass"]
+        )
+
+
 class ReportTest(Base):
     def test_drafts_pass_self_check_and_deliver_both_languages(self):
         for name in ("well_tracked", "duplicated_broken", "non_shopify", "blocked"):
