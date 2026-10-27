@@ -23,6 +23,7 @@ SKILL = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(SKILL, "scripts"))
 
 import check_report  # noqa: E402
+import collect  # noqa: E402
 import compute  # noqa: E402
 import deliver  # noqa: E402
 import skill_config as cfg  # noqa: E402
@@ -49,6 +50,14 @@ REPORT = {
         "## Appendix: evidence and sources\n\n- Status: complete\n\n"
     ),
 }
+
+
+FAILED_REPORT = (
+    "# 示例 报告\n\n## 一页看懂\n\n"
+    "- 这个网址现在打不开, 没法检查 [查不到]\n"
+    "- 卡在第一步: 网站拒绝了访问.\n\n"
+    "## 附录: 证据与数据来源\n\n- 完成状态: failed\n\n"
+)
 
 
 def quiet(fn, *args):
@@ -114,6 +123,35 @@ class SkillTest(unittest.TestCase):
                 head = fh.read().decode("utf-8")
             self.assertTrue(head.startswith("﻿"))
             self.assertIn("检查项" if lang == "zh" else "Item", head)
+
+    def test_failed_report_is_delivered(self):
+        # Failure path: an unreachable site still ends in a delivered short
+        # report with status failed (not only a chat answer).
+        run, data, s = self.run_fixture("blocked")
+        self.assertEqual(s["status"], "failed")
+        with open(os.path.join(data, "report.md"), "w", encoding="utf-8") as fh:
+            fh.write(FAILED_REPORT + fixed_ending("zh"))
+        rc, out = quiet(check_report.main, [run])
+        self.assertEqual(rc, 0, out)
+        rc, out = quiet(deliver.main, [run, "--html-only", "--no-open", "--strict"])
+        self.assertEqual(rc, 0, out)
+        with open(os.path.join(data, "delivery.json"), encoding="utf-8") as fh:
+            rec = json.load(fh)
+        self.assertEqual(rec["status"], "failed")
+        self.assertTrue(rec["check"]["ok"])
+        self.assertTrue(os.path.isfile(os.path.join(run, rec["report"])))
+
+    def test_init_only_creates_run_folder_in_root(self):
+        # Mode B: the run folder lives in the delivery root, never the cwd.
+        root = os.path.join(self.tmp, "root")
+        rc, out = quiet(
+            collect.main, ["site.example", "--init-only", "--out-root", root]
+        )
+        self.assertEqual(rc, 0, out)
+        runs = os.listdir(root)
+        self.assertEqual(len(runs), 1)
+        self.assertTrue(os.path.isdir(os.path.join(root, runs[0], "原始数据", "raw")))
+        self.assertIn(os.path.join(root, runs[0]), out)
 
     def test_check_catches_missing_status_and_basis(self):
         run, data, _s = self.run_fixture("normal")

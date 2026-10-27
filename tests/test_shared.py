@@ -295,6 +295,15 @@ class TestChecks(unittest.TestCase):
         self.assertEqual((data["status"], data["lang"]), ("partial", "en"))
 
 
+class TestNoOpen(unittest.TestCase):
+    def test_no_open_env(self):
+        for value in ("1", "true", "YES"):
+            self.assertFalse(
+                output.can_open_gui("/x", "darwin", {output.NO_OPEN_ENV: value})
+            )
+        self.assertTrue(output.can_open_gui("/x", "darwin", {output.NO_OPEN_ENV: "0"}))
+
+
 class TestFetchAndData(unittest.TestCase):
     def test_cert_notes(self):
         self.assertIn("Install Certificates", fetch.cert_note("darwin", "en"))

@@ -272,7 +272,8 @@ class TestMarkdown(TmpCase):
             text = fh.read()
         blocks = re.findall(r"```markdown\n(.*?)\n```", text, re.S)
         self.assertGreaterEqual(len(blocks), 2)
-        deep = [b for b in blocks if "一页看懂" in b and "附录" in b][-1]
+        # the deep (L1) template; the failed short template comes after it
+        deep = [b for b in blocks if "一页看懂" in b and "顾客最担心" in b][0]
         closing = [b for b in blocks if "本报告没有覆盖的" in b][0]
         doc, _w = deliver.build_html(deep + "\n\n" + closing, self.tmp, "x", "d")
         self.assertIn('<section class="summary-card">', doc)

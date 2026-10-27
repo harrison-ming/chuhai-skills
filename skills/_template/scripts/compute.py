@@ -154,6 +154,11 @@ def main(argv=None):
     summary = summarize(data_dir, args.lang)
     write_outputs(data_dir, summary)
     print("status: %s, warnings: %s" % (summary["status"], summary["warnings"]))
+    if summary["status"] == "failed":
+        print(
+            "next: the site could not be read. Still write the short failed "
+            "report (SKILL.md, failure section) and run deliver.py."
+        )
     print("summary: %s" % os.path.join(data_dir, "summary.json"))
     return 0
 

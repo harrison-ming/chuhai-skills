@@ -20,12 +20,17 @@ TOP_KEYS = {"name", "description", "license", "metadata"}
 META_KEYS = {"version", "author", "homepage", "status", "review_by"}
 STATUSES = ("complete", "partial", "failed")
 HARD_LINE_BUDGET = 500
+# Claude rejects a skill whose description is longer than this.
+DESCRIPTION_MAX = 1024
 # Agent-specific tool names must not appear in a portable SKILL.md.
 TOOL_NAME_RE = re.compile(
     r"WebFetch|WebSearch|web_fetch|web_search|TodoWrite|mcp__|browser_navigate"
     r"|\bBash tool\b|\bRead tool\b|\bWrite tool\b|computer_use"
 )
 CASE_KEYS = {"id", "prompt", "lang", "needs_network", "expect"}
+# Optional harness hints (tools/acceptance); other branches use the same names.
+OPTIONAL_TOP_KEYS = {"script_cmds", "network_domains", "fixed_ending_text"}
+OPTIONAL_EXPECT_KEYS = {"status_by_runner", "expect_by_runner"}
 EXPECT_KEYS = {
     "deliverables",
     "status_in",
@@ -93,6 +98,8 @@ def check_skill_md(skill_dir):
         problems.append("metadata.version must be X.Y.Z")
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", meta.get("review_by", "")):
         problems.append("metadata.review_by must be YYYY-MM-DD")
+    if len(fm.get("description") or "") > DESCRIPTION_MAX:
+        problems.append("description over %d characters" % DESCRIPTION_MAX)
     if fm.get("name") != os.path.basename(skill_dir):
         problems.append("name must equal the folder name")
     body = text.split("---", 2)[2]
@@ -115,8 +122,18 @@ def check_acceptance(skill_dir):
     except (OSError, ValueError) as e:
         return ["acceptance.json unreadable: %s" % e]
     problems = []
-    if set(data) != {"skill", "cases"}:
-        problems.append("top-level keys must be skill, cases")
+    # script_cmds / network_domains are optional harness hints (tools/acceptance)
+    extra = set(data) - {"skill", "cases"} - OPTIONAL_TOP_KEYS
+    if not {"skill", "cases"} <= set(data) or extra:
+        problems.append(
+            "top-level keys must be skill, cases (+ optional %s)"
+            % ", ".join(sorted(OPTIONAL_TOP_KEYS))
+        )
+    fet = data.get("fixed_ending_text")
+    if fet is not None and not (
+        isinstance(fet, str) or (isinstance(fet, dict) and set(fet) <= {"zh", "en"})
+    ):
+        problems.append("fixed_ending_text must be a string or a {zh, en} map")
     if data.get("skill") != os.path.basename(skill_dir):
         problems.append("skill must equal the folder name")
     cases = data.get("cases") or []
@@ -135,9 +152,18 @@ def check_acceptance(skill_dir):
         if not isinstance(c["needs_network"], bool) or not c["prompt"]:
             problems.append("%s: needs_network bool and prompt required" % cid)
         exp = c["expect"]
-        if set(exp) != EXPECT_KEYS:
-            problems.append("%s: expect keys must be %s" % (cid, sorted(EXPECT_KEYS)))
+        if not EXPECT_KEYS <= set(exp) or set(exp) - EXPECT_KEYS - OPTIONAL_EXPECT_KEYS:
+            problems.append(
+                "%s: expect keys must be %s (+ optional %s)"
+                % (cid, sorted(EXPECT_KEYS), ", ".join(sorted(OPTIONAL_EXPECT_KEYS)))
+            )
             continue
+        for runner, statuses in (exp.get("status_by_runner") or {}).items():
+            if not statuses or not set(statuses) <= set(STATUSES):
+                problems.append("%s: status_by_runner.%s invalid" % (cid, runner))
+        for runner, over in (exp.get("expect_by_runner") or {}).items():
+            if not isinstance(over, dict) or set(over) - EXPECT_KEYS:
+                problems.append("%s: expect_by_runner.%s invalid" % (cid, runner))
         if not set(exp["status_in"]) <= set(STATUSES) or not exp["status_in"]:
             problems.append("%s: status_in must be a subset of %s" % (cid, STATUSES))
         for key in ("deliverables", "must_not_contain", "must_contain_any"):

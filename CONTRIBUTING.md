@@ -29,7 +29,7 @@
    - `collect.py` 只联网存原始文件; `compute.py` 只离线计算. 两者分离, 模式 B (网页读取工具存文件 + 离线脚本) 才能成立.
    - 需要用户输入数字的 skill, 在 `BADGE_KEYS` 加 `user_input` (`[你提供的]` / `[You provided]`); 汇总结论用 `evidence.weakest()` 取最弱一环.
    - 随 skill 附带的费率等数据用 JSON, 顶层写 `valid_as_of`, 登记到 `DATA_FILES`, 超过 90 天自动告警.
-4. **合成样本测试**: 至少覆盖 正常 / 被拦 / 非目标平台 三类, 样本全部虚构 (域名用 `.example`). 真实网站的抓取结果只放 `~/STELLAR_OUTPUT/_tmp/`, 不进仓库.
+4. **合成样本测试**: 至少覆盖 正常 / 被拦 / 非目标平台 三类, 外加打不开时的失败短报告, 样本全部虚构 (域名用 `.example`). 真实网站的抓取结果只放 `~/STELLAR_OUTPUT/_tmp/`, 不进仓库.
 5. **check**: 报告必须过 `check_report.py`. 结论类禁用词 (如 "合规" "已开通") 用 `FORBIDDEN_TERMS` 或 `checks.claim_badge_rule()` 写成规则, 并配测试.
 6. **验收矩阵**: 填 `acceptance.json` (结构见第 4 节), 用 `tools/acceptance/` 在前 4 个 agent 环境自动跑, 结果写入 catalog `testedAgents`.
 7. **双语**: 中英两份报告模板 (`report-template.zh.md` / `.en.md`), 脚本都接受 `--lang zh|en`, 英文徽章与 CSV 表头由 `shared/` 提供. SKILL.md 正文用中文, 描述里同时写中英触发说法.
@@ -44,7 +44,7 @@
 | 脚本 | 至少一个标准库 Python 脚本完成采集或计算, Python 3.8+, 采集与计算分离 |
 | 证据 | 正文用大白话证据标签, 宁低勿高; 空值区分 null / not_observed / unknown |
 | 自检 | 报告过 `check_report` 规则包 |
-| 测试 | 合成样本 unittest, 至少覆盖 正常 / 被拦 / 非目标平台 |
+| 测试 | 合成样本 unittest, 至少覆盖 正常 / 被拦 / 非目标平台 / 打不开 (失败短报告能交付) |
 | 验收 | 验收矩阵前 4 个 agent 环境通过, 结果写入 catalog `testedAgents` |
 | 双语 | 中英两版报告模板, `--lang` 全链路可用 |
 | 分档 | 免费版独立完成核心结果, 不阉割; Pro 是增量 (多对象, 评分卡, 浏览器实测) |
@@ -57,7 +57,20 @@
 
 **SKILL.md frontmatter**: 顶层只有 `name`, `description` (`>-` 块标量), `license`, `metadata`; `metadata` 只有 `version`, `author: StellarByte`, `homepage`, `status`, `review_by`. 普通标量里不能出现 ": " 或 " #" (严格 YAML 解析器会丢掉整个 skill).
 
-**SKILL.md 正文**: 第 0 步 Python 检测 (`python` / `python3` / `py -3`, Windows 退出码 9009 视为没有 Python); 模式 A 脚本联网 → B 网页读取工具 + 离线脚本 → C 手工 → D 用户粘贴; 边界; 固定结尾. **不写任何特定 agent 的工具名**, 只说 "网页读取工具".
+**触发说法 (description)**: agent 只凭 description 决定用不用这个 skill. 首轮验收里 "example-not-a-store.com 是 Shopify 店吗" 在 Claude 上两次都没触发, 原因是 description 只有名词短语 ("对标店分析"), 没有用户原话式的短问句. 写 description 时逐条过:
+
+1. 写明 "用户只给一个网址加一句短问题也用它", 再列 3-6 个**用户原话式的中文短问句** (带网址占位: "xx.com 是 Shopify 店吗", "这家店开了多久"), 名词短语 (对标店分析) 只作补充.
+2. 英文 2-3 个短问句 ("is xx.com a Shopify store"), 不只写产品名.
+3. 覆盖最窄的问法: 只问一个是非题的, 也要能触发 (失败路径的用例就是这种).
+4. 保持 `>-` 块标量; 全文不超过 1024 字符 (测试会查).
+5. 改完在 `acceptance.json` 里放一条最短问法的用例, 用验收框架在 Claude 上实测触发.
+
+**SKILL.md 正文**: 第 0 步 Python 检测 (`python` / `python3` / `py -3`, Windows 退出码 9009 视为没有 Python); 模式 A 脚本联网 → B 网页读取工具 + 离线脚本 → C 手工 → D 用户粘贴; 边界; 固定结尾. **不写任何特定 agent 的工具名**, 只说 "网页读取工具". 以下四条是首轮验收暴露的问题, 模板已写好, 改写时不要删:
+
+- **不停下来提问**: 按用户原话选范围直接开始; 只问一句也走 采集 → 报告 → 交付, 不先用别的工具看一眼就在对话里回答.
+- **失败路径**: 网站打不开 / 不是目标平台时, 仍写 `failed` (或 `partial`) 短报告并用 `deliver.py` 交付; 报告模板必须带"失败短报告"一节, 合成样本测试必须有一条"打不开 → 短报告过自检 → 交付"的用例.
+- **交付根目录**: 所有模式的文件只写进交付根目录 (`--out-root` > `CHUHAI_OUTPUT_DIR` > 云端沙箱 > 用户文档目录); 模式 B 用 `collect.py --init-only` 建运行目录, 不让 agent 自己在当前目录建.
+- **无浏览器**: 生成 `.html` 就算交付完成, 写明不要另找 PDF 工具. `check_report` 的每条提示要么改掉, 要么在附录写一行保留原因.
 
 **报告**: 第一节 `## 一页看懂` (`## At a glance`), 附录以 `## 附录` (`## Appendix`) 开头并写完成状态 `complete` / `partial` / `failed`, 末尾固定结尾原样保留. 徽章一字不差:
 
@@ -84,6 +97,8 @@
              "must_not_contain": ["products.json"], "must_contain_any": ["[已核实]"], "fixed_ending": true}}]}
 ```
 
+可选键 (验收框架用, 其他分支同名): 顶层 `script_cmds`, `network_domains`, `fixed_ending_text` (字符串或 `{"zh": ..., "en": ...}`, 默认取 check_report 的 `FIXED_ENDING` / 公共库的中英固定结尾); `expect` 里 `status_by_runner` (例 `{"codex-nonet": ["partial", "failed"]}`, 断网环境优雅降级也算通过) 和 `expect_by_runner` (按 runner 覆盖其他判定项). 框架给每个 runner 设 `CHUHAI_NO_OPEN=1`, `deliver.py` 不弹文件夹窗口; 越界写入会检查所有已知交付根目录 (含 skill_config 里声明的 `ROOT_NAME`).
+
 **代码与文档**: 只用标准库, 3.8 语法; 代码和注释用英文, 文档用中文; 所有文件用英文半角标点 (测试会扫描). commit message 用中文; pre-commit 跑 gitleaks + ruff, 不许 `--no-verify`.
 
 ## 5. 篇幅预算
@@ -92,6 +107,6 @@
 
 ## 6. 改公共库
 
-1. 只改 `shared/`, 加 `tests/test_shared.py` 用例.
+1. 只改 `shared/`, 加 `tests/test_shared.py` (或 `tests/test_fetch_retry.py` 等专题文件) 用例. 保持 API 向后兼容: 各 skill 分支并行开发, 合并时不能让它们的测试变红.
 2. `python tools/sync_shared.py` 同步所有副本.
 3. `python tools/run_tests.py`: 其中 `tests/test_golden_teardown.py` 比对 teardown 全部输出, 不一致说明改动影响了已发布的 skill. 确属有意改变时运行 `python tests/golden_teardown.py --write` 并在 commit 里说明原因.

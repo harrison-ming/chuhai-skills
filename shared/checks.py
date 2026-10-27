@@ -157,6 +157,7 @@ STATUS_KEYWORD = {"zh": "完成状态", "en": "Status"}
 
 # Full-width punctuation, written as escapes so this file stays clean:
 # , . ; : ! ? ( ) [ ]
+FULLWIDTH_LIST = 12  # line numbers listed in the single full-width warning
 FULLWIDTH_RE = re.compile(
     "[\uff0c\u3002\uff1b\uff1a\uff01\uff1f\uff08\uff09\u3010\u3011]"
 )
@@ -193,6 +194,7 @@ MESSAGES = {
             "紧跟一句 '{b}: <哪个页面/哪组数据>'; 说不出依据就删掉这句.",
         ),
         "fullwidth": ("有全角标点.", "统一改成英文半角标点 (, . ; : ! ? ( ))."),
+        "fullwidth_many": ("{n} 行有全角标点 (第 {lines} 行).", ""),
         "tech_term": (
             "附录之前出现技术词 '{x}'{y}.",
             "换成大白话 ({h}), 原词和细节放进附录.",
@@ -259,6 +261,10 @@ MESSAGES = {
         "fullwidth": (
             "Full-width punctuation found.",
             "Use half-width punctuation (, . ; : ! ? ( )).",
+        ),
+        "fullwidth_many": (
+            "{n} lines have full-width punctuation (lines {lines}).",
+            "",
         ),
         "tech_term": (
             "Technical word '{x}' before the appendix{y}.",
@@ -539,6 +545,7 @@ def check_text(md_text, profile):
 
     body_end = appendix_ln or (len(md_text.splitlines()) + 1)
     by_no = dict(lines)
+    fullwidth = []
     for ln, line in lines:
         # old labels (whole file)
         if p.old_re is not None:
@@ -567,9 +574,9 @@ def check_text(md_text, profile):
                         *p.message("guess_no_basis"),
                     )
                     break
-        # full-width punctuation
+        # full-width punctuation (collected, reported once below)
         if FULLWIDTH_RE.search(line):
-            add("warning", "fullwidth", ln, line, *p.message("fullwidth"))
+            fullwidth.append((ln, line))
         if ln >= body_end:
             continue
         # technical words before the appendix
@@ -631,6 +638,17 @@ def check_text(md_text, profile):
                     claim,
                     *p.message("mixed_source", x=mm.group(0)),
                 )
+    if fullwidth:
+        # One warning for the whole file: a report typed with a Chinese input
+        # method has it on almost every line, and one issue per line buried
+        # the warnings that matter (suspected over-labeling).
+        why, fix = p.message("fullwidth")
+        if len(fullwidth) > 1:
+            shown = ", ".join(str(ln) for ln, _ in fullwidth[:FULLWIDTH_LIST])
+            if len(fullwidth) > FULLWIDTH_LIST:
+                shown += " ..."
+            why = p.message("fullwidth_many", n=len(fullwidth), lines=shown)[0]
+        add("warning", "fullwidth", fullwidth[0][0], fullwidth[0][1], why, fix)
     ctx = RuleContext(md_text, lines, body_end, p)
     for rule in p.rules:
         issues.extend(rule(ctx) or [])

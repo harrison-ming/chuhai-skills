@@ -7,11 +7,41 @@
       "lang": "zh",
       "needs_network": true,
       "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["complete", "partial"],
-        "must_not_contain": ["products.json", "myshopify", "已开通 PayPal", "保证开通"],
-        "must_contain_any": ["[已核实]", "[页面显示]"],
-        "fixed_ending": true
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "complete",
+          "partial"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "已开通 PayPal",
+          "保证开通"
+        ],
+        "must_contain_any": [
+          "[已核实]",
+          "[页面显示]"
+        ],
+        "fixed_ending": true,
+        "status_by_runner": {
+          "codex-nonet": [
+            "complete",
+            "partial",
+            "failed"
+          ]
+        },
+        "expect_by_runner": {
+          "codex-nonet": {
+            "must_contain_any": [
+              "[已核实]",
+              "[页面显示]",
+              "[查不到]"
+            ]
+          }
+        }
       }
     },
     {
@@ -20,10 +50,24 @@
       "lang": "zh",
       "needs_network": false,
       "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["complete", "partial"],
-        "must_not_contain": ["products.json", "myshopify", "稳赚", "保证开通"],
-        "must_contain_any": ["[推测]", "[已核实]"],
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "complete",
+          "partial"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "稳赚",
+          "保证开通"
+        ],
+        "must_contain_any": [
+          "[推测]",
+          "[已核实]"
+        ],
         "fixed_ending": true
       }
     },
@@ -33,12 +77,62 @@
       "lang": "zh",
       "needs_network": true,
       "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["partial", "failed"],
-        "must_not_contain": ["products.json", "myshopify"],
-        "must_contain_any": ["[查不到]"],
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "partial",
+          "failed"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify"
+        ],
+        "must_contain_any": [
+          "[查不到]"
+        ],
+        "fixed_ending": true,
+        "status_by_runner": {
+          "codex-nonet": [
+            "partial",
+            "failed"
+          ]
+        }
+      }
+    },
+    {
+      "id": "english_quote",
+      "prompt": "My company is registered in the US. My Shopify Basic store is not live yet; I will sell in the US and Canada (80/20), average order 60 USD, about 400 orders a month, all through Stripe at the standard rate. Estimate my yearly payment fees and tell me what to prepare before going live.",
+      "lang": "en",
+      "needs_network": false,
+      "expect": {
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "complete",
+          "partial"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "guaranteed approval"
+        ],
+        "must_contain_any": [
+          "[Inferred]",
+          "[Verified]"
+        ],
         "fixed_ending": true
       }
     }
+  ],
+  "fixed_ending_text": {
+    "zh": "本报告没有覆盖的",
+    "en": "What this report does not cover"
+  },
+  "script_cmds": [
+    "if [ -n \"{domain}\" ]; then {python} {skill_dir}/scripts/collect.py {domain} --out-root {out_root}; else {python} {skill_dir}/scripts/collect.py --offline quote --out-root {out_root} && {python} {skill_dir}/scripts/questionnaire.py \"$(ls -d {out_root}/*/ | head -1)\" --set entity_country=CN --set shopify_plan=basic --set aov=45 --set monthly_orders=300 --set withdrawals_per_month=1 --set payout_account=cn_bank --gateway paypal:40 --gateway card_other:60:3.5+0.30; fi"
   ]
 }
