@@ -1,0 +1,1016 @@
+{
+  "valid_as_of": "2026-10-27",
+  "source": "Official pricing and help pages, see source_url per entry. US pages fetched from a US exit; CA pages from a Canadian exit.",
+  "schema_version": 1,
+  "stale_warn_days": 90,
+  "note": "status=unverified entries are never used as defaults; the calculator asks for the user's own rate instead.",
+  "rates": [
+    {
+      "id": "shopify-3p-fee-basic",
+      "provider": "shopify",
+      "region": "US,CA",
+      "plan": "basic",
+      "item": "third_party_transaction_fee",
+      "value": 2,
+      "unit": "percent",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified",
+      "note": "Same value on CA (CAD) page. Charged on third-party and alternate gateways even when Shopify Payments is active."
+    },
+    {
+      "id": "shopify-3p-fee-grow",
+      "provider": "shopify",
+      "region": "US,CA",
+      "plan": "grow",
+      "item": "third_party_transaction_fee",
+      "value": 1,
+      "unit": "percent",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified",
+      "note": "Same value on CA (CAD) page. Charged on third-party and alternate gateways even when Shopify Payments is active."
+    },
+    {
+      "id": "shopify-3p-fee-advanced",
+      "provider": "shopify",
+      "region": "US,CA",
+      "plan": "advanced",
+      "item": "third_party_transaction_fee",
+      "value": 0.6,
+      "unit": "percent",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified",
+      "note": "Same value on CA (CAD) page. Charged on third-party and alternate gateways even when Shopify Payments is active."
+    },
+    {
+      "id": "shopify-3p-fee-plus",
+      "provider": "shopify",
+      "region": "US,CA",
+      "plan": "plus",
+      "item": "third_party_transaction_fee",
+      "value": 0.2,
+      "unit": "percent",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified",
+      "note": "Same value on CA (CAD) page. Charged on third-party and alternate gateways even when Shopify Payments is active."
+    },
+    {
+      "id": "shopify-plan-monthly-us",
+      "provider": "shopify",
+      "region": "US",
+      "item": "plan_monthly_fee",
+      "value": {
+        "basic": 39,
+        "basic_annual": 29,
+        "grow": 105,
+        "grow_annual": 79,
+        "advanced": 399,
+        "advanced_annual": 299,
+        "plus_from": 2300
+      },
+      "unit": "fixed_per_month",
+      "currency": "USD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified",
+      "note": "Monthly billing; annual billing per month in *_annual. Plus is a starting price."
+    },
+    {
+      "id": "shopify-plan-monthly-ca",
+      "provider": "shopify",
+      "region": "CA",
+      "item": "plan_monthly_fee",
+      "value": {
+        "basic": 49,
+        "basic_annual": 37,
+        "grow": 132,
+        "grow_annual": 99,
+        "advanced": 517,
+        "advanced_annual": 389,
+        "plus_from": 3400
+      },
+      "unit": "fixed_per_month",
+      "currency": "CAD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified",
+      "note": "Monthly billing; annual billing per month in *_annual. Plus is a starting price."
+    },
+    {
+      "id": "shopify-payments-us-online-standard-basic",
+      "provider": "shopify_payments",
+      "region": "US",
+      "plan": "basic",
+      "item": "online_standard_card",
+      "value": {
+        "pct": 2.9,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-us-online-premium-basic",
+      "provider": "shopify_payments",
+      "region": "US",
+      "plan": "basic",
+      "item": "online_premium_card",
+      "value": {
+        "pct": 3.5,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-us-online-standard-grow",
+      "provider": "shopify_payments",
+      "region": "US",
+      "plan": "grow",
+      "item": "online_standard_card",
+      "value": {
+        "pct": 2.7,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-us-online-premium-grow",
+      "provider": "shopify_payments",
+      "region": "US",
+      "plan": "grow",
+      "item": "online_premium_card",
+      "value": {
+        "pct": 3.3,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-us-online-standard-advanced",
+      "provider": "shopify_payments",
+      "region": "US",
+      "plan": "advanced",
+      "item": "online_standard_card",
+      "value": {
+        "pct": 2.5,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-us-online-premium-advanced",
+      "provider": "shopify_payments",
+      "region": "US",
+      "plan": "advanced",
+      "item": "online_premium_card",
+      "value": {
+        "pct": 3.1,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-us-online-standard-plus",
+      "provider": "shopify_payments",
+      "region": "US",
+      "plan": "plus",
+      "item": "online_standard_card",
+      "value": {
+        "pct": 2.25,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-us-online-premium-plus",
+      "provider": "shopify_payments",
+      "region": "US",
+      "plan": "plus",
+      "item": "online_premium_card",
+      "value": {
+        "pct": 2.95,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-us-international-surcharge",
+      "provider": "shopify_payments",
+      "region": "US",
+      "plan": "all",
+      "item": "international_card_surcharge",
+      "value": 1,
+      "unit": "percent",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-ca-online-standard-basic",
+      "provider": "shopify_payments",
+      "region": "CA",
+      "plan": "basic",
+      "item": "online_standard_card",
+      "value": {
+        "pct": 2.8,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "CAD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-ca-online-amex-intl-basic",
+      "provider": "shopify_payments",
+      "region": "CA",
+      "plan": "basic",
+      "item": "online_amex_and_international_card",
+      "value": {
+        "pct": 3.5,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "CAD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-ca-online-standard-grow",
+      "provider": "shopify_payments",
+      "region": "CA",
+      "plan": "grow",
+      "item": "online_standard_card",
+      "value": {
+        "pct": 2.6,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "CAD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-ca-online-amex-intl-grow",
+      "provider": "shopify_payments",
+      "region": "CA",
+      "plan": "grow",
+      "item": "online_amex_and_international_card",
+      "value": {
+        "pct": 3.4,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "CAD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-ca-online-standard-advanced",
+      "provider": "shopify_payments",
+      "region": "CA",
+      "plan": "advanced",
+      "item": "online_standard_card",
+      "value": {
+        "pct": 2.4,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "CAD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-ca-online-amex-intl-advanced",
+      "provider": "shopify_payments",
+      "region": "CA",
+      "plan": "advanced",
+      "item": "online_amex_and_international_card",
+      "value": {
+        "pct": 3.3,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "CAD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-ca-online-standard-plus",
+      "provider": "shopify_payments",
+      "region": "CA",
+      "plan": "plus",
+      "item": "online_standard_card",
+      "value": {
+        "pct": 2.15,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "CAD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-ca-online-amex-intl-plus",
+      "provider": "shopify_payments",
+      "region": "CA",
+      "plan": "plus",
+      "item": "online_amex_and_international_card",
+      "value": {
+        "pct": 3.15,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "CAD",
+      "source_url": "https://www.shopify.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-fx-us",
+      "provider": "shopify_payments",
+      "region": "US",
+      "item": "currency_conversion_fee",
+      "value": 1.5,
+      "unit": "percent",
+      "source_url": "https://help.shopify.com/en/manual/international/pricing/fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2026-04-06",
+      "fetched_via": "webfetch",
+      "status": "verified",
+      "note": "Calculated on gross order amount since 2026-04-06; not refunded on refunds."
+    },
+    {
+      "id": "shopify-payments-fx-other",
+      "provider": "shopify_payments",
+      "region": "ALL_OTHER",
+      "item": "currency_conversion_fee",
+      "value": 2,
+      "unit": "percent",
+      "source_url": "https://help.shopify.com/en/manual/international/pricing/fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2026-04-06",
+      "fetched_via": "webfetch",
+      "status": "verified",
+      "note": "France 2%; all other Shopify Payments regions 2%."
+    },
+    {
+      "id": "shopify-payments-mcp-us",
+      "provider": "shopify_payments",
+      "region": "US",
+      "item": "multi_currency_payout_fee",
+      "value": {
+        "advanced": 1,
+        "plus": 0.75
+      },
+      "unit": "percent",
+      "source_url": "https://help.shopify.com/en/manual/payments/shopify-payments/store-currency/payouts-in-multiple-currencies",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "verified",
+      "note": "Advanced/Plus only."
+    },
+    {
+      "id": "shopify-payments-mcp-ca",
+      "provider": "shopify_payments",
+      "region": "CA",
+      "item": "multi_currency_payout_fee",
+      "value": {
+        "advanced": 1.5,
+        "plus": 1.25,
+        "basic_grow_usd_payout": 1.5
+      },
+      "unit": "percent",
+      "source_url": "https://help.shopify.com/en/manual/payments/shopify-payments/store-currency/payouts-in-multiple-currencies",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-mcp-global",
+      "provider": "shopify_payments",
+      "region": "ALL_OTHER",
+      "item": "multi_currency_payout_fee",
+      "value": {
+        "advanced": 1.5,
+        "plus": 1
+      },
+      "unit": "percent",
+      "source_url": "https://help.shopify.com/en/manual/payments/shopify-payments/store-currency/payouts-in-multiple-currencies",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-paypal-exempt",
+      "provider": "shopify",
+      "region": "ALL",
+      "item": "paypal_third_party_fee_exempt_when_shopify_payments_primary",
+      "value": true,
+      "unit": "bool",
+      "source_url": "https://help.shopify.com/en/manual/your-account/manage-billing/billing-charges/types-of-charges/third-party-charges/third-party-transaction-fees",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "verified",
+      "note": "Quote: \"If you elect to use Shopify Payments as your primary payment provider, then PayPal transactions are exempt from third-party transaction fees.\""
+    },
+    {
+      "id": "shopify-manual-pos-exempt",
+      "provider": "shopify",
+      "region": "ALL",
+      "item": "manual_and_pos_third_party_fee_exempt",
+      "value": true,
+      "unit": "bool",
+      "source_url": "https://help.shopify.com/en/manual/your-account/manage-billing/billing-charges/types-of-charges/third-party-charges/third-party-transaction-fees",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "shopify-payments-cn-rates",
+      "provider": "shopify_payments",
+      "region": "CN",
+      "item": "card_rates",
+      "unit": "percent+fixed",
+      "source_url": "https://help.shopify.com/en/manual/payments/shopify-payments/supported-countries/china/payouts",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "unverified",
+      "note": "Official: rates depend on plan and are visible only in admin after activation. Early access, invitation only."
+    },
+    {
+      "id": "shopify-payments-cn-scope",
+      "provider": "shopify_payments",
+      "region": "CN",
+      "item": "scope",
+      "value": {
+        "access": "invitation_only_early_access",
+        "entity": "mainland_china_only_hk_excluded",
+        "payout_account": "WorldFirst",
+        "payout_currency": [
+          "HKD",
+          "USD_if_multi_currency_payouts"
+        ],
+        "cards": [
+          "Visa",
+          "Mastercard"
+        ],
+        "wallets": [
+          "Shop Pay",
+          "Google Pay",
+          "Apple Pay"
+        ],
+        "mainland_buyers_cards": false,
+        "min_settlement_business_days": 4
+      },
+      "unit": "object",
+      "source_url": "https://help.shopify.com/en/manual/payments/shopify-payments/supported-countries/china/payouts",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "stripe-us-domestic",
+      "provider": "stripe",
+      "region": "US",
+      "item": "domestic_card",
+      "value": {
+        "pct": 2.9,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://stripe.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "stripe-us-manual-entry",
+      "provider": "stripe",
+      "region": "US",
+      "item": "manually_entered_card_surcharge",
+      "value": 0.5,
+      "unit": "percent",
+      "source_url": "https://stripe.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "stripe-us-international",
+      "provider": "stripe",
+      "region": "US",
+      "item": "international_card_surcharge",
+      "value": 1.5,
+      "unit": "percent",
+      "source_url": "https://stripe.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified",
+      "note": "Resolves earlier 1% vs 1.5% conflict: 1.5% international card, 1% currency conversion."
+    },
+    {
+      "id": "stripe-us-fx",
+      "provider": "stripe",
+      "region": "US",
+      "item": "currency_conversion_surcharge",
+      "value": 1,
+      "unit": "percent",
+      "source_url": "https://stripe.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "stripe-us-dispute",
+      "provider": "stripe",
+      "region": "US",
+      "item": "dispute_fee",
+      "value": {
+        "received": 15,
+        "countered": 15
+      },
+      "unit": "fixed",
+      "currency": "USD",
+      "source_url": "https://stripe.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified",
+      "note": "Countered fee returned if dispute won."
+    },
+    {
+      "id": "stripe-us-instant-payout",
+      "provider": "stripe",
+      "region": "US",
+      "item": "instant_payout",
+      "value": {
+        "pct": 1.5,
+        "min": 0.5
+      },
+      "unit": "percent+min",
+      "currency": "USD",
+      "source_url": "https://stripe.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "stripe-us-klarna",
+      "provider": "stripe",
+      "region": "US",
+      "item": "klarna",
+      "value": {
+        "pct": 5.99,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://stripe.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified"
+    },
+    {
+      "id": "stripe-managed-payments",
+      "provider": "stripe",
+      "region": "US",
+      "item": "managed_payments_mor_surcharge",
+      "value": 3.5,
+      "unit": "percent",
+      "source_url": "https://stripe.com/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "us_residential_proxy",
+      "status": "verified",
+      "note": "In addition to payments fees."
+    },
+    {
+      "id": "stripe-ca-domestic",
+      "provider": "stripe",
+      "region": "CA",
+      "item": "domestic_card",
+      "value": {
+        "pct": 2.9,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "CAD",
+      "source_url": "https://stripe.com/en-ca/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified"
+    },
+    {
+      "id": "stripe-ca-surcharges",
+      "provider": "stripe",
+      "region": "CA",
+      "item": "surcharges",
+      "value": {
+        "international_card": 0.8,
+        "currency_conversion": 2,
+        "manual_entry": 0.5
+      },
+      "unit": "percent",
+      "source_url": "https://stripe.com/en-ca/pricing",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct_ca_egress",
+      "status": "verified"
+    },
+    {
+      "id": "stripe-cn-availability",
+      "provider": "stripe",
+      "region": "CN",
+      "item": "account_available_for_mainland_entity",
+      "value": false,
+      "unit": "bool",
+      "source_url": "https://stripe.com/global",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "verified",
+      "note": "Supported list includes Hong Kong, not mainland China."
+    },
+    {
+      "id": "paypal-us-checkout",
+      "provider": "paypal",
+      "region": "US",
+      "item": "paypal_checkout",
+      "value": {
+        "pct": 3.49,
+        "fixed": 0.49
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2026-10-01",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-us-standard-card",
+      "provider": "paypal",
+      "region": "US",
+      "item": "standard_card",
+      "value": {
+        "pct": 2.99,
+        "fixed": 0.49
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2026-10-01",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-us-advanced-card",
+      "provider": "paypal",
+      "region": "US",
+      "item": "advanced_card",
+      "value": {
+        "pct": 2.89,
+        "fixed": 0.29
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2026-10-01",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-us-international",
+      "provider": "paypal",
+      "region": "US",
+      "item": "international_surcharge",
+      "value": 1.5,
+      "unit": "percent",
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2026-10-01",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-us-fx",
+      "provider": "paypal",
+      "region": "US",
+      "item": "currency_conversion_spread",
+      "value": 3,
+      "unit": "percent",
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2026-10-01",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-us-chargeback",
+      "provider": "paypal",
+      "region": "US",
+      "item": "chargeback_fee",
+      "value": 20,
+      "unit": "fixed",
+      "currency": "USD",
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2026-10-01",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-us-dispute",
+      "provider": "paypal",
+      "region": "US",
+      "item": "dispute_fee",
+      "value": {
+        "standard": 15,
+        "high_volume": 30
+      },
+      "unit": "fixed",
+      "currency": "USD",
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2026-10-01",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-cn-cross-border",
+      "provider": "paypal",
+      "region": "CN",
+      "item": "cross_border_receive",
+      "value": {
+        "pct": 4.4,
+        "fixed": 0.3
+      },
+      "unit": "percent+fixed",
+      "currency": "USD",
+      "source_url": "https://www.paypal.com/c2/webapps/mpp/merchant-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2025-06-18",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-cn-advanced-card",
+      "provider": "paypal",
+      "region": "CN",
+      "item": "advanced_card",
+      "value": 4.1,
+      "unit": "percent",
+      "source_url": "https://www.paypal.com/c2/webapps/mpp/merchant-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2025-06-18",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-cn-withdrawal",
+      "provider": "paypal",
+      "region": "CN",
+      "item": "withdrawal_to_cn_bank",
+      "value": 35,
+      "unit": "fixed_per_withdrawal",
+      "currency": "USD",
+      "source_url": "https://www.paypal.com/c2/webapps/mpp/merchant-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2025-06-18",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-cn-fx",
+      "provider": "paypal",
+      "region": "CN",
+      "item": "currency_conversion_usd",
+      "value": 3.5,
+      "unit": "percent",
+      "source_url": "https://www.paypal.com/c2/webapps/mpp/merchant-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2025-06-18",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "paypal-cn-chargeback",
+      "provider": "paypal",
+      "region": "CN",
+      "item": "chargeback_fee",
+      "value": 10,
+      "unit": "fixed",
+      "currency": "USD",
+      "source_url": "https://www.paypal.com/c2/webapps/mpp/merchant-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2025-06-18",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "third-party-cn-providers",
+      "provider": "worldfirst,payoneer,pingpong,lianlian,airwallex",
+      "region": "CN",
+      "item": "withdrawal_and_fx",
+      "unit": "percent",
+      "source_url": "",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "unverified",
+      "note": "v1 accepts user-entered values only."
+    },
+    {
+      "id": "card-network-dispute-thresholds",
+      "provider": "visa,mastercard",
+      "region": "ALL",
+      "item": "chargeback_monitoring_threshold",
+      "unit": "percent",
+      "source_url": "",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "unverified",
+      "note": "E08, v2."
+    }
+  ],
+  "refund_rules": [
+    {
+      "id": "refund-shopify-payments-card-fee",
+      "provider": "shopify_payments",
+      "region": "ALL",
+      "item": "processing_fee_returned_on_refund",
+      "value": false,
+      "unit": "bool",
+      "source_url": "https://help.shopify.com/en/manual/fulfillment/managing-orders/refunding-orders",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "verified"
+    },
+    {
+      "id": "refund-shopify-fx-fee",
+      "provider": "shopify_payments",
+      "region": "ALL",
+      "item": "fx_fee_returned_on_refund",
+      "value": false,
+      "unit": "bool",
+      "source_url": "https://help.shopify.com/en/manual/international/pricing/fees",
+      "retrieved": "2026-10-27",
+      "fetched_via": "webfetch",
+      "status": "verified"
+    },
+    {
+      "id": "refund-shopify-3p-fee",
+      "provider": "shopify",
+      "region": "ALL",
+      "item": "third_party_fee_returned_on_refund",
+      "value": false,
+      "unit": "bool",
+      "source_url": "https://help.shopify.com/en/manual/your-account/manage-billing/billing-charges/types-of-charges/third-party-charges/third-party-transaction-fees",
+      "retrieved": "2026-10-27",
+      "fetched_via": "direct",
+      "status": "conflict",
+      "note": "refunding-orders page: refunded pro rata only if Shopify Payments is not available in the store country and refund is issued in Shopify admin. Mainland China is listed (invitation-only); treat as not refunded."
+    },
+    {
+      "id": "refund-stripe-fee",
+      "provider": "stripe",
+      "region": "ALL",
+      "item": "processing_fee_returned_on_refund",
+      "value": false,
+      "unit": "bool",
+      "source_url": "https://docs.stripe.com/refunds",
+      "retrieved": "2026-10-27",
+      "fetched_via": "webfetch",
+      "status": "verified"
+    },
+    {
+      "id": "refund-paypal-us-fee",
+      "provider": "paypal",
+      "region": "US",
+      "item": "processing_fee_returned_on_refund",
+      "value": false,
+      "unit": "bool",
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "retrieved": "2026-10-27",
+      "valid_as_of": "2026-10-01",
+      "fetched_via": "webfetch",
+      "status": "verified"
+    }
+  ],
+  "sources": {
+    "S3": {
+      "url": "https://help.shopify.com/en/manual/payments/shopify-payments/supported-countries/china",
+      "retrieved": "2026-10-27",
+      "supports": "Mainland China entities: Shopify Payments early access, invitation only, WorldFirst payouts, rates depend on plan."
+    },
+    "S4": {
+      "url": "https://help.shopify.com/en/manual/payments/shopify-payments/supported-countries/china/requirements",
+      "retrieved": "2026-10-27",
+      "supports": "Mainland China entity required (Hong Kong entities not eligible for this program); no sales to buyers in mainland China; WorldFirst is the only payout account."
+    },
+    "S6": {
+      "url": "https://stripe.com/global",
+      "retrieved": "2026-10-27",
+      "supports": "Stripe supported countries include Hong Kong, not mainland China."
+    },
+    "S9": {
+      "url": "https://help.shopify.com/en/manual/payments/shop-pay",
+      "retrieved": "2026-10-27",
+      "supports": "Shop Pay is part of Shopify Payments."
+    },
+    "S10": {
+      "url": "https://docs.stripe.com/get-started/checklist/website",
+      "retrieved": "2026-10-27",
+      "supports": "Website checklist: product descriptions, currency, several contact methods, refund/shipping/return/cancellation policies, privacy, address, promotion terms, security, card brands."
+    },
+    "S11": {
+      "url": "https://stripe.com/legal/restricted-businesses",
+      "retrieved": "2026-10-27",
+      "supports": "Stripe prohibited and restricted businesses list (link checked, not read item by item). Account checklist: statement descriptor 5-22 characters, tell buyers how the charge appears."
+    },
+    "S13": {
+      "url": "https://support.mercury.com/hc/en-us/articles/53171397356820-Verifying-your-U-S-business-operations",
+      "retrieved": "2026-10-27",
+      "supports": "Mercury may ask companies without U.S. operations to verify U.S. business; accounts may be locked or closed if they cannot."
+    },
+    "S14": {
+      "url": "https://help.shopify.com/en/manual/your-account/manage-billing/billing-charges/types-of-charges/third-party-charges/third-party-transaction-fees",
+      "retrieved": "2026-10-27",
+      "supports": "Exempt payment methods; PayPal exempt when Shopify Payments is the primary provider; manual and POS exempt; not refunded."
+    },
+    "S15": {
+      "url": "https://help.shopify.com/en/manual/payments/third-party-providers",
+      "retrieved": "2026-10-27",
+      "supports": "Third-party transaction fees apply to third-party gateways even when Shopify Payments is activated."
+    },
+    "S18": {
+      "url": "https://help.shopify.com/en/manual/payments/shopify-payments/supported-countries/china/payouts",
+      "retrieved": "2026-10-27",
+      "supports": "China program: rates visible in admin only; HKD payouts (USD with multi-currency payouts); 4 business days; Visa/Mastercard; no mainland buyer cards."
+    }
+  }
+}

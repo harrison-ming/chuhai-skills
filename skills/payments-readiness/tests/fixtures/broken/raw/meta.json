@@ -1,0 +1,9 @@
+{
+  "name": "Beta Gadgets",
+  "myshopify_domain": "beta.myshopify.com",
+  "currency": "USD",
+  "country": "CN",
+  "ships_to_countries": [
+    "US"
+  ]
+}

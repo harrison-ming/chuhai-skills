@@ -1,0 +1,22 @@
+{
+  "entity_country": "CN",
+  "entity_type": "company",
+  "payout_account": "cn_bank",
+  "shopify_plan": "basic",
+  "aov": 19,
+  "aov_currency": "USD",
+  "monthly_orders": 500,
+  "market_mix": {
+    "US": 100
+  },
+  "gateways": [
+    {
+      "provider": "shopify_payments",
+      "share": 70
+    },
+    {
+      "provider": "stripe",
+      "share": 30
+    }
+  ]
+}

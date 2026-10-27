@@ -10,6 +10,30 @@
   },
   "plugins": [
     {
+      "name": "payments-readiness",
+      "description": "独立站收款上线体检: 对照通道方公开清单检查政策页, 联系方式, 付款图标, 币种显示与前后矛盾, 核对主体/通道/提现链路, 按客单价和单量估算手续费.",
+      "version": "0.1.0",
+      "author": {
+        "name": "StellarByte"
+      },
+      "homepage": "https://github.com/harrison-ming/chuhai-skills",
+      "license": "MIT",
+      "keywords": [
+        "payments",
+        "stripe",
+        "paypal",
+        "shopify-payments",
+        "fees",
+        "收款",
+        "手续费"
+      ],
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/payments-readiness"
+      ]
+    },
+    {
       "name": "shopify-store-teardown",
       "description": "拆解任意公开 Shopify 独立站 (对标店/竞品店): 身份与店龄核验, 全量商品与价格统计, 主题/应用/Markets 识别, 政策一致性检查.",
       "version": "0.2.1",

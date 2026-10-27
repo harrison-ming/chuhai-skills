@@ -1,0 +1,44 @@
+{
+  "skill": "payments-readiness",
+  "cases": [
+    {
+      "id": "normal",
+      "prompt": "我在做类似 allbirds.com 的店, 帮我看看它的结账和政策页面有哪些收款上线前该注意的地方, 我想照着自查. 只看公开页面就行.",
+      "lang": "zh",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["products.json", "myshopify", "已开通 PayPal", "保证开通"],
+        "must_contain_any": ["[已核实]", "[页面显示]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "offline_quote",
+      "prompt": "我是大陆公司, 店还没上线, 用 Shopify Basic 卖到美国, 客单价 45 美元, 每月大约 300 单, 打算 PayPal 占四成, 剩下用一个第三方信用卡通道 (费率 3.5% 加 0.3 美元), PayPal 每月提现一次到国内银行. 帮我算一年手续费, 再告诉我收款上线前要先准备什么.",
+      "lang": "zh",
+      "needs_network": false,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["products.json", "myshopify", "稳赚", "保证开通"],
+        "must_contain_any": ["[推测]", "[已核实]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "non_shopify",
+      "prompt": "帮我给 example.com 做个收款上线体检",
+      "lang": "zh",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["partial", "failed"],
+        "must_not_contain": ["products.json", "myshopify"],
+        "must_contain_any": ["[查不到]"],
+        "fixed_ending": true
+      }
+    }
+  ]
+}

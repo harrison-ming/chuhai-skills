@@ -1,0 +1,79 @@
+{
+  "products": [
+    {
+      "id": 5687216,
+      "title": "Tan Tote",
+      "handle": "tan-tote",
+      "body_html": "<p>Made of full-grain leather with brass hardware. Size 30 x 20 x 10 cm, weight 600 g. Colour: tan. Fits a 13 inch laptop, two inner pockets and an adjustable strap. </p>",
+      "product_type": "Bag",
+      "variants": [
+        {
+          "price": "45.00",
+          "available": true,
+          "requires_shipping": true
+        }
+      ],
+      "images": [
+        {
+          "src": "a"
+        },
+        {
+          "src": "b"
+        },
+        {
+          "src": "c"
+        }
+      ]
+    },
+    {
+      "id": 31652490,
+      "title": "Black Tote",
+      "handle": "black-tote",
+      "body_html": "<p>Made of full-grain leather with brass hardware. Size 30 x 20 x 10 cm, weight 600 g. Colour: tan. Fits a 13 inch laptop, two inner pockets and an adjustable strap. </p>",
+      "product_type": "Bag",
+      "variants": [
+        {
+          "price": "65.00",
+          "available": true,
+          "requires_shipping": true
+        }
+      ],
+      "images": [
+        {
+          "src": "a"
+        },
+        {
+          "src": "b"
+        },
+        {
+          "src": "c"
+        }
+      ]
+    },
+    {
+      "id": 5004951,
+      "title": "Mini Pouch",
+      "handle": "mini-pouch",
+      "body_html": "<p>Made of full-grain leather with brass hardware. Size 30 x 20 x 10 cm, weight 600 g. Colour: tan. Fits a 13 inch laptop, two inner pockets and an adjustable strap. </p>",
+      "product_type": "Bag",
+      "variants": [
+        {
+          "price": "25.00",
+          "available": true,
+          "requires_shipping": true
+        }
+      ],
+      "images": [
+        {
+          "src": "a"
+        },
+        {
+          "src": "b"
+        },
+        {
+          "src": "c"
+        }
+      ]
+    }
+  ]
+}

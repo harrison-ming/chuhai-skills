@@ -1,0 +1,30 @@
+{
+  "entity_country": "HK",
+  "entity_type": "company",
+  "payout_account": "airwallex",
+  "shopify_plan": "basic",
+  "mor": "no",
+  "payout_currency": "USD",
+  "aov": 45,
+  "aov_currency": "USD",
+  "monthly_orders": 300,
+  "market_mix": {
+    "US": 80,
+    "CA": 20
+  },
+  "category": "leather bags",
+  "gateways": [
+    {
+      "provider": "shopify_payments",
+      "share": 70,
+      "pct": 3.9,
+      "fixed": 0.3
+    },
+    {
+      "provider": "paypal",
+      "share": 30,
+      "pct": 4.4,
+      "fixed": 0.3
+    }
+  ]
+}

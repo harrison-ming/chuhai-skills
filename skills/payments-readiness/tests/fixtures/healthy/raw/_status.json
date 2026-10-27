@@ -1,0 +1,144 @@
+{
+  "schema": "payments-readiness/status/1",
+  "tool_version": "0.1.0",
+  "mode": "online",
+  "input": "alpha-pay.example",
+  "domain": "alpha-pay.example",
+  "base_url": "https://alpha-pay.example",
+  "started_at_utc": "2026-10-27T00:00:00Z",
+  "finished_at_utc": "2026-10-27T00:01:00Z",
+  "requests": [
+    {
+      "key": "homepage",
+      "file": "homepage.html",
+      "url": "https://alpha-pay.example/",
+      "final_url": "https://alpha-pay.example/",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "meta_json",
+      "file": "meta.json",
+      "url": "https://alpha-pay.example/meta.json",
+      "final_url": "https://alpha-pay.example/meta.json",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "products_json",
+      "file": "products-1.json",
+      "url": "https://alpha-pay.example/products.json?limit=250",
+      "final_url": "https://alpha-pay.example/products.json?limit=250",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "policy_refund_policy",
+      "file": "policy-refund-policy.html",
+      "url": "https://alpha-pay.example/policies/refund-policy",
+      "final_url": "https://alpha-pay.example/policies/refund-policy",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "policy_shipping_policy",
+      "file": "policy-shipping-policy.html",
+      "url": "https://alpha-pay.example/policies/shipping-policy",
+      "final_url": "https://alpha-pay.example/policies/shipping-policy",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "policy_privacy_policy",
+      "file": "policy-privacy-policy.html",
+      "url": "https://alpha-pay.example/policies/privacy-policy",
+      "final_url": "https://alpha-pay.example/policies/privacy-policy",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "policy_terms_of_service",
+      "file": "policy-terms-of-service.html",
+      "url": "https://alpha-pay.example/policies/terms-of-service",
+      "final_url": "https://alpha-pay.example/policies/terms-of-service",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "policy_contact_information",
+      "file": "policy-contact-information.html",
+      "url": "https://alpha-pay.example/policies/contact-information",
+      "final_url": "https://alpha-pay.example/policies/contact-information",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "cart",
+      "file": "cart.html",
+      "url": "https://alpha-pay.example/cart",
+      "final_url": "https://alpha-pay.example/cart",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "page_product",
+      "file": "page-product-tan-tote.html",
+      "url": "https://alpha-pay.example/products/tan-tote",
+      "final_url": "https://alpha-pay.example/products/tan-tote",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "page_contact",
+      "file": "page-contact.html",
+      "url": "https://alpha-pay.example/pages/contact",
+      "final_url": "https://alpha-pay.example/pages/contact",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    },
+    {
+      "key": "page_faq",
+      "file": "page-faq.html",
+      "url": "https://alpha-pay.example/pages/faq",
+      "final_url": "https://alpha-pay.example/pages/faq",
+      "http_status": 200,
+      "result": "ok",
+      "bytes": 1000,
+      "elapsed_ms": 50,
+      "note": ""
+    }
+  ]
+}

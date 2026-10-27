@@ -1,0 +1,25 @@
+{
+  "entity_country": "CN",
+  "entity_type": "company",
+  "shopify_plan": "basic",
+  "aov": 45,
+  "aov_currency": "USD",
+  "monthly_orders": 300,
+  "withdrawals_per_month": 1,
+  "payout_account": "cn_bank",
+  "market_mix": {
+    "US": 100
+  },
+  "gateways": [
+    {
+      "provider": "paypal",
+      "share": 40
+    },
+    {
+      "provider": "card_other",
+      "share": 60,
+      "pct": 3.5,
+      "fixed": 0.3
+    }
+  ]
+}

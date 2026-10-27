@@ -1,0 +1,10 @@
+{
+  "name": "Alpha Demo",
+  "myshopify_domain": "demo-store.myshopify.com",
+  "currency": "USD",
+  "country": "HK",
+  "ships_to_countries": [
+    "US",
+    "CA"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "products": [
+    {
+      "id": 83955523,
+      "title": "Phone Stand",
+      "handle": "phone-stand",
+      "body_html": "<p>Nice stand.</p>",
+      "product_type": "Bag",
+      "variants": [
+        {
+          "price": "19.00",
+          "available": true,
+          "requires_shipping": true
+        }
+      ],
+      "images": [
+        {
+          "src": "a"
+        }
+      ]
+    }
+  ]
+}
