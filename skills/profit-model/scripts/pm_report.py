@@ -427,7 +427,7 @@ class Writer(object):
     def assumptions(self):
         t = self.t
         self.add(self.h["assumptions"], "", t["assume_intro"], "")
-        self.add(t["assume_head"], "|---|---|---|---|---|---|")
+        self.add(t["assume_head"], "|---|---|---|---|---|")
         blocked = set(s["name"] for s in self.r["skus"] if s["blocked"])
         for a in self.r["assumptions"]:
             if a["sku"] in blocked:
@@ -492,8 +492,23 @@ class Writer(object):
             ]
             self.add(
                 t["diff_line"].format(scen=X.SCEN[self.lang][c], items="; ".join(items))
+                + " "
+                + self.diff_badge(s["name"], diffs[c])
             )
         self.add("")
+
+    def diff_badge(self, sku, diffs):
+        """Weakest label among the inputs that differ from the base."""
+        fields = next(x for x in self.n["skus"] if x["name"] == sku)["fields"]
+        badges, ids = [], []
+        for d in diffs:
+            e = self.r["fx"] if d["key"] == "fx_cny_per_unit" else fields.get(d["key"])
+            e = e or self.n["store"].get(d["key"]) or {}
+            if e.get("badge"):
+                badges.append(e["badge"])
+            if e.get("assumption"):
+                ids.append(e["assumption"])
+        return self.badge(evidence.weakest(badges) or "user_input", ids)
 
     def fmt_value(self, key, value, entry):
         kind = F.FIELDS[key]["kind"]

@@ -350,6 +350,21 @@ class FeeTable(unittest.TestCase):
         self.assertEqual(n["status"], "failed")
 
 
+def table_shape_errors(md):
+    """Lines of markdown tables whose cell count differs from the header."""
+    bad, width = [], None
+    for line in md.splitlines():
+        if not line.startswith("|"):
+            width = None
+            continue
+        n = line.strip().strip("|").count("|") + 1
+        if width is None:
+            width = n
+        elif n != width:
+            bad.append(line)
+    return bad
+
+
 class Delivery(TmpMixin, unittest.TestCase):
     def ending(self, lang):
         path = os.path.join(SKILL, "references", "report-template.%s.md" % lang)
@@ -370,6 +385,7 @@ class Delivery(TmpMixin, unittest.TestCase):
                     [(i.kind, i.text) for i in res.warnings], [], (name, lang)
                 )
                 self.assertIn(self.ending(lang).strip(), md)
+                self.assertEqual(table_shape_errors(md), [], (name, lang))
                 for word in ("ue_model", "pm_calc", "Decimal", "稳赚"):
                     self.assertNotIn(word, md.split("## 附录")[0])
 
