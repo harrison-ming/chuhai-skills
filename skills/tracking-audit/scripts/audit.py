@@ -1157,6 +1157,8 @@ class Audit(object):
 
     # ------------------------------------------------------------ run
     def run_status(self):
+        if self.status.get("exports_only"):
+            return "partial"
         home = self.endpoints.get("homepage", {}).get("result")
         if "homepage" not in self.texts:
             return "failed"
@@ -1170,7 +1172,9 @@ class Audit(object):
 
     def run(self):
         self.load_pages()
-        if "homepage" not in self.texts:
+        if self.status.get("exports_only"):
+            self.warnings.append("pages_not_checked")
+        elif "homepage" not in self.texts:
             self.warnings.append("homepage_unavailable")
         self.detect_all()
         self.tag_list = self.tags()
@@ -1195,7 +1199,7 @@ class Audit(object):
             }
         if self.identity["status"] == "not_shopify":
             self.warnings.append("not_shopify")
-        for p in self.pages:
+        for p in [] if self.status.get("exports_only") else self.pages:
             if p["result"] not in ("ok", None) or (
                 p["result"] is None and p["key"] in ("product", "privacy")
             ):

@@ -50,6 +50,7 @@ TXT = {
         "glance": "## 一页看懂",
         "seen": "页面里能看到这些平台的追踪代码: %s",
         "seen_none": "本次检查的页面里没看到任何广告平台的追踪代码",
+        "no_pages": "这次没有检查网站的公开页面, 只核对了你提供的数据",
         "issues": "发现 %d 个高优先级问题, %d 个中优先级问题, 详见 '整改清单'.",
         "issues_none": "公开页面里没发现重复安装, 模板编号或旧版代码这类问题",
         "checkout": "结账和成交事件从店铺前台看不到, 服务端回传也只能在广告后台确认",
@@ -124,6 +125,7 @@ TXT = {
         "glance": "## At a glance",
         "seen": "Tracking code for these platforms is on the pages: %s",
         "seen_none": "No ad platform tracking code was seen on the pages checked",
+        "no_pages": "No public pages were checked this time; only the data you provided was reviewed",
         "issues": "%d high-priority and %d medium-priority issues; see the fix list.",
         "issues_none": "No duplicate installs, placeholder IDs or legacy code were seen on the public pages",
         "checkout": "Checkout and purchase events are not visible from the storefront; server-side events can only be confirmed in the ad admin",
@@ -280,6 +282,9 @@ def render(summary):
     # ---- at a glance
     out.append(T["glance"])
     out.append("")
+    no_pages = "pages_not_checked" in (summary.get("warnings") or [])
+    if no_pages:
+        out.append("- %s %s" % (T["no_pages"], evidence.badge("not_found", lang)))
     seen = [p for p in PLATFORM_ROWS if any(t["platform"] == p for t in tags)]
     on_page = [
         p for p in seen if any(t["platform"] == p and t["calibrated"] for t in tags)
@@ -398,11 +403,16 @@ def render(summary):
     glossed = set()
     not_seen = []
     for r in rows:
-        if r["id"] not in cat.T_PLATFORM and r["id"] not in (
-            "T03",
-            "T09",
-            "T10",
-            "T11",
+        if (
+            r["id"] not in cat.T_PLATFORM
+            and not r["id"].startswith("E")
+            and r["id"]
+            not in (
+                "T03",
+                "T09",
+                "T10",
+                "T11",
+            )
         ):
             continue
         if r["result"] == "not_seen" and r["id"] in cat.T_PLATFORM:
@@ -555,10 +565,23 @@ def render(summary):
     for o in opens or [T["open_none"]]:
         out.append("- " + o)
     out.append("")
+    if no_pages:
+        out = drop_sections(out, (T["platforms"], T["dups"], T["privacy"]))
     out += appendix(summary, lang)
     out.append("")
     out.append(FIXED_ENDING[lang])
     return "\n".join(out)
+
+
+def drop_sections(lines, headings):
+    """Remove whole "## " sections whose heading is in ``headings``."""
+    out, skip = [], False
+    for line in lines:
+        if line.startswith("## "):
+            skip = line in headings
+        if not skip:
+            out.append(line)
+    return out
 
 
 def failed_tail(summary, lang):
