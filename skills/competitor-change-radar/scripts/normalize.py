@@ -53,6 +53,12 @@ PROMO_PATTERNS = [
     r"折|满减|包邮|优惠码",
 ]
 PROMO_RE = re.compile("|".join("(?:%s)" % p for p in PROMO_PATTERNS), re.I)
+# Banners are short; long lines that mention "sale" are legal text, e.g.
+# "opt out of the sale or sharing of personal information".
+PROMO_MAX_LINE = 120
+PROMO_EXCLUDE_RE = re.compile(
+    r"personal (?:information|data)|opt[ -]out|privacy|cookie|do not sell", re.I
+)
 # Homepage lines dropped as noise before any comparison.
 NOISE_RES = [
     re.compile(r"^[\d\s:.,/%-]+$"),  # bare numbers, countdown digits, dates
@@ -148,7 +154,12 @@ def homepage_lines(html_text):
         if not line or is_noise(line):
             continue
         low = line.lower()
-        (promo if PROMO_RE.search(low) else other).add(low)
+        is_promo = (
+            len(low) <= PROMO_MAX_LINE
+            and PROMO_RE.search(low)
+            and not PROMO_EXCLUDE_RE.search(low)
+        )
+        (promo if is_promo else other).add(low)
     return sorted(other), sorted(promo)
 
 
@@ -264,6 +275,10 @@ def norm_product(p):
     }
 
 
+def collect_page_size():
+    return 250  # collect.PRODUCTS_LIMIT, also used for collections
+
+
 def snapshot_status(identity, prod_ep, homepage_ep, products):
     if identity == "not_shopify":
         return "not_shopify"
@@ -322,12 +337,17 @@ def build_snapshot(snap_dir, source=None):
     collections = {}
     col_ep = eps.get("collections_json") or {}
     from_cols = []
+    col_lens = []
     for _n, fname in summarize.list_pages(run.raw, "collections-", ".json"):
         obj, _state, _note = summarize.parse_json_lenient(
             summarize.read_text(run.path(fname)), "collections"
         )
         if isinstance(obj, dict) and isinstance(obj.get("collections"), list):
             from_cols.extend(c for c in obj["collections"] if isinstance(c, dict))
+            col_lens.append(len(obj["collections"]))
+    # collect.py stops after a few full pages: a full last page means the
+    # list was cut, so collections are not comparable (cut-off order varies)
+    cols_complete = bool(col_lens) and col_lens[-1] < collect_page_size()
     for c in from_cols:
         if c.get("handle"):
             collections[c["handle"]] = {
@@ -391,7 +411,7 @@ def build_snapshot(snap_dir, source=None):
             "policies": sorted(policies),
             "policies_checked": checked,
             "homepage": home_html is not None,
-            "collections": col_ep.get("result") == "ok",
+            "collections": col_ep.get("result") == "ok" and cols_complete,
             "meta": (eps.get("meta_json") or {}).get("result") == "ok",
         },
         "endpoints": {

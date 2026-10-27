@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 新增 skill `competitor-change-radar` (竞品变化雷达) v0.1.0: 同一家对标 Shopify 店的两份公开数据快照对比, 交付 PDF (无浏览器时 HTML) + `价格变动.csv` / `上新下架.csv` / `全部变化.csv`. 快照即精简的 teardown 运行目录 (采集与汇总复用 teardown 原样副本), 规范化为 `radar/snapshot/1`, 确定性差异引擎输出 `radar/diff/1` 与按模板排好的底稿 `diff.md`. 误报防护: 只在翻页到底时判下架, 一次少三成以上改记疑似缺失, 店铺被拦/不是 Shopify 时只记状态变化, 币种变了跳过价格比较, 存档来源最高 `[页面显示]`. 第一次运行自举: 导入同根下的对标拆解, 今天抓一份, 可选网页历史存档基线 (最多 8 个请求, 间隔 ≥ 5 秒); 只有一份时出基线报告并给下次建议日期. 随包合成演示数据 (`radar.py demo`, 不联网). 中英双语.
+- `tests/skill_rules.py`: acceptance.json 允许验收框架的可选字段 `script_cmds`, `network_domains` (同 dev).
 - 生产线: 公共代码抽到 `shared/` (采集, 交付, 自检引擎, 证据标签, 中英双语), 每个 skill 带一份 `scripts/_shared/` 副本; 新增 `skills/_template/`, `tools/new_skill.py`, `tools/sync_shared.py`, `tools/gen_marketplace.py`, `tools/run_tests.py`, `CONTRIBUTING.md`.
 - shopify-store-teardown 改用 `_shared`, 输出不变 (黄金输出比对测试逐字节一致); 新增 `acceptance.json`.
 - marketplace.json 改为由 SKILL.md 生成, 版本号只在 SKILL.md 维护. Release 工作流检查副本同步, marketplace 与全部测试, zip 不含模板, 测试与验收文件.

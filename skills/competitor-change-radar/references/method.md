@@ -68,7 +68,7 @@
 
 被排除的噪声: 商品的更新时间 (库存一动就变), 图片地址及其版本参数, 规格与标签的顺序, 空白差异, 首页倒计时数字, 购物车计数, 版权年份, 纯价格行, 政策页的 "最后更新" 日期行.
 
-首页促销词表 (行转小写后匹配, 只增不删, 改动要同步 `normalize.PROMO_PATTERNS` 并配测试):
+首页促销词表 (行转小写后匹配, 只增不删, 改动要同步 `normalize.PROMO_PATTERNS` 并配测试). 超过 120 字符的行, 以及提到隐私, 个人信息, opt out, cookie 的行不算促销 (常见误判: "opt out of the sale or sharing of personal information"):
 
 <!-- promo-patterns:start -->
 - `\d{1,2}\s?% off`

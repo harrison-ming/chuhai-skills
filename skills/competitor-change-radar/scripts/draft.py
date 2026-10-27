@@ -1305,7 +1305,7 @@ def recent_cut(day):
 def base_appendix(base, t, lang):
     L = [t["appendix_h"], "", t["status"] % base["status"], ""]
     L += snap_rows(t, lang, [base["snapshot"]])
-    L += ["", t["method"][0], t["method"][5], t["method"][6], t["tech_terms"], ""]
+    L += ["", t["method"][0], t["method"][6], t["tech_terms"], ""]
     L += fixed_ending(lang)
     return L
 

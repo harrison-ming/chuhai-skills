@@ -286,6 +286,12 @@ def cmd_diff(args, store_dir=None):
     if getattr(args, "thresholds", None):
         with open(args.thresholds, encoding="utf-8") as fh:
             thresholds = json.load(fh)
+        # radar-thresholds.json (Pro) nests diff settings under "diff"
+        if isinstance(thresholds, dict) and isinstance(thresholds.get("diff"), dict):
+            thresholds = thresholds["diff"]
+        thresholds = {
+            k: v for k, v in thresholds.items() if k in diffmod.DEFAULT_THRESHOLDS
+        }
     write_report(
         store_dir,
         args.lang,
