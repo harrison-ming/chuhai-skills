@@ -10,6 +10,22 @@
   },
   "plugins": [
     {
+      "name": "launch-readiness",
+      "description": "开店上线前体检 (自己的独立站, Shopify 为主, 其他平台降级): 上线或投谷歌购物广告前, 把会被谷歌拒审, 会被买家投诉, 一看就像没做完的问题按 P0-P3 列出来.",
+      "version": "0.1.0",
+      "author": {
+        "name": "StellarByte"
+      },
+      "homepage": "https://github.com/harrison-ming/chuhai-skills",
+      "license": "MIT",
+      "keywords": [],
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/launch-readiness"
+      ]
+    },
+    {
       "name": "payments-readiness",
       "description": "独立站收款上线体检: 对照通道方公开清单检查政策页, 联系方式, 付款图标, 币种显示与前后矛盾, 核对主体/通道/提现链路, 按客单价和单量估算手续费.",
       "version": "0.1.0",
