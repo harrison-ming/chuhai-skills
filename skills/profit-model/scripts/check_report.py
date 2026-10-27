@@ -21,6 +21,10 @@ import skill_config as cfg  # noqa: E402
 from _shared import checks, i18n, output  # noqa: E402
 
 
+# Marker of the fixed ending present in both languages (acceptance harness).
+FIXED_ENDING = "profit-model (chuhai-skills)"
+
+
 def detect_lang(path, lang=None):
     """--lang wins; else summary.json "lang" in either language layout."""
     if lang:

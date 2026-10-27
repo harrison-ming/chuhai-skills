@@ -5,7 +5,8 @@
         Creates the delivery folder and a blank inputs.csv in its raw-data
         folder; prints both paths. Write the inputs there, then run:
 
-    python profit.py run "<run folder | inputs.csv>" [--lang zh|en]
+    python profit.py run "<run folder | inputs.csv>" [--lang zh|en (default:
+                         English when the inputs use English headers)]
                          [--out-root DIR] [--no-fx-fetch] [--no-open]
                          [--html-only]
         validate -> (ECB rate only when no rate was given) -> compute ->
@@ -121,6 +122,30 @@ def locate(path, lang, out_root):
     return run, raw
 
 
+def detect_lang(path):
+    """No --lang: English when the inputs use English headers or the run
+    folder uses the English data folder, else Chinese."""
+    path = os.path.abspath(os.path.expanduser(path))
+    if os.path.isdir(path):
+        if os.path.isfile(
+            os.path.join(path, "data", "inputs.csv")
+        ) and not os.path.isdir(os.path.join(path, "原始数据")):
+            return "en"
+        return "zh"
+    try:
+        with open(path, encoding="utf-8-sig", errors="replace") as fh:
+            for line in fh:
+                if line.strip():
+                    return (
+                        "zh"
+                        if "项目" in line
+                        else ("en" if "item" in line.lower() else "zh")
+                    )
+    except OSError:
+        pass
+    return "zh"
+
+
 def write_json(path, data):
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2)
@@ -128,7 +153,7 @@ def write_json(path, data):
 
 
 def cmd_run(args):
-    lang = args.lang
+    lang = args.lang or detect_lang(args.path)
     msg = MSG[lang]
     run, raw = locate(args.path, lang, args.out_root)
     csv_path = os.path.join(raw, "inputs.csv")
@@ -194,7 +219,7 @@ def main(argv=None):
     p_init.add_argument("--out-root")
     p_run = sub.add_parser("run", help="compute and deliver")
     p_run.add_argument("path")
-    p_run.add_argument("--lang", default="zh", choices=i18n.LANGS)
+    p_run.add_argument("--lang", choices=i18n.LANGS, help="default: from the inputs")
     p_run.add_argument("--out-root")
     p_run.add_argument("--no-fx-fetch", action="store_true")
     p_run.add_argument("--no-open", action="store_true")

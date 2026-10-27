@@ -169,6 +169,13 @@ class KnownAnswers(unittest.TestCase):
         self.assertLess(Decimal(sc["base"]["cm0"]), Decimal(sc["opt"]["cm0"]))
         self.assertIn("duty_missing", r["flags"])
 
+    def test_english_inputs_same_answers(self):
+        r = compute("english")
+        self.assertEqual(r["status"], "complete")
+        self.assertEqual(base(r)["cm0"], "16.55")
+        self.assertEqual(profit.detect_lang(fixture("english")), "en")
+        self.assertEqual(profit.detect_lang(fixture("healthy")), "zh")
+
     def test_roas_given_sets_cpa(self):
         path = fixture("healthy")
         with open(path, encoding="utf-8") as fh:
