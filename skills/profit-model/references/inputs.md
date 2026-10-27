@@ -28,7 +28,7 @@
 | | 跨境卡附加费 | `cross_border_pct` | % | 0 `[推测]`, 附费率表参考值 |
 | | 结汇换汇价差 | `fx_conversion_pct` | % | 0 `[推测]`, 附费率表参考值 |
 | | Shopify 第三方交易费 | `third_party_txn_pct` | % | Shopify Payments: 0 (`[已核实]` 不收); Stripe / PayPal 且用 Shopify: 按套餐取费率表; 通道未知: 0 `[推测]` |
-| 商品 | 售价 ★ | `price` | 币种 (欧盟填含税价) | 阻断 |
+| 商品 | 售价 ★ | `price` | 币种 (这个售卖形态的标价, 两件装填套装价; 欧盟填含税价) | 阻断 |
 | | 每单件数 | `units_per_order` | 件 | 1 |
 | | 平均折扣 | `discount_pct` | % | 0 |
 | | 向买家收的运费 | `shipping_charged` | 币种 | 0 (包邮) |

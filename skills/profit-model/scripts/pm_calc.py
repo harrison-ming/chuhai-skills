@@ -173,7 +173,9 @@ def order_economics(x, price=None):
     """Per-order components (formulas F1-F6). ``x`` is an Inputs."""
     u = x.num("units_per_order", D1)
     p = x.num("price") if price is None else price
-    G = u * p * (D1 - x.num("discount_pct")) + x.num("shipping_charged")
+    # price is the listing price of this selling form (a 2-pack's price is
+    # the pack price); units_per_order only scales the goods costs
+    G = p * (D1 - x.num("discount_pct")) + x.num("shipping_charged")
     N = G / (D1 + x.num("vat_pct"))
     V = u * (x.num("product_cost") + x.num("packaging"))
     first_mile = u * x.num("first_mile_per_unit")
@@ -422,11 +424,7 @@ def sku_result(sku, store, fx, currency):
     out["sensitivity"] = sensitivity(fields, store, fx)
     out["duty_line"] = duty_line(fields, store, fx)
     base = scen["base"]
-    out["below_landed"] = (
-        Inputs(fields, store, fx, "base").num("price")
-        * Inputs(fields, store, fx, "base").num("units_per_order", D1)
-        < base["L"]
-    )
+    out["below_landed"] = Inputs(fields, store, fx, "base").num("price") < base["L"]
     return out
 
 
@@ -488,7 +486,7 @@ def sensitivity(fields, store, fx):
     items = list(fields.items()) + [("fx_cny_per_unit", fx)]
     for key, e in items:
         kind = F.FIELDS[key]["kind"]
-        if key in SENS_EXCLUDE or kind not in SENS_KINDS:
+        if key in SENS_EXCLUDE or key in F.PRO_KEYS or kind not in SENS_KINDS:
             continue
         if e.get("source") in ("na", "missing") or e.get("base") is None:
             continue
@@ -499,6 +497,8 @@ def sensitivity(fields, store, fx):
             x = Inputs(fields, store, fx, "base", scale={key: factor})
             res[tag] = order_economics(x)["cm1"] - base
         impact = max(abs(res["up"]), abs(res["down"]))
+        if impact == 0:
+            continue
         rows.append(
             {
                 "key": key,

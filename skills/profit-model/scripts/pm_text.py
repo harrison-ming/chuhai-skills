@@ -405,7 +405,7 @@ T = {
 
 FORMULAS = {
     "zh": [
-        "F1 买家实付 = 每单件数 x 售价 x (1 - 折扣) + 向买家收的运费; 净收入 = 买家实付 / (1 + 增值税率)",
+        "F1 买家实付 = 售价 x (1 - 折扣) + 向买家收的运费 (售价是这个售卖形态的标价, 两件装填套装价); 净收入 = 买家实付 / (1 + 增值税率)",
         "F2 落地货本 = 每单件数 x (采购单价 + 包装) / 汇率 + 每单件数 x 头程 / 汇率 + 关税; 关税 = 计税基数 x 关税税率 + 每单固定税费, 计税基数按货值或按净收入",
         "F3 每单贡献 (退款) = 净收入 x (1 - 退货率) - 落地货本 x (1 - 退货率 x 可再售比例) - 拣货打包与仓储 - 尾程 - 退货率 x 退货运费 - 收款费 - 其他; 补发时不冲收入, 另付 退货率 x [(1 - 可再售比例) x 落地货本 + 拣货打包 + 尾程] 加退货运费",
         "F3 收款费 = 买家实付 x (收款费率 + 第三方交易费 + 跨境卡附加 + 结汇价差) + 每笔固定费; 退货时不退",
@@ -420,7 +420,7 @@ FORMULAS = {
         "F12 敏感度: 每个输入单独 x 1.1 和 x 0.9, 其余取基准, 记录广告后每单利润的变化",
     ],
     "en": [
-        "F1 Buyer pays = units x price x (1 - discount) + shipping charged; net revenue = buyer pays / (1 + VAT)",
+        "F1 Buyer pays = price x (1 - discount) + shipping charged (price of this selling form, a 2-pack uses the pack price); net revenue = buyer pays / (1 + VAT)",
         "F2 Landed goods = units x (cost + packaging) / rate + units x first mile / rate + duty; duty = base x duty rate + fixed duty, base is goods value or net revenue",
         "F3 Contribution (refunds) = net x (1 - return rate) - landed x (1 - return rate x resellable share) - pick/pack/storage - last mile - return rate x return shipping - payment fees - other; with replacements revenue is kept and return rate x [(1 - resellable) x landed + pick/pack + last mile] plus return shipping is paid",
         "F3 Payment fees = buyer pays x (fee % + third-party % + cross-border % + conversion %) + fixed fee; not returned on refunds",

@@ -308,7 +308,8 @@ class Validation(TmpMixin, unittest.TestCase):
         r = compute(p)
         self.assertEqual([s["name"] for s in r["skus"]], ["A", "A-两件装"])
         self.assertIn("too_many_skus", [i["code"] for i in r["issues"]])
-        self.assertEqual(base(r, 1)["G"], "72.00")
+        self.assertEqual(base(r, 1)["G"], "36.00")  # pack price
+        self.assertEqual(base(r, 1)["V"], "8.33")  # 2 x 30 / 7.2
 
     def test_template_rows_are_blank(self):
         n = pm_inputs.normalize(
