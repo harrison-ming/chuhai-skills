@@ -61,6 +61,7 @@ TXT = {
         "code_no": "没看到",
         "browse_need": "要浏览器实测",
         "purchase_need": "要你确认",
+        "purchase_other": "从外面看不到",
         "top3": "**最该先做的 3 件事**",
         "top_default": "按 '结账和成交: 需要你确认的' 一节, 自己下一单测试单并截图",
         "cannot_see": "**这份报告看不到什么**: 代码在页面里不等于在正常发送; 结账里的事件, 服务端回传和去重只能看广告后台.",
@@ -136,6 +137,7 @@ TXT = {
         "code_no": "Not seen",
         "browse_need": "needs a browser test",
         "purchase_need": "needs your confirmation",
+        "purchase_other": "not visible from outside",
         "top3": "**Do these 3 things first**",
         "top_default": "Follow 'Checkout and purchase: needs your input', place a test order yourself and take the screenshots",
         "cannot_see": "**What this report cannot see**: code on a page does not prove it sends data; checkout events, server-side events and deduplication are only visible in the ad admin.",
@@ -371,7 +373,7 @@ def render(summary):
                     purchase += " " + pr["basis"]
             else:
                 purchase = "%s %s" % (
-                    T["purchase_need"],
+                    T["purchase_other"] if other else T["purchase_need"],
                     evidence.badge("not_found", lang),
                 )
             out.append(

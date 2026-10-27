@@ -7,10 +7,28 @@
       "lang": "zh",
       "needs_network": true,
       "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["complete", "partial"],
-        "must_not_contain": ["products.json", "myshopify", "fbq(", "webPixelsConfigList", "gtag(", "dataLayer", "E1", "E6"],
-        "must_contain_any": ["[页面显示]", "[已核实]"],
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "complete",
+          "partial"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "fbq(",
+          "webPixelsConfigList",
+          "gtag(",
+          "dataLayer",
+          "E1",
+          "E6"
+        ],
+        "must_contain_any": [
+          "[页面显示]",
+          "[已核实]"
+        ],
         "fixed_ending": true
       }
     },
@@ -20,10 +38,27 @@
       "lang": "zh",
       "needs_network": true,
       "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["complete", "partial"],
-        "must_not_contain": ["products.json", "myshopify", "fbq(", "webPixelsConfigList", "E1", "E6"],
-        "must_contain_any": ["不是 Shopify", "非 Shopify", "[查不到]"],
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "complete",
+          "partial"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "fbq(",
+          "webPixelsConfigList",
+          "E1",
+          "E6"
+        ],
+        "must_contain_any": [
+          "不是 Shopify",
+          "非 Shopify",
+          "[查不到]"
+        ],
         "fixed_ending": true
       }
     },
@@ -33,12 +68,37 @@
       "lang": "en",
       "needs_network": true,
       "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["complete", "partial"],
-        "must_not_contain": ["products.json", "myshopify", "fbq(", "webPixelsConfigList", "E1", "E6"],
-        "must_contain_any": ["[Shown on page]", "[Verified]", "[Inferred]"],
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "complete",
+          "partial"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "fbq(",
+          "webPixelsConfigList",
+          "E1",
+          "E6"
+        ],
+        "must_contain_any": [
+          "[Shown on page]",
+          "[Verified]",
+          "[Inferred]"
+        ],
         "fixed_ending": true
       }
     }
+  ],
+  "network_domains": [
+    "www.googletagmanager.com",
+    "googletagmanager.com"
+  ],
+  "script_cmds": [
+    "{python} -c \"import ast, glob, sys; [ast.parse(open(p, encoding='utf-8').read(), p) for p in sorted(glob.glob(sys.argv[1] + '/scripts/*.py'))]\" {skill_dir}",
+    "{python} {skill_dir}/scripts/collect.py {domain} --out-root {out_root}"
   ]
 }
