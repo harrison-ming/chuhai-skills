@@ -7,11 +7,39 @@
       "lang": "zh",
       "needs_network": true,
       "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["complete", "partial"],
-        "must_not_contain": ["products.json", "myshopify", "已合规", "不合规"],
-        "must_contain_any": ["[已核实]"],
-        "fixed_ending": true
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "complete",
+          "partial"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "已合规",
+          "不合规"
+        ],
+        "must_contain_any": [
+          "[已核实]"
+        ],
+        "fixed_ending": true,
+        "status_by_runner": {
+          "codex-nonet": [
+            "failed"
+          ]
+        },
+        "expect_by_runner": {
+          "codex-nonet": {
+            "deliverables": [
+              "*.pdf|*.html"
+            ],
+            "must_contain_any": [
+              "[查不到]"
+            ]
+          }
+        }
       }
     },
     {
@@ -20,10 +48,23 @@
       "lang": "zh",
       "needs_network": false,
       "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["partial"],
-        "must_not_contain": ["products.json", "myshopify", "已合规", "不合规"],
-        "must_contain_any": ["[店铺自称]", "[有矛盾]"],
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "partial"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "已合规",
+          "不合规"
+        ],
+        "must_contain_any": [
+          "[店铺自称]",
+          "[有矛盾]"
+        ],
         "fixed_ending": true
       }
     },
@@ -33,12 +74,38 @@
       "lang": "en",
       "needs_network": true,
       "expect": {
-        "deliverables": ["*.pdf|*.html"],
-        "status_in": ["partial", "failed"],
-        "must_not_contain": ["products.json", "myshopify", "compliant"],
-        "must_contain_any": ["[Not found]"],
-        "fixed_ending": true
+        "deliverables": [
+          "*.pdf|*.html"
+        ],
+        "status_in": [
+          "partial",
+          "failed"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "compliant"
+        ],
+        "must_contain_any": [
+          "[Not found]"
+        ],
+        "fixed_ending": true,
+        "expect_by_runner": {
+          "codex-nonet": {
+            "status_in": [
+              "partial",
+              "failed"
+            ]
+          }
+        }
       }
     }
+  ],
+  "fixed_ending_text": {
+    "zh": "本报告没有覆盖的",
+    "en": "What this report does not cover"
+  },
+  "network_domains": [
+    "www.allbirds.com"
   ]
 }
