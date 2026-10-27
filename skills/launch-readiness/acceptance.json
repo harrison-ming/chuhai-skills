@@ -3,40 +3,40 @@
   "cases": [
     {
       "id": "normal",
-      "prompt": "<一句真实用户会说的话, 带一个正常的目标网址>",
+      "prompt": "我的店 allbirds.com 下个月要在美国和英国投谷歌购物广告, 帮我做一次上线前体检, 看看政策页和多市场设置有什么要改的",
       "lang": "zh",
       "needs_network": true,
       "expect": {
         "deliverables": ["*.pdf|*.html", "*.csv"],
         "status_in": ["complete", "partial"],
-        "must_not_contain": ["summary.json", "E1", "E6"],
-        "must_contain_any": ["[已核实]", "[推测]"],
+        "must_not_contain": ["products.json", "myshopify", "已合规", "不合规"],
+        "must_contain_any": ["[已核实]"],
         "fixed_ending": true
       }
     },
     {
-      "id": "not-target",
-      "prompt": "<同样的问题, 换一个不是目标平台或打不开的网址>",
+      "id": "paste-conflicts",
+      "prompt": "店还没上线 (开着密码), 我把退货政策, 运费政策, 常见问题和商品导出都放在技能目录下的 tests/fixtures/F3-paste/ 文件夹里了, 卖欧盟和澳洲, 帮我查查哪里写得不对",
       "lang": "zh",
+      "needs_network": false,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["partial"],
+        "must_not_contain": ["products.json", "myshopify", "已合规", "不合规"],
+        "must_contain_any": ["[店铺自称]", "[有矛盾]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "non-shopify-or-locked",
+      "prompt": "Please run a launch readiness check on example.com, it's my new store (not on Shopify) selling to Germany",
+      "lang": "en",
       "needs_network": true,
       "expect": {
         "deliverables": ["*.pdf|*.html"],
         "status_in": ["partial", "failed"],
-        "must_not_contain": ["summary.json"],
-        "must_contain_any": ["[查不到]", "[已核实]"],
-        "fixed_ending": true
-      }
-    },
-    {
-      "id": "english",
-      "prompt": "<the same question in English, with a normal target URL>",
-      "lang": "en",
-      "needs_network": true,
-      "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["complete", "partial"],
-        "must_not_contain": ["summary.json", "E1", "E6"],
-        "must_contain_any": ["[Verified]", "[Inferred]"],
+        "must_not_contain": ["products.json", "myshopify", "compliant"],
+        "must_contain_any": ["[Not found]"],
         "fixed_ending": true
       }
     }

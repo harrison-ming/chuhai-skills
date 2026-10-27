@@ -1,0 +1,4 @@
+Handle,Title,Body (HTML),Vendor,Type,Tags,Published,Variant Price,Variant Compare At Price,Variant Requires Shipping,Status
+linen-throw,Linen throw,<p>Soft linen throw 130 x 170 cm. 纯亚麻.</p>,Sunrise,Home,,true,49.00,69.00,true,active
+cotton-pillow,Cotton pillow,<p>Cotton pillow cover 45 x 45 cm.</p>,Sunrise,Home,,true,19.00,,true,active
+test-item,Test item,<p>test</p>,Sunrise,Home,,true,0.01,,true,draft

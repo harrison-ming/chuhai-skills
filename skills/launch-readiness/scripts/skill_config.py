@@ -18,8 +18,8 @@ TITLE = {"zh": "开店上线前体检", "en": "Launch readiness check"}
 
 # Delivery: <Documents>/<ROOT_NAME>/<subject> <RUN_LABEL> <date>/
 ROOT_NAME = {"zh": "出海体检报告", "en": "Store checks"}
-RUN_LABEL = TITLE
-REPORT_NAME = {"zh": "%s 开店上线前体检报告", "en": "%s Launch readiness check report"}
+RUN_LABEL = {"zh": "上线体检", "en": "launch check"}
+REPORT_NAME = {"zh": "%s 上线体检报告", "en": "%s launch readiness report"}
 README_TEXT = {
     "zh": (
         "这是生成报告用的原始数据, 普通用户可以不看.\n"
@@ -35,22 +35,25 @@ README_TEXT = {
     ),
 }
 
-# Pages collect.py fetches: (key, path, file name, kind json|html|xml).
-PAGES = [("homepage", "/", "homepage.html", "html")]
-# Strings that identify the target platform in the homepage (empty: any site).
-TARGET_MARKERS = ["cdn.shopify.com", "Shopify.theme"]
-
 # CSV tables: file name per language and (zh header, en header, field) columns.
 # deliver.py writes one CSV per table whose rows exist in summary.json.
 CSV_TABLES = [
     {
-        "source": "checks",
-        "name": {"zh": "检查清单.csv", "en": "checklist.csv"},
+        "source": "fixlist",
+        "name": {"zh": "整改清单.csv", "en": "fix-list.csv"},
         "columns": [
-            ("检查项", "Item", "item"),
-            ("结果", "Result", "result"),
-            ("证据", "Evidence", "badge"),
-            ("说明", "Note", "note"),
+            ("优先级", "Priority", "priority"),
+            ("编号", "ID", "id"),
+            ("问题", "Issue", "issue"),
+            ("涉及市场", "Markets", "markets"),
+            ("在哪 (网址)", "Where", "where"),
+            ("证据原文", "Evidence", "evidence"),
+            ("标签", "Badge", "badge"),
+            ("怎么改", "Fix", "fix"),
+            ("依据 (来源与网址)", "Source", "basis"),
+            ("预计耗时", "Effort", "effort"),
+            ("状态", "Status", "status"),
+            ("复查方法", "How to recheck", "recheck"),
         ],
     },
 ]
@@ -58,13 +61,67 @@ CSV_TABLES = [
 # Badge set: add "user_input" when users type in numbers ([你提供的]).
 BADGE_KEYS = evidence.DEFAULT_BADGE_KEYS
 # Extra technical words kept out of the report body: (regex, plain hint).
-EXTRA_TECH_TERMS = {"zh": [], "en": []}
-# Conclusions the skill must never state: (regex, why with %s, fix).
-FORBIDDEN_TERMS = {"zh": [], "en": []}
-# Pluggable rules, e.g. checks.claim_badge_rule(...); see _shared/checks.py.
-RULES = {"zh": [], "en": []}
+EXTRA_TECH_TERMS = {
+    "zh": [
+        (r"(?i)\bcanonical\b", "规范网址"),
+        (r"(?i)\bnoindex\b", "不让搜索引擎收录"),
+        (r"(?i)robots\.txt", "搜索引擎抓取规则"),
+        (r"\bGMC\b(?!-\d)", "谷歌商家中心"),
+        (r"(?i)\bx-default\b", "默认语言版本"),
+        (r"audit\.json|claims\.jsonl|pages\.json", "原始数据文件 (放附录)"),
+        (r"(?i)hreflang", "多语言网址标注"),
+        (r"(?i)\bsitemap", "网站地图"),
+        (r"products\.json|meta\.json", "商品公开数据"),
+        (r"(?i)myshopify", "店铺后台域名 (放附录)"),
+    ],
+    "en": [
+        (r"\bGMC\b(?!-\d)", "Google Merchant Center"),
+        (r"audit\.json|claims\.jsonl|pages\.json", "raw data file (appendix only)"),
+        (r"(?i)hreflang", "language/region annotations"),
+        (r"products\.json|meta\.json", "public product data"),
+        (r"(?i)myshopify", "admin domain (appendix only)"),
+    ],
+}
+# Conclusions the skill must never state before the appendix: (regex, why, fix).
+FORBIDDEN_TERMS = {
+    "zh": [
+        (
+            r"已合规|不合规|合规(?!服务商)|违法|合法",
+            "体检不能给出 '%s' 这种法律结论.",
+            "改成 '与 X 的官方要求一致/不一致 [推测] 依据: ...'.",
+        ),
+    ],
+    "en": [
+        (
+            r"(?i)\b(non-?compliant|compliant|in compliance|illegal|unlawful|lawful)\b",
+            "A launch check must not state '%s' (a legal conclusion).",
+            "Write 'differs from / matches the official requirement of X [Inferred] Basis: ...'.",
+        ),
+    ],
+}
+# A requirement gap must be labelled as a judgement.
+RULES = {
+    "zh": [
+        checks.claim_badge_rule(
+            r"官方要求.{0,6}(不一致|一致)|要求不一致",
+            "legal_needs_inferred",
+            "法规/官方要求的对照是判断, 只能标 [推测].",
+            "这一行加 [推测] 和 '依据: <来源>'.",
+            required=("inferred",),
+        ),
+    ],
+    "en": [
+        checks.claim_badge_rule(
+            r"(?i)(differs from|matches|inconsistent with|consistent with) (the )?official",
+            "legal_needs_inferred",
+            "Comparisons with official requirements are judgements: label them [Inferred].",
+            "Add [Inferred] and 'Basis: <source>' to this line.",
+            required=("inferred",),
+        ),
+    ],
+}
 # Data files shipped in references/ that carry valid_as_of (warn when old).
-DATA_FILES = []
+DATA_FILES = ["rules.json"]
 DATA_MAX_AGE_DAYS = 90
 
 

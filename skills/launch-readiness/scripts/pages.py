@@ -44,7 +44,7 @@ ATTR_RE = re.compile(r'([a-zA-Z_:\-]+)\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))'
 TITLE_RE = re.compile(r"(?is)<title[^>]*>(.*?)</title>")
 HAN_RE = re.compile("[一-鿿]{2,}")
 LANG_NAMES_RE = re.compile("简体中文|繁體中文|中文|日本語|한국어|正體中文")
-SENT_SPLIT_RE = re.compile(r"(?<=[.!?。！？])\s+|\n+")
+SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|(?<=[\u3002\uff01\uff1f])\s*|\n+")
 
 
 def read_text(path):
@@ -317,10 +317,9 @@ def js_rendered(src):
     """True when the page carries almost no text without JavaScript."""
     if not src:
         return False
-    text = main_html(src)
-    words = len(html_to_text(text).split())
+    words = len(full_text(src).split())
     scripts = len(re.findall(r"(?i)<script\b", src))
-    return words < 40 and scripts >= 1
+    return words < 25 and scripts >= 1
 
 
 def sentences(text):
