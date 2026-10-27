@@ -11,6 +11,7 @@
 | 技能 | 做什么 | 状态 |
 |---|---|---|
 | [shopify-store-teardown](skills/shopify-store-teardown/) | 拆解任意公开 Shopify 独立站: 身份与店龄核验, 全量商品/价格带/上新节奏统计, 主题/应用/Markets 识别, 政策一致性检查 | 可用 (experimental) |
+| [competitor-change-radar](skills/competitor-change-radar/) | 竞品变化雷达: 盯住一家对标店, 两次快照对比上新/下架/调价/打折/首页促销/主题应用/政策改动, 每条变化可追溯; 第一次自动建基线并给出下次运行日期 | 开发中 (experimental) |
 
 ## 对标店拆解: 能回答什么
 

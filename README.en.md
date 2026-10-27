@@ -11,6 +11,7 @@ Every skill follows the same discipline: **public information only, facts comput
 | Skill | What it does | Status |
 |---|---|---|
 | [shopify-store-teardown](skills/shopify-store-teardown/) | Tear down any public Shopify store: identity and store age checks, full catalog / price band / launch cadence stats, theme / app / Markets detection, policy consistency | Available (experimental) |
+| [competitor-change-radar](skills/competitor-change-radar/) | Competitor change radar: compare two snapshots of one competitor store for new / removed products, price and discount changes, homepage promos, theme / apps, policy edits, each traceable; the first run builds a baseline and names the next run date | In development (experimental) |
 
 ## What you get
 
