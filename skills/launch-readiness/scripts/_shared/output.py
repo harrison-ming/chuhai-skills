@@ -197,9 +197,16 @@ def in_cloud_sandbox(path=None):
     return os.path.isdir(SANDBOX_OUTPUTS)
 
 
+NO_OPEN_ENV = "CHUHAI_NO_OPEN"
+
+
 def can_open_gui(path=None, platform=None, environ=None):
+    """False in a cloud sandbox, without a display, or when CHUHAI_NO_OPEN is
+    set to a true value (automated runs must not pop file-manager windows)."""
     platform = platform or sys.platform
     environ = os.environ if environ is None else environ
+    if (environ.get(NO_OPEN_ENV) or "").strip().lower() in ("1", "true", "yes", "on"):
+        return False
     if in_cloud_sandbox(path):
         return False
     if platform.startswith("win") or platform == "darwin":

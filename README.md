@@ -11,6 +11,8 @@
 | 技能 | 做什么 | 状态 |
 |---|---|---|
 | [shopify-store-teardown](skills/shopify-store-teardown/) | 拆解任意公开 Shopify 独立站: 身份与店龄核验, 全量商品/价格带/上新节奏统计, 主题/应用/Markets 识别, 政策一致性检查 | 可用 (experimental) |
+| [profit-model](skills/profit-model/) | 利润与定价测算: 每单贡献, 广告后利润, 盈亏平衡 ROAS 与最高获客成本, 底线价/目标价, 三情景, 开张现金; 内置带日期的 Shopify/Stripe/PayPal 费率表, 每个数字可追溯 | 可用 (experimental) |
+| [tracking-audit](skills/tracking-audit/) | 广告与追踪体检: 网站装了哪些广告/分析追踪代码, 重复安装, 模板编号, 旧版代码; 成交与服务端回传的后台确认清单; 隐私同意提示 | 可用 (experimental) |
 
 ## 对标店拆解: 能回答什么
 
@@ -111,6 +113,7 @@ npx skills add harrison-ming/chuhai-skills
 | | 内容 | 获取 |
 |---|---|---|
 | **Pro 版** | 3-8 家店横向对比, 带锚点的评分卡, 对照你自己店铺的差距清单, 浏览器档 (购物车/移动端/弹窗/评价挂件, 需本地运行), 持续更新 | 准备中 |
+| **利润测算 Pro 版** | 最多 200 个 SKU 与店铺加权, Shopify / Amazon FBA / TikTok Shop 渠道对比, 全部输入敏感度龙卷风图, 12 个月现金流与现金谷底, 价格网格, 复购回本 | 准备中 |
 | **人工深度拆解** | 由 StellarByte 完成 1 家对标店的完整拆解, 对照你的店铺给出改造建议, 含 30 分钟通话 | [联系 StellarByte](https://stellarbyte.ca/zh/contact/?ref=skill-teardown) |
 
 ## 反馈与贡献

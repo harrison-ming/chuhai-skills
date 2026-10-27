@@ -2,6 +2,12 @@
 
 - Browser-like User-Agent, gzip/deflate, a delay between requests, retries
   with backoff on network errors, 429 and 5xx (Retry-After honoured, max 15 s).
+- A cut-off transfer (IncompleteRead, connection reset, remote disconnect;
+  common behind proxies) is retried with bounded backoff, the retry asking
+  for an uncompressed body.
+- A host whose name does not resolve (DNS) fails at once, without retries,
+  and every later request to that host is skipped, so a mistyped or
+  non-existent domain finishes in seconds.
 - Every response is returned as a dict with status, body, final URL, timing
   and a short note, so callers can record each request instead of aborting.
 - TLS verification always stays on. Python 3.13+'s VERIFY_X509_STRICT is
@@ -39,6 +45,11 @@ MAX_BYTES = 40 * 1024 * 1024
 MAX_REDIRECTS = 8
 WIN_ROOT_REFRESH_NOTE = "windows root certificate refresh triggered, retried once"
 WIN_ROOT_REFRESH_TIMEOUT = 20
+# Retries for a cut-off transfer (at least this many, whatever ``retries``)
+# and the cap of one backoff sleep, in seconds.
+TRANSIENT_RETRIES = 3
+MAX_BACKOFF = 8.0
+DNS_SKIP_NOTE = "skipped: host name did not resolve earlier"
 SECOND_LEVEL = {
     "co.uk",
     "org.uk",
@@ -244,6 +255,50 @@ def is_cert_error(err):
     return "CERTIFICATE_VERIFY_FAILED" in str(err)
 
 
+def is_dns_error(err):
+    """True when the host name could not be resolved (not a temporary DNS
+    hiccup: EAI_AGAIN keeps the normal retries)."""
+    reason = getattr(err, "reason", err)
+    if not isinstance(reason, socket.gaierror):
+        return False
+    return reason.errno != getattr(socket, "EAI_AGAIN", object())
+
+
+def is_transient_error(err):
+    """A transfer cut off midway: worth retrying, ideally uncompressed."""
+    reason = getattr(err, "reason", err)
+    return isinstance(
+        reason,
+        (
+            http.client.IncompleteRead,
+            http.client.RemoteDisconnected,
+            ConnectionResetError,
+            ConnectionAbortedError,
+            BrokenPipeError,
+        ),
+    )
+
+
+def check_length(body, headers):
+    """Raise IncompleteRead when fewer bytes arrived than Content-Length says.
+
+    ``HTTPResponse.read(amt)`` returns a short body silently when the
+    connection drops, so a cut-off page would otherwise pass as complete.
+    """
+    raw = headers.get("Content-Length") if hasattr(headers, "get") else None
+    try:
+        expected = int(raw)
+    except (TypeError, ValueError):
+        return
+    if len(body) < expected <= MAX_BYTES:
+        raise http.client.IncompleteRead(body, expected - len(body))
+
+
+def backoff(attempt):
+    """Sleep before retry number ``attempt`` (1-based): 1.5, 3, 6, 8, 8 ..."""
+    return min(1.5 * (2 ** (attempt - 1)), MAX_BACKOFF)
+
+
 def describe_error(err, note_for_cert=None):
     if is_cert_error(err):
         return note_for_cert or CERT_NOTE
@@ -290,6 +345,7 @@ class Fetcher(object):
         self.accept_language = accept_language
         self.cert_note = CERT_NOTES[i18n.norm_lang(lang)]
         self._refreshed_hosts = set()
+        self._dns_failed = {}  # host -> note of the resolution failure
         self._build_opener()
         self._last = 0.0
 
@@ -317,8 +373,18 @@ class Fetcher(object):
 
     def get(self, url, accept=ACCEPT_HTML, headers=None):
         """Return dict(status, body(bytes|None), final_url, elapsed_ms, note)."""
+        host = (urlsplit(url).hostname or "").lower()
+        if host in self._dns_failed:
+            return {
+                "status": None,
+                "body": None,
+                "final_url": url,
+                "elapsed_ms": 0,
+                "note": "%s; %s" % (self._dns_failed[host], DNS_SKIP_NOTE),
+            }
         attempt = 0
         refreshed = False
+        identity = False  # ask for an uncompressed body after a cut-off
         while True:
             # Per-attempt note: a cert error that a retry fixed must not leak
             # into the final result (only the refresh marker is kept).
@@ -330,7 +396,7 @@ class Fetcher(object):
                 "User-Agent": self.user_agent,
                 "Accept": accept,
                 "Accept-Language": self.accept_language,
-                "Accept-Encoding": "gzip, deflate",
+                "Accept-Encoding": "identity" if identity else "gzip, deflate",
             }
             if headers:
                 req_headers.update(headers)
@@ -342,6 +408,7 @@ class Fetcher(object):
                 resp_headers = resp.headers
                 body = resp.read(MAX_BYTES + 1)
                 resp.close()
+                check_length(body, resp_headers)
             except HTTPError as e:
                 status = e.code
                 final_url = e.geturl() or url
@@ -375,7 +442,16 @@ class Fetcher(object):
                 if is_cert_error(err) and not refreshed and self._try_cert_refresh(url):
                     refreshed = True
                     continue
-                if is_cert_error(err) or attempt >= self.retries:
+                dns = is_dns_error(err)
+                transient = is_transient_error(err)
+                limit = (
+                    max(self.retries, TRANSIENT_RETRIES) if transient else self.retries
+                )
+                if is_cert_error(err) or dns or attempt >= limit:
+                    if dns and host:
+                        self._dns_failed[host] = note
+                    if attempt:
+                        note += "; retried %d" % attempt
                     return {
                         "status": None,
                         "body": None,
@@ -384,13 +460,14 @@ class Fetcher(object):
                         "note": note,
                     }
                 attempt += 1
-                time.sleep(1.5 * (2 ** (attempt - 1)))
+                identity = identity or transient
+                time.sleep(backoff(attempt))
                 continue
             if (status == 429 or (status is not None and status >= 500)) and (
                 attempt < self.retries
             ):
                 attempt += 1
-                wait = 1.5 * (2 ** (attempt - 1))
+                wait = backoff(attempt)
                 ra = (
                     resp_headers.get("Retry-After")
                     if hasattr(resp_headers, "get")

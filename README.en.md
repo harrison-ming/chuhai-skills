@@ -11,6 +11,8 @@ Every skill follows the same discipline: **public information only, facts comput
 | Skill | What it does | Status |
 |---|---|---|
 | [shopify-store-teardown](skills/shopify-store-teardown/) | Tear down any public Shopify store: identity and store age checks, full catalog / price band / launch cadence stats, theme / app / Markets detection, policy consistency | Available (experimental) |
+| [profit-model](skills/profit-model/) | Profit and pricing model: contribution per order, profit after ads, break-even ROAS and max CPA, price floor / target, three scenarios, launch cash; dated Shopify / Stripe / PayPal fee table, every number traceable | Available (experimental) |
+| [tracking-audit](skills/tracking-audit/) | Ad tracking audit: which ad / analytics tags a site runs, duplicates, placeholder IDs, legacy code; admin checklist for purchases and server-side events; privacy and consent notes | Available (experimental) |
 
 ## What you get
 
@@ -88,6 +90,7 @@ The free skill fully covers single-store quick checks and deep teardowns, with n
 | | What | How |
 |---|---|---|
 | **Pro** | Comparison across 3-8 stores, anchored scorecard, gap list against your own store, browser checks (cart / mobile / popups / review widgets, run locally), ongoing updates | In preparation |
+| **Profit model Pro** | Up to 200 SKUs with store weighting, Shopify / Amazon FBA / TikTok Shop comparison, full sensitivity tornado chart, 12-month cash plan with the cash low point, price grid, repeat-purchase payback | In preparation |
 | **Done-for-you teardown** | StellarByte tears down 1 benchmark store end to end, compares it with your store and gives improvement suggestions, including a 30-minute call | [Contact StellarByte](https://stellarbyte.ca/contact/?ref=skill-teardown) |
 
 ## Feedback

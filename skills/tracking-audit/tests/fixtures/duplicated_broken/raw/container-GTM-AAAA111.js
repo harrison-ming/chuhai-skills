@@ -1,0 +1,1 @@
+var data={"resource":{"version":"3","macros":[{"function":"__c","vtp_value":"G-DUPE11111"}],"tags":[{"function":"__googtag","vtp_tagId":"G-DUPE11111"}]}};
