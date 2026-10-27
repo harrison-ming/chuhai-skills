@@ -10,6 +10,22 @@
   },
   "plugins": [
     {
+      "name": "profit-model",
+      "description": "利润与定价测算: 给做 Shopify / 独立站的中国出海卖家算清一个商品 \"这个价卖一单到底赚多少, 广告最多能花多少, 底线价和目标价是多少, 开张要备多少钱\".",
+      "version": "0.1.0",
+      "author": {
+        "name": "StellarByte"
+      },
+      "homepage": "https://github.com/harrison-ming/chuhai-skills",
+      "license": "MIT",
+      "keywords": [],
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/profit-model"
+      ]
+    },
+    {
       "name": "shopify-store-teardown",
       "description": "拆解任意公开 Shopify 独立站 (对标店/竞品店): 身份与店龄核验, 全量商品与价格统计, 主题/应用/Markets 识别, 政策一致性检查.",
       "version": "0.2.2",

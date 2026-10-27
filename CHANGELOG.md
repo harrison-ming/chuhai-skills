@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 新增 `profit-model` 利润与定价测算 (免费版, experimental): 单品最多两种售卖形态的每单贡献, 广告后利润, 盈亏平衡 ROAS 与最高获客成本, 底线价/目标价, 三情景, 月固定与盈亏平衡单量, 启动现金与现金周期, 敏感度前 3 名; 十进制精确计算, 取整偏保守; 内置带采集日期的 Shopify / Stripe / PayPal / Amazon / TikTok 费率表 (90 天提醒, 180 天降级, unverified 条目不作默认); 汇率不内置 (用户给或取欧洲央行带日期参考汇率), 关税不猜 (缺失写明未含关税); 所有默认值进 "假设清单"; 一键入口 `scripts/profit.py`; 中英报告, PDF/HTML + 4 张 CSV. 自检新增: 结果数字必须带标签, `[已核实]` 必须带日期, 正文数字必须能追到输入或费率表, 缺关税必须声明.
 - 生产线: 公共代码抽到 `shared/` (采集, 交付, 自检引擎, 证据标签, 中英双语), 每个 skill 带一份 `scripts/_shared/` 副本; 新增 `skills/_template/`, `tools/new_skill.py`, `tools/sync_shared.py`, `tools/gen_marketplace.py`, `tools/run_tests.py`, `CONTRIBUTING.md`.
 - shopify-store-teardown 改用 `_shared`, 输出不变 (黄金输出比对测试逐字节一致); 新增 `acceptance.json`.
 - marketplace.json 改为由 SKILL.md 生成, 版本号只在 SKILL.md 维护. Release 工作流检查副本同步, marketplace 与全部测试, zip 不含模板, 测试与验收文件.
