@@ -106,7 +106,7 @@ def is_first_products_page(original):
     return q.get("page", "1") == "1"
 
 
-def capture_archive(
+def _capture(
     store, store_dir, lang, target_date=None, fetcher=None, today=None, log=print
 ):
     """Write a ``<date>-archive`` snapshot. Returns (id or None, info dict)."""
@@ -221,7 +221,10 @@ def capture_archive(
     if "products-1.json" not in stamps and "homepage.html" not in stamps:
         shutil.rmtree(tmp, ignore_errors=True)
         info["result"] = "error"
-        info["note"] = "archived files could not be read"
+        info["note"] = "archived files could not be read (%s)" % ", ".join(
+            "%s %s" % (r["key"], r.get("http_status") or r.get("result"))
+            for r in requests
+        )
         return None, info
     # the snapshot is dated by what was actually saved (products first)
     anchor_ts = stamps.get("products-1.json") or stamps["homepage.html"]
@@ -261,4 +264,25 @@ def capture_archive(
         )
         % (sid, b.used)
     )
+    return sid, info
+
+
+ATTEMPT_FILE = "archive-attempt.json"
+
+
+def capture_archive(
+    store, store_dir, lang, target_date=None, fetcher=None, today=None, log=print
+):
+    """Write a ``<date>-archive`` snapshot. Returns (id or None, info dict).
+
+    The outcome (also a failed one) is kept in ``<store>/archive-attempt.json``
+    so the report can say why there is no archive baseline.
+    """
+    sid, info = _capture(store, store_dir, lang, target_date, fetcher, today, log)
+    record = {k: v for k, v in info.items() if k != "requests"}
+    record["requests_used"] = len(info.get("requests") or [])
+    os.makedirs(store_dir, exist_ok=True)
+    with open(os.path.join(store_dir, ATTEMPT_FILE), "w", encoding="utf-8") as fh:
+        json.dump(record, fh, ensure_ascii=False, indent=1, sort_keys=True)
+        fh.write("\n")
     return sid, info

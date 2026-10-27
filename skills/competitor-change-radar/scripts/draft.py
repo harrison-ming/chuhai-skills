@@ -322,6 +322,7 @@ T = {
         "base_policy_line": "- %s: %s %s",
         "base_policy_none": "没有读到政策页的关键条款 [查不到]",
         "base_gap": "- 只有一份快照, 看不到任何变化. 价格, 上新, 促销的变化要等下一次快照.",
+        "base_archive_na": "- 也试了网页历史存档里一个月前的版本, 这次没取到可用的数据 (存档网站限流, 暂时下线或没有收录) %s",
         "fail_glance": "- 这次没能读到 %s 的店铺数据: %s [查不到]",
         "fail_why": {
             "blocked": "网站打不开, 或者拦住了自动读取",
@@ -464,6 +465,7 @@ T["en"] = {
     "base_policy_line": "- %s: %s %s",
     "base_policy_none": "No policy key terms could be read [Not found]",
     "base_gap": "- One snapshot shows no changes. Price, launch and promo changes need the next snapshot.",
+    "base_archive_na": "- We also tried the web archive's copy from about a month ago and got no usable data this time (rate limited, offline or not archived) %s",
     "fail_glance": "- The store data of %s could not be read this time: %s [Not found]",
     "fail_why": {
         "blocked": "the site did not open or blocked automated reading",
@@ -1327,6 +1329,8 @@ def baseline_md(base, ctx):
     ]
     if snap["source"] == "archive":
         L.append("- " + WARNING_TEXT[lang]["archive_baseline"])
+    if ctx.get("archive_note"):
+        L.append(t["base_archive_na"] % badge("not_found", lang))
     L.append("")
     L += base_appendix(base, t, lang)
     return "\n".join(L) + "\n"

@@ -149,6 +149,11 @@ def write_report(store_dir, lang, a, b, demo=False, thresholds=None, log=print):
     to_day = (b[2].get("captured_at_utc") or b[0])[:10]
     next_due = date_add(to_day, cadence)
     ctx = {"lang": lang, "next_due": next_due, "demo": demo}
+    attempt = (
+        normalize.load_json(os.path.join(store_dir, archive.ATTEMPT_FILE), {}) or {}
+    )
+    if attempt.get("result") and attempt.get("result") != "ok":
+        ctx["archive_note"] = attempt.get("note") or attempt.get("result")
     if a is not None:
         data = diffmod.compute_diff(
             a[2], b[2], ref_of(store_dir, a), ref_of(store_dir, b), thresholds

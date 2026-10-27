@@ -617,6 +617,25 @@ class EndToEndTest(Tmp):
         ) as fh:
             self.assertEqual(json.load(fh)["status"], "failed")
 
+    def test_baseline_mentions_failed_archive(self):
+        _a, b = ff.write_pair(self.tmp, "price-drop")
+        store = os.path.join(self.tmp, "雷达", "alpha-outfitters.example")
+        shutil.copytree(b, os.path.join(store, "快照", "2026-10-27"))
+        normalize.write_snapshot(os.path.join(store, "快照", "2026-10-27"))
+        with open(
+            os.path.join(store, archive.ATTEMPT_FILE), "w", encoding="utf-8"
+        ) as fh:
+            json.dump({"result": "unknown", "note": "archive unreachable"}, fh)
+        quiet(
+            radar.main,
+            ["diff", "alpha-outfitters.example", "--out-root", self.tmp, "--quiet"],
+        )
+        report = os.path.join(store, snapshot.load_index(store)["reports"][-1])
+        with open(os.path.join(report, "原始数据", "diff.md"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("网页历史存档里一个月前的版本", text)
+        self.assertIn("完成状态: partial", text)
+
     def test_pick_pair_prefers_complete(self):
         mk = lambda sid, st, t: (sid, sid, {"status": st, "captured_at_utc": t})  # noqa: E731
         snaps = [
