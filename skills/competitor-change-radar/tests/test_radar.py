@@ -437,6 +437,38 @@ class ArchiveTest(Tmp):
         self.assertEqual(info["result"], "unknown")
 
 
+class ArchiveOfflineTest(Tmp):
+    def test_offline_notice_is_not_data(self):
+        page = b"<html><head><title>Internet Archive: Temporarily Offline</title></head></html>"
+
+        class Offline(object):
+            delay = 0
+
+            def get(self, url, accept=None, headers=None):
+                return dict(status=200, body=page, final_url=url, elapsed_ms=1, note="")
+
+        sid, info = archive.capture_archive(
+            "x.example",
+            os.path.join(self.tmp, "s"),
+            "zh",
+            fetcher=Offline(),
+            log=lambda *a: None,
+        )
+        self.assertIsNone(sid)
+        self.assertEqual(info["note"], "archive temporarily offline")
+
+    def test_homepage_only_archive_is_not_compared_on_products(self):
+        a, b = ff.write_pair(self.tmp, "archive-baseline")
+        raw = os.path.join(a, "原始数据", "raw")
+        os.remove(os.path.join(raw, "products-1.json"))
+        sa, sb = normalize.write_snapshot(a), normalize.write_snapshot(b)
+        d = diffmod.compute_diff(sa, sb)
+        self.assertFalse(d["comparable"]["products"])
+        md = draft.diff_md(d, {"lang": "zh", "next_due": "2026-11-03"})
+        self.assertIn("这一期商品没法比", md)
+        self.assertNotIn("上新 0 款", md)
+
+
 FILL = {
     "zh": "- 本周: 看看 R003 [推测] 依据: 降价超过一成.",
     "en": "- This week: look at R003 [Inferred] Basis: price cut over 10%.",

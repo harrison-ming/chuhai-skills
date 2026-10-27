@@ -467,7 +467,8 @@ def build_snapshot(snap_dir, source=None):
 def write_snapshot(snap_dir, source=None):
     snap = build_snapshot(snap_dir, source)
     with open(os.path.join(snap_dir, SNAPSHOT_FILE), "w", encoding="utf-8") as fh:
-        json.dump(snap, fh, ensure_ascii=False, indent=1, sort_keys=True)
+        # compact: a large store (10k products) is ~20 MB indented
+        json.dump(snap, fh, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         fh.write("\n")
     return snap
 

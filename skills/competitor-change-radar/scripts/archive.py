@@ -53,6 +53,12 @@ class Budget(object):
         return r
 
 
+def archive_down(body):
+    """archive.org answers 200 with an HTML notice while it is offline."""
+    head = (body or b"")[:4000].decode("utf-8", "replace")
+    return "Internet Archive: Temporarily Offline" in head
+
+
 def ts_to_dt(ts):
     return datetime.datetime.strptime(ts[:14].ljust(14, "0"), "%Y%m%d%H%M%S").replace(
         tzinfo=datetime.timezone.utc
@@ -136,8 +142,12 @@ def capture_archive(
     if r is None or r["status"] is None:
         info["note"] = "archive unreachable"
         return None, info
-    if r["status"] != 200:
-        info["note"] = "archive index HTTP %s" % r["status"]
+    if r["status"] != 200 or archive_down(r["body"]):
+        info["note"] = (
+            "archive temporarily offline"
+            if archive_down(r["body"])
+            else "archive index HTTP %s" % r["status"]
+        )
         return None, info
     prod_rows = [
         x for x in (parse_cdx(r["body"]) or []) if is_first_products_page(x[1])
@@ -200,6 +210,8 @@ def capture_archive(
         if resp is None:
             break
         result, cnote, keep = collect.classify(resp["status"], resp["body"], kind)
+        if keep and archive_down(resp["body"]):
+            result, cnote, keep = "error", "archive temporarily offline", False
         entry = fetch.status_entry(key, url, resp, result, fname, "archive %s" % ts)
         if cnote:
             entry["note"] = "; ".join(x for x in (entry["note"], cnote) if x)
