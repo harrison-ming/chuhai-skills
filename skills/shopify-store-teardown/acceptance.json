@@ -9,36 +9,41 @@
       "expect": {
         "deliverables": ["*.pdf|*.html", "*.csv"],
         "status_in": ["complete", "partial"],
-        "must_not_contain": ["products.json", "myshopify", "Shopify.theme", "E1", "L1"],
+        "must_not_contain": ["products.json", "myshopify", "Shopify.theme", "E1", "E2", "E3", "E4", "E5", "E6", "L0", "L1", "L2"],
         "must_contain_any": ["[已核实]"],
         "fixed_ending": true
       }
     },
     {
-      "id": "not-a-store",
+      "id": "not-shopify",
       "prompt": "example-not-a-store.com 是 Shopify 店吗",
       "lang": "zh",
       "needs_network": true,
       "expect": {
         "deliverables": ["*.pdf|*.html"],
-        "status_in": ["partial", "failed"],
-        "must_not_contain": ["products.json", "myshopify", "Shopify.theme"],
-        "must_contain_any": ["[查不到]", "[已核实]"],
+        "status_in": ["failed", "partial"],
+        "must_not_contain": ["products.json", "myshopify", "Shopify.theme", "E1", "E2", "E3", "E4", "E5", "E6", "L0", "L1", "L2"],
+        "must_contain_any": ["[查不到]", "打不开", "无法确认", "不是 Shopify"],
         "fixed_ending": true
       }
     },
     {
-      "id": "l0-quick",
+      "id": "l0",
       "prompt": "这家店 gymshark.com 开了多久, 规模多大",
       "lang": "zh",
       "needs_network": true,
       "expect": {
         "deliverables": ["*.pdf|*.html"],
         "status_in": ["complete", "partial"],
-        "must_not_contain": ["products.json", "myshopify", "Shopify.theme", "L0"],
-        "must_contain_any": ["[已核实]", "[查不到]"],
+        "must_not_contain": ["products.json", "myshopify", "Shopify.theme", "E1", "E2", "E3", "E4", "E5", "E6", "L0", "L1", "L2"],
+        "must_contain_any": ["[已核实]", "[店铺自称]", "[查不到]"],
         "fixed_ending": true
       }
     }
+  ],
+  "network_domains": ["rdap.org", "*.rdap.org", "rdap.verisign.com", "*.verisign.com", "web.archive.org", "archive.org"],
+  "script_cmds": [
+    "{python} -c \"import ast, glob, sys; [ast.parse(open(p, encoding='utf-8').read(), p) for p in sorted(glob.glob(sys.argv[1] + '/scripts/*.py'))]\" {skill_dir}",
+    "{python} {skill_dir}/scripts/collect.py {domain} --depth L1 --out-root {out_root}"
   ]
 }
