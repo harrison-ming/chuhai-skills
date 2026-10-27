@@ -156,6 +156,22 @@ class ScenarioTest(Tmp):
         self.assertIn("[查不到]", md)
         self.assertIn("完成状态: failed", md)
 
+    def test_network_only_failure_is_named(self):
+        s = ff.Snap("gone.example", "2026-10-27", ff.T_NEW)
+        for key, fname in (
+            ("homepage", "homepage.html"),
+            ("meta_json", "meta.json"),
+            ("products_json", "products-1.json"),
+        ):
+            s.fail(key, fname, "/", "error", None)
+        snap = normalize.write_snapshot(s.write(self.tmp))
+        self.assertEqual((snap["fetch_error"], snap["status"]), ("network", "blocked"))
+        md = draft.baseline_md(
+            diffmod.baseline(snap), {"lang": "zh", "next_due": "2026-11-03"}
+        )
+        self.assertIn("当前运行环境不能联网", md)
+        self.assertIn("完成状态: failed", md)
+
     def test_deterministic(self):
         a, b = ff.write_pair(self.tmp, "price-drop")
         outs = []

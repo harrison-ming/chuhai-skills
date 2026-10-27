@@ -53,6 +53,7 @@ MSG = {
         "demo": "演示数据已放到 %s (演示文件夹每次重新生成).",
         "bad_store": "错误: 无法解析店铺地址: %s",
         "rebuilt": "已从快照重建 radar.json.",
+        "network": "提示: 所有请求都是网络错误. 可能网址不存在, 也可能当前环境不能联网; 不能联网时按 SKILL.md 的模式 B 用网页读取工具取数.",
     },
     "en": {
         "reuse": "Already captured today (%s, complete); reusing it without network. Use --force to capture again.",
@@ -70,6 +71,7 @@ MSG = {
         "demo": "Demo data placed in %s (rebuilt on every demo run).",
         "bad_store": "Error: cannot parse the store address: %s",
         "rebuilt": "radar.json rebuilt from the snapshots.",
+        "network": "Note: every request failed with a network error. The address may not exist, or this environment has no internet; without internet use mode B in SKILL.md.",
     },
 }
 
@@ -253,6 +255,8 @@ def cmd_snap(args, store_dir=None, root=None):
     if reused:
         say(args, m["reuse"] % sid)
     say(args, m["snap"] % (sid, snap["source"], len(snap["products"]), snap["status"]))
+    if snap.get("fetch_error") == "network":
+        say(args, m["network"])
     today = sid[:10]
     older = [
         s

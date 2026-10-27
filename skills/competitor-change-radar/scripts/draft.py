@@ -325,6 +325,7 @@ T = {
         "fail_glance": "- 这次没能读到 %s 的店铺数据: %s [查不到]",
         "fail_why": {
             "blocked": "网站打不开, 或者拦住了自动读取",
+            "network": "连不上这个网址 (无法解析域名或网络不通): 可能网址不存在, 也可能是当前运行环境不能联网, 不代表店铺本身有问题",
             "not_shopify": "它看起来不是 Shopify 店, 本技能只支持 Shopify 店",
         },
         "fail_next": "- 没有可比的数据, 所以没有变化结论. 确认网址后可以再试一次; 下次建议 %s 再跑.",
@@ -466,6 +467,7 @@ T["en"] = {
     "fail_glance": "- The store data of %s could not be read this time: %s [Not found]",
     "fail_why": {
         "blocked": "the site did not open or blocked automated reading",
+        "network": "the address could not be reached (name not resolved or no network): the address may not exist, or this environment has no internet; it says nothing about the store itself",
         "not_shopify": "it does not look like a Shopify store, and this skill only supports Shopify",
     },
     "fail_next": "- No comparable data, so no change findings. Check the address and try again; next suggested run: %s.",
@@ -643,9 +645,12 @@ def diff_md(diff, ctx):
     )
     comp = diff["comparable"]
     if bad:
-        why = T[lang]["fail_why"].get(diff["to"]["status"]) or T[lang]["fail_why"].get(
-            diff["from"]["status"], ""
+        side = (
+            diff["to"]
+            if diff["to"]["status"] in ("blocked", "not_shopify")
+            else diff["from"]
         )
+        why = T[lang]["fail_why"].get(side.get("fetch_error") or side["status"], "")
         L.append(t["fail_glance"] % (diff["domain"], why))
     elif not comp["products"]:
         side = diff["from"] if not diff["from"]["products"] else diff["to"]
@@ -1183,7 +1188,11 @@ def baseline_md(base, ctx):
     failed = base["status"] == "failed"
     if failed:
         L.append(
-            t["fail_glance"] % (base["domain"], t["fail_why"].get(snap["status"], ""))
+            t["fail_glance"]
+            % (
+                base["domain"],
+                t["fail_why"].get(snap.get("fetch_error") or snap["status"], ""),
+            )
         )
         L.append(t["fail_next"] % ctx["next_due"])
         L += [""]

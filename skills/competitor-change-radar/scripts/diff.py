@@ -1074,6 +1074,7 @@ def snap_ref(s):
         "products": len(s.get("products") or {}),
         "pagination_complete": (s.get("coverage") or {}).get("pagination_complete"),
         "archive_timestamps": s.get("archive_timestamps"),
+        "fetch_error": s.get("fetch_error"),
     }
 
 

@@ -275,6 +275,17 @@ def norm_product(p):
     }
 
 
+def network_only(status):
+    """ "network" when every request failed before any HTTP answer (DNS,
+    no route, sandbox without internet): says nothing about the store."""
+    reqs = [r for r in (status or {}).get("requests") or [] if isinstance(r, dict)]
+    if reqs and all(
+        r.get("http_status") is None and r.get("result") == "error" for r in reqs
+    ):
+        return "network"
+    return None
+
+
 def collect_page_size():
     return 250  # collect.PRODUCTS_LIMIT, also used for collections
 
@@ -400,6 +411,7 @@ def build_snapshot(snap_dir, source=None):
         "source": source,
         "status": status,
         "identity_status": identity,
+        "fetch_error": network_only(run.status),
         "coverage": {
             "products": coverage_products,
             "pagination_complete": bool(

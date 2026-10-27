@@ -32,6 +32,7 @@
 {"schema": "radar/snapshot/1", "domain": "x.example", "snapshot_id": "2026-10-27",
  "captured_at_utc": "2026-10-27T08:00:00Z", "source": "live|archive|teardown_import",
  "status": "complete|partial|blocked|not_shopify", "identity_status": "confirmed|probable|unconfirmed|not_shopify",
+ "fetch_error": "network|null",
  "coverage": {"products": "full|partial|none", "pagination_complete": true, "policies": ["refund-policy"],
               "policies_checked": {"refund-policy": "ok"}, "homepage": true, "collections": true, "meta": true},
  "shop": {"name": "", "currency": "USD", "currency_source": "meta|homepage", "country": "US", "ships_to_count": 40},
@@ -48,7 +49,7 @@
 ```
 
 - 价格存字符串 (两位小数), 比较用十进制, 不用浮点. 不收录更新时间, 图片地址, 商品描述.
-- `status`: `complete` = 商品翻页到底且确认是 Shopify; 存档来源最多 `partial`.
+- `status`: `complete` = 商品翻页到底且确认是 Shopify; 存档来源最多 `partial`. `fetch_error: network` = 所有请求都没拿到任何网络回应 (域名解析失败, 沙箱不能联网): 报告要写 "连不上这个网址, 可能网址不存在也可能环境不能联网", 不能写成店铺被拦.
 - 没有商品编号的数据 (手动或存档) 用 `handle:<网址>` 作键.
 
 ## 3. `diff.json` (radar/diff/1)
