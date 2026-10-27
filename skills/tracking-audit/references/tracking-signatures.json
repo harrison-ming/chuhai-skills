@@ -263,6 +263,39 @@
    "source_url": null,
    "status": "uncalibrated",
    "note": "GA4 g/collect not observed in this run."
+  },
+  {
+   "vendor": "snap",
+   "kind": "script_src",
+   "pattern": "sc-static\\.net/scevent\\.min\\.js",
+   "id_pattern": null,
+   "evidence_stores_count": 1,
+   "sample_snippet": "(window,document,'https://sc-static.net/scevent.min.js')",
+   "source_url": null,
+   "status": "uncalibrated",
+   "note": "Added 2026-10-27 (tracking-audit real runs): loader only, code context required; consent inventories excluded by the context guard. 1 real loader (cupshe.com)."
+  },
+  {
+   "vendor": "tiktok",
+   "kind": "script_src",
+   "pattern": "analytics\\.tiktok\\.com/i18n/pixel/(?:events|sdk)\\.js",
+   "id_pattern": null,
+   "evidence_stores_count": 0,
+   "sample_snippet": null,
+   "source_url": null,
+   "status": "uncalibrated",
+   "note": "Added 2026-10-27: loader only, code context required."
+  },
+  {
+   "vendor": "pinterest",
+   "kind": "script_src",
+   "pattern": "s\\.pinimg\\.com/ct/core\\.js",
+   "id_pattern": null,
+   "evidence_stores_count": 0,
+   "sample_snippet": null,
+   "source_url": null,
+   "status": "uncalibrated",
+   "note": "Added 2026-10-27: loader only, code context required."
   }
  ],
  "app_pixels": [

@@ -48,7 +48,7 @@ PLATFORMS = (
 )
 AD_PLATFORMS = ("meta", "google_ads", "tiktok", "pinterest", "snap", "microsoft")
 GOOGLE_PREFIX = {"G": "ga4", "AW": "google_ads", "GT": "google_tag", "DC": "google_tag"}
-GOOGLE_PREFIX["MC"] = "google_tag"
+# MC- is a Merchant Center account, not a tag: never reported as a tag.
 
 ID_RE = {
     "meta": re.compile(r"\d{10,20}"),
@@ -262,7 +262,13 @@ def app_pixel_hits(entries, sigs, source):
             item["calibrated"] = spec.get("status") == "calibrated"
             ids = []
             if vendor == "google":
-                ids = sorted(set(ID_RE["google"].findall(raw_cfg or "")))
+                ids = sorted(
+                    set(
+                        i
+                        for i in ID_RE["google"].findall(raw_cfg or "")
+                        if not i.startswith("MC-")
+                    )
+                )
             else:
                 for key in spec.get("id_keys", []):
                     if cfg.get(key):
@@ -348,7 +354,11 @@ def fallback_app_pixel_hits(text, sigs, source):
             vendor = s["vendor"]
             if vendor == "google":
                 window = text[max(0, m.start() - 1500) : m.start()]
-                for gid in sorted(set(ID_RE["google"].findall(window)))[:4]:
+                for gid in sorted(
+                    g
+                    for g in set(ID_RE["google"].findall(window))
+                    if not g.startswith("MC-")
+                )[:4]:
                     hits.append(
                         make_hit(
                             google_platform(gid),
@@ -464,7 +474,7 @@ def container_ids(text):
     gtm, gtag = [], []
     for m in re.finditer(r"GTM-[A-Z0-9]{4,10}", text or ""):
         ctx = text[max(0, m.start() - 160) : m.start()]
-        if re.search(r"dataLayer|gtm\.js|googletagmanager", ctx):
+        if re.search(r"dataLayer|gtm\.js|googletagmanager|ns\.html\?id=", ctx):
             if m.group(0) not in gtm:
                 gtm.append(m.group(0))
     for m in re.finditer(
