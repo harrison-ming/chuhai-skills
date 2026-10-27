@@ -11,6 +11,7 @@ Every skill follows the same discipline: **public information only, facts comput
 | Skill | What it does | Status |
 |---|---|---|
 | [shopify-store-teardown](skills/shopify-store-teardown/) | Tear down any public Shopify store: identity and store age checks, full catalog / price band / launch cadence stats, theme / app / Markets detection, policy consistency | Available (experimental) |
+| [payments-readiness](skills/payments-readiness/) | Payments readiness check: compares public policies, contact details, payment icons and currency display with providers' published checklists, checks the payee / provider / payout chain, and estimates payment fees from your order value and volume (dated official rate snapshot) | In development (experimental) |
 
 ## What you get
 

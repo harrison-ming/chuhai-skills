@@ -11,6 +11,7 @@
 | 技能 | 做什么 | 状态 |
 |---|---|---|
 | [shopify-store-teardown](skills/shopify-store-teardown/) | 拆解任意公开 Shopify 独立站: 身份与店龄核验, 全量商品/价格带/上新节奏统计, 主题/应用/Markets 识别, 政策一致性检查 | 可用 (experimental) |
+| [payments-readiness](skills/payments-readiness/) | 收款上线体检: 对照通道方公开清单检查政策页, 联系方式, 付款图标, 币种显示与前后矛盾, 核对主体/通道/提现链路, 按客单价和单量估算手续费 (费率快照带官方出处和日期) | 开发中 (experimental) |
 
 ## 对标店拆解: 能回答什么
 

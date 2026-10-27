@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 新增 `payments-readiness` (收款上线体检, experimental 0.1.0): 只读采集 → S/P/M/T/E 五组规则 → 手续费计算器 (随技能附带 2026-10-27 费率快照, 带官方出处, 超 90 天告警) → 可直接自检通过的报告初稿 → PDF + 整改清单.csv + 费用测算.csv; 支持离线测算与手动取数; 中英双语; 规则经 5 家真实店铺和 1 个非店铺网站校准.
 - 生产线: 公共代码抽到 `shared/` (采集, 交付, 自检引擎, 证据标签, 中英双语), 每个 skill 带一份 `scripts/_shared/` 副本; 新增 `skills/_template/`, `tools/new_skill.py`, `tools/sync_shared.py`, `tools/gen_marketplace.py`, `tools/run_tests.py`, `CONTRIBUTING.md`.
 - shopify-store-teardown 改用 `_shared`, 输出不变 (黄金输出比对测试逐字节一致); 新增 `acceptance.json`.
 - marketplace.json 改为由 SKILL.md 生成, 版本号只在 SKILL.md 维护. Release 工作流检查副本同步, marketplace 与全部测试, zip 不含模板, 测试与验收文件.
