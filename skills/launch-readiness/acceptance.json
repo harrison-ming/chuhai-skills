@@ -27,7 +27,8 @@
         "fixed_ending": true,
         "status_by_runner": {
           "codex-nonet": [
-            "failed"
+            "failed",
+            "partial"
           ]
         },
         "expect_by_runner": {
