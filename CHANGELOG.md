@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 新增 skill `tracking-audit` (广告与追踪体检, v0.1.0): 读公开页面和页面引用的公开谷歌代码容器, 按 2026-10-27 在 48 家真实店铺校准的识别规则找出 Meta, 谷歌分析, 谷歌广告, GTM, TikTok, Pinterest, Snap, Klaviyo 等追踪代码 (只认带代码上下文的命中, 同意工具清单里的平台域名不算安装); 解析 Shopify 像素登记表; 检查重复安装, 多编号, 模板编号, 旧版 UA, 隐私与同意提示 (只是提示); 结账成交与服务端回传给出后台截图清单, 用户截图按规则记 [已核实]/[有矛盾]/[店铺自称]; 自动写报告草稿, 交付 PDF + `体检清单.csv`; 支持别人的店 (`--mode other`) 和英文 (`--lang en`). 测试只用合成样本.
 - 生产线: 公共代码抽到 `shared/` (采集, 交付, 自检引擎, 证据标签, 中英双语), 每个 skill 带一份 `scripts/_shared/` 副本; 新增 `skills/_template/`, `tools/new_skill.py`, `tools/sync_shared.py`, `tools/gen_marketplace.py`, `tools/run_tests.py`, `CONTRIBUTING.md`.
 - shopify-store-teardown 改用 `_shared`, 输出不变 (黄金输出比对测试逐字节一致); 新增 `acceptance.json`.
 - marketplace.json 改为由 SKILL.md 生成, 版本号只在 SKILL.md 维护. Release 工作流检查副本同步, marketplace 与全部测试, zip 不含模板, 测试与验收文件.

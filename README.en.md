@@ -11,6 +11,7 @@ Every skill follows the same discipline: **public information only, facts comput
 | Skill | What it does | Status |
 |---|---|---|
 | [shopify-store-teardown](skills/shopify-store-teardown/) | Tear down any public Shopify store: identity and store age checks, full catalog / price band / launch cadence stats, theme / app / Markets detection, policy consistency | Available (experimental) |
+| [tracking-audit](skills/tracking-audit/) | Ad tracking audit: which ad / analytics tags a site runs, duplicates, placeholder IDs, legacy code; admin checklist for purchases and server-side events; privacy and consent notes | Available (experimental) |
 
 ## What you get
 

@@ -11,6 +11,7 @@
 | 技能 | 做什么 | 状态 |
 |---|---|---|
 | [shopify-store-teardown](skills/shopify-store-teardown/) | 拆解任意公开 Shopify 独立站: 身份与店龄核验, 全量商品/价格带/上新节奏统计, 主题/应用/Markets 识别, 政策一致性检查 | 可用 (experimental) |
+| [tracking-audit](skills/tracking-audit/) | 广告与追踪体检: 网站装了哪些广告/分析追踪代码, 重复安装, 模板编号, 旧版代码; 成交与服务端回传的后台确认清单; 隐私同意提示 | 可用 (experimental) |
 
 ## 对标店拆解: 能回答什么
 
