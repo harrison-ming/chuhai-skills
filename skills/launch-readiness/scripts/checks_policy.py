@@ -62,7 +62,7 @@ TOPIC_RULE = {
 }
 PLATFORM_NAMES = re.compile(
     r"shopify|google|meta|facebook|paypal|stripe|klarna|apple|amazon|afterpay|"
-    r"microsoft|tiktok|pinterest|klaviyo",
+    r"microsoft|tiktok|pinterest|klaviyo|^b corp",
     re.I,
 )
 
