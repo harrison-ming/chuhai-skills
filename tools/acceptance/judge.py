@@ -158,7 +158,7 @@ def parse_codex(events, skill):
                 out["trigger_evidence"].append("ran skill script")
             outp = str(item.get("aggregated_output") or "")
             if item.get("exit_code") not in (0, None) and re.search(
-                r"Operation not permitted|Read-only file system|sandbox",
+                r"Operation not permitted|Read-only file system|denied by sandbox|sandbox(?:ed)? denied",
                 outp,
                 re.IGNORECASE,
             ):

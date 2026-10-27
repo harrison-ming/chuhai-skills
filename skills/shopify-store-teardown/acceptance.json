@@ -41,6 +41,7 @@
       }
     }
   ],
+  "network_domains": ["rdap.org", "*.rdap.org", "rdap.verisign.com", "*.verisign.com", "web.archive.org", "archive.org"],
   "script_cmds": [
     "{python} -c \"import ast, glob, sys; [ast.parse(open(p, encoding='utf-8').read(), p) for p in sorted(glob.glob(sys.argv[1] + '/scripts/*.py'))]\" {skill_dir}",
     "{python} {skill_dir}/scripts/collect.py {domain} --depth L1 --out-root {out_root}"

@@ -16,14 +16,17 @@ Reads <skill-dir>/acceptance.json:
                            "must_contain_any": ["[已核实]"],
                            "fixed_ending": true}}],
      "script_cmds": ["{python} {skill_dir}/scripts/x.py {domain} --out-root {out_root}"],
-     "fixed_ending_text": "optional; default FIXED_ENDING in scripts/check_report.py"}
+     "fixed_ending_text": "optional; default FIXED_ENDING in scripts/check_report.py",
+     "network_domains": ["optional extra hosts for the claude sandbox, e.g. rdap.org"]}
 
 Each run gets an isolated workdir
     ~/STELLAR_OUTPUT/_tmp/acceptance/<skill>-<timestamp>/<runner>-<case>/
 with CHUHAI_OUTPUT_DIR=<workdir>/deliverables/. Results: results.json and
 results.md in the run dir.
 
-Safety: no permission-bypass flag is ever passed. Claude runs with
+Safety: no permission-bypass flag is ever passed. Claude runs (default
+--claude-mode sandbox) inside Claude Code's OS sandbox (Bash writes only under
+the workdir, network only to the case domain + "network_domains"), with
 --permission-mode dontAsk, user settings excluded, no MCP, and a narrow
 --allowedTools list; Codex runs with --sandbox workspace-write,
 approval_policy=never, user config.toml and exec-policy rules ignored (so the
@@ -75,6 +78,18 @@ CLAUDE_ALLOWED = [
     "Bash(mkdir:*)",
     "Bash(head:*)",
     "Bash(tail:*)",
+]
+# Sandbox mode: Bash is unrestricted by pattern but runs inside Claude Code's
+# OS sandbox (writes only under cwd, network only to allowed domains).
+CLAUDE_SANDBOX_ALLOWED = [
+    "Skill",
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "WebFetch",
+    "Bash",
 ]
 # Default output root of the skill; anything new here means the agent escaped
 # the CHUHAI_OUTPUT_DIR we gave it.
@@ -154,6 +169,21 @@ def run_proc(cmd, cwd, env, timeout, stdout_path, stderr_path):
     return code, round(time.time() - start, 1), timed_out
 
 
+def outside_refs(commands, workdir):
+    """Commands that mention the user's home tree outside the workdir (e.g. the
+    agent reading the owner's global CLAUDE.md or internal docs)."""
+    home = os.path.expanduser("~")
+    inside = {os.path.abspath(workdir), os.path.realpath(workdir)}
+    hits = []
+    for cmd in commands:
+        text = cmd
+        for w in inside:
+            text = text.replace(w, "")
+        if home + "/" in text or "~/" in text:
+            hits.append(cmd[:200])
+    return hits
+
+
 def read_text(path):
     try:
         with open(path, encoding="utf-8", errors="replace") as fh:
@@ -168,7 +198,25 @@ def codex_model():
     return m.group(1) if m else None
 
 
-def build_agent_cmd(runner, prompt, args):
+def claude_sandbox_settings(case, acceptance):
+    """Claude Code native sandbox: Bash writes confined to cwd (+ temp), network
+    limited to the case domain and the skill's declared network_domains."""
+    domains = list(acceptance.get("network_domains") or [])
+    dom = case_domain(case)
+    if dom and case.get("needs_network", True):
+        domains += [dom, "*." + dom]
+    return {
+        "sandbox": {
+            "enabled": True,
+            "autoAllowBashIfSandboxed": True,
+            "allowUnsandboxedCommands": False,
+            "network": {"allowedDomains": sorted(set(domains))},
+        }
+    }
+
+
+def build_agent_cmd(runner, case, args, acceptance=None):
+    prompt = case["prompt"]
     if runner == "claude":
         cmd = [
             "claude",
@@ -185,8 +233,14 @@ def build_agent_cmd(runner, prompt, args):
             "--no-session-persistence",
             "--tools",
             ",".join(CLAUDE_TOOLS),
-            "--allowedTools",
-        ] + CLAUDE_ALLOWED
+        ]
+        if args.claude_mode == "sandbox":
+            settings = claude_sandbox_settings(case, acceptance or {})
+            allowed = CLAUDE_SANDBOX_ALLOWED
+            cmd += ["--settings", json.dumps(settings)]
+        else:
+            allowed = CLAUDE_ALLOWED
+        cmd += ["--allowedTools"] + allowed + list(args.claude_allow or [])
         if args.claude_model:
             cmd += ["--model", args.claude_model]
         return cmd
@@ -222,6 +276,72 @@ def install_skill(runner, skill_dir, name, workdir):
     return dest
 
 
+def evaluate_agent(
+    runner, case, acc, workdir, installed, code, timed_out, leaks, timeout
+):
+    """Parse the transcript in `workdir` and judge it (also used by --rejudge)."""
+    transcript = os.path.join(workdir, "transcript.jsonl")
+    events = judge.read_jsonl(transcript)
+    parse = judge.parse_claude if runner == "claude" else judge.parse_codex
+    parsed = parse(events, acc["skill"])
+    verdict = judge.judge_agent_run(
+        case,
+        parsed,
+        os.path.join(workdir, "deliverables"),
+        installed,
+        acc,
+        python=sys.executable,
+    )
+    outside = outside_refs(parsed.get("commands") or [], workdir)
+    if outside:
+        verdict["notes"].append(
+            "commands touching paths outside workdir: %d" % len(outside)
+        )
+    if code != 0:
+        verdict["notes"].append("exit code %s" % code)
+    if timed_out:
+        verdict["passed"] = False
+        verdict["reasons"].append("timeout after %ss" % timeout)
+    if leaks:
+        verdict["passed"] = False
+        verdict["reasons"].append("wrote outside workdir: %s" % ", ".join(leaks))
+    return {"_parsed": parsed, "verdict": verdict, "outside_refs": outside}
+
+
+def rejudge(run_dir, acc):
+    """Recompute agent verdicts from saved transcripts (after a judge fix)."""
+    path = os.path.join(run_dir, "results.json")
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    cases = {c["id"]: c for c in acc["cases"]}
+    for r in data["results"]:
+        if r["runner"].startswith("script") or "workdir" not in r:
+            continue
+        sub = ".claude/skills" if r["runner"] == "claude" else ".agents/skills"
+        installed = os.path.join(r["workdir"], sub, acc["skill"])
+        row = evaluate_agent(
+            r["runner"],
+            cases[r["case"]],
+            acc,
+            r["workdir"],
+            installed,
+            r.get("exit_code"),
+            r.get("timed_out"),
+            r.get("leaks") or [],
+            0,
+        )
+        parsed = row["_parsed"]
+        r.update(
+            verdict=row["verdict"],
+            outside_refs=row["outside_refs"],
+            triggered=parsed.get("triggered"),
+            trigger_evidence=sorted(set(parsed.get("trigger_evidence") or [])),
+            permission_denials=parsed.get("permission_denials"),
+        )
+    data["meta"]["rejudged"] = datetime.datetime.now().isoformat(timespec="seconds")
+    return data
+
+
 def run_agent(runner, case, ctx):
     args, acc = ctx["args"], ctx["acceptance"]
     name = acc["skill"]
@@ -229,7 +349,7 @@ def run_agent(runner, case, ctx):
     os.makedirs(os.path.join(workdir, "deliverables"), exist_ok=True)
     installed = install_skill(runner, ctx["skill_dir"], name, workdir)
     env = base_env(workdir, ctx["shim_dir"])
-    cmd = build_agent_cmd(runner, case["prompt"], args)
+    cmd = build_agent_cmd(runner, case, args, acc)
     with open(os.path.join(workdir, "command.json"), "w", encoding="utf-8") as fh:
         json.dump({"cmd": cmd, "cwd": workdir}, fh, ensure_ascii=False, indent=2)
     if args.dry_run:
@@ -248,25 +368,10 @@ def run_agent(runner, case, ctx):
         cmd, workdir, env, args.timeout, transcript, stderr_path
     )
     leaks = leaked(before, snapshot(LEAK_DIRS))
-    events = judge.read_jsonl(transcript)
-    parse = judge.parse_claude if runner == "claude" else judge.parse_codex
-    parsed = parse(events, name)
-    verdict = judge.judge_agent_run(
-        case,
-        parsed,
-        os.path.join(workdir, "deliverables"),
-        installed,
-        acc,
-        python=sys.executable,
+    row = evaluate_agent(
+        runner, case, acc, workdir, installed, code, timed_out, leaks, args.timeout
     )
-    if code != 0:
-        verdict["notes"].append("exit code %s" % code)
-    if timed_out:
-        verdict["passed"] = False
-        verdict["reasons"].append("timeout after %ss" % args.timeout)
-    if leaks:
-        verdict["passed"] = False
-        verdict["reasons"].append("wrote outside workdir: %s" % ", ".join(leaks))
+    parsed, verdict, outside = row["_parsed"], row["verdict"], row["outside_refs"]
     with open(os.path.join(workdir, "final_message.md"), "w", encoding="utf-8") as fh:
         fh.write(parsed.get("final_message") or "")
     log(
@@ -289,6 +394,7 @@ def run_agent(runner, case, ctx):
         "agent_errors": parsed.get("errors"),
         "stderr_tail": tail(read_text(stderr_path), 800),
         "leaks": leaks,
+        "outside_refs": outside,
         "verdict": verdict,
     }
 
@@ -453,6 +559,17 @@ def render_md(meta, results):
     return "\n".join(lines) + "\n"
 
 
+def write_results(meta, results, run_dir):
+    with open(os.path.join(run_dir, "results.json"), "w", encoding="utf-8") as fh:
+        json.dump({"meta": meta, "results": results}, fh, ensure_ascii=False, indent=2)
+    md = render_md(meta, results)
+    with open(os.path.join(run_dir, "results.md"), "w", encoding="utf-8") as fh:
+        fh.write(md)
+    print(md)
+    print("results: %s" % os.path.join(run_dir, "results.json"))
+    return 0 if all((r.get("verdict") or {}).get("passed") for r in results) else 1
+
+
 def git_commit(path):
     try:
         out = subprocess.run(
@@ -481,16 +598,36 @@ def main(argv=None):
     ap.add_argument(
         "--codex-model", default=None, help="default: model in ~/.codex/config.toml"
     )
+    ap.add_argument(
+        "--claude-mode",
+        choices=["sandbox", "allowlist"],
+        default="sandbox",
+        help="sandbox: Bash inside Claude Code's OS sandbox (default); "
+        "allowlist: no sandbox, Bash limited to interpreter patterns",
+    )
+    ap.add_argument(
+        "--claude-allow",
+        action="append",
+        help='extra --allowedTools rule for claude, repeatable (e.g. "Bash(cd:*)")',
+    )
     ap.add_argument("--py38", default=PY38)
     ap.add_argument("--py3", default="python3")
     ap.add_argument(
         "--dry-run", action="store_true", help="prepare workdirs, print commands"
+    )
+    ap.add_argument(
+        "--rejudge",
+        metavar="RUN_DIR",
+        help="re-evaluate saved transcripts in RUN_DIR, no agent is run",
     )
     args = ap.parse_args(argv)
 
     skill_dir = os.path.abspath(args.skill_dir)
     with open(os.path.join(skill_dir, "acceptance.json"), encoding="utf-8") as fh:
         acceptance = json.load(fh)
+    if args.rejudge:
+        data = rejudge(os.path.abspath(args.rejudge), acceptance)
+        return write_results(data["meta"], data["results"], data["meta"]["run_dir"])
     runners = [r.strip() for r in args.runners.split(",") if r.strip()]
     for r in runners:
         if r not in ALL_RUNNERS:
@@ -518,7 +655,11 @@ def main(argv=None):
         "git_commit": git_commit(skill_dir),
         "runners": runners,
         "cases": [c["id"] for c in cases],
-        "claude_allowed_tools": CLAUDE_ALLOWED,
+        "claude_mode": args.claude_mode,
+        "claude_allowed_tools": (
+            CLAUDE_SANDBOX_ALLOWED if args.claude_mode == "sandbox" else CLAUDE_ALLOWED
+        )
+        + list(args.claude_allow or []),
     }
     log("run dir: %s" % run_dir)
 
@@ -529,14 +670,7 @@ def main(argv=None):
             results.extend(run_script(c, ctx))
 
     meta["finished"] = datetime.datetime.now().isoformat(timespec="seconds")
-    with open(os.path.join(run_dir, "results.json"), "w", encoding="utf-8") as fh:
-        json.dump({"meta": meta, "results": results}, fh, ensure_ascii=False, indent=2)
-    md = render_md(meta, results)
-    with open(os.path.join(run_dir, "results.md"), "w", encoding="utf-8") as fh:
-        fh.write(md)
-    print(md)
-    print("results: %s" % os.path.join(run_dir, "results.json"))
-    return 0 if all((r.get("verdict") or {}).get("passed") for r in results) else 1
+    return write_results(meta, results, run_dir)
 
 
 if __name__ == "__main__":
