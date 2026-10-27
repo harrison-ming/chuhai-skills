@@ -24,7 +24,7 @@ SUBSCRIPTION_RE = re.compile(
 )
 # Stricter on page text: "subscribe to our newsletter" must not count.
 PAGE_SUB_RE = re.compile(
-    r"subscribe (?:&|and) save|subscription plan|selling_plan|auto[- ]?renew|"
+    r"subscribe (?:&|and) save|subscription plan|auto[- ]?renew|"
     r"deliver(?:ed|y)? every \d+",
     re.I,
 )

@@ -105,6 +105,32 @@ class ClaimsTest(unittest.TestCase):
         self.assertIn(("refund_days", 10), got)
         self.assertNotIn(("return_days", 10), got)
 
+    def test_start_date_near_day_count(self):
+        got = self.topics(
+            "Return it within 120 days from your delivery date for a full "
+            "refund of the purchase price."
+        )
+        self.assertIn(("return_start", "delivery"), got)
+        got = self.topics(
+            "Refunds will only be applied to the original form of payment."
+        )
+        self.assertNotIn("return_start", [t for t, _v in got])
+        got = self.topics(
+            "Die Retourenfrist betr\u00e4gt 100 Tage und beginnt mit dem Bestelldatum."
+        )
+        self.assertIn(("return_start", "purchase"), got)
+
+    def test_withdrawal_right_is_separate_topic(self):
+        a = extract_claims.claims_from_text(
+            "Sie haben das Recht, binnen vierzehn Tagen diesen Vertrag zu widerrufen.",
+            "policy:refund-policy",
+            "u1",
+        )
+        b = extract_claims.claims_from_text(
+            "Our extended return window is 100 days.", "faq", "u2"
+        )
+        self.assertEqual(extract_claims.conflicts(a + b), [])
+
     def test_conflict_needs_two_sources(self):
         a = extract_claims.claims_from_text("60-day returns!", "announcement", "u1")
         b = extract_claims.claims_from_text(

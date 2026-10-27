@@ -146,9 +146,11 @@ def claims_from_text(text, source, url):
             # A start point only counts next to a day count ("30 days of
             # purchase"), not in "original form of payment".
             timed = re.search(NUM + r"\s*[- ]?\s*(?:calendar\s+)?" + DAY, sent, re.I)
-            if timed and START_PURCHASE.search(sent[timed.start() :]):
+            seg = sent[timed.end() : timed.end() + 60] if timed else ""
+            mp, md = START_PURCHASE.search(seg), START_DELIVERY.search(seg)
+            if mp and (not md or mp.start() < md.start()):
                 add("return_start", "purchase", sent)
-            elif timed and START_DELIVERY.search(sent[timed.start() :]):
+            elif md:
                 add("return_start", "delivery", sent)
         if has_ref and processing:
             m = re.search(

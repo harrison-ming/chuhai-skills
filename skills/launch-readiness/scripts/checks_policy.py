@@ -140,7 +140,7 @@ def presence(ctx):
         ctx.add("POL-07", "pass")
     else:
         ctx.add("POL-07", "unknown")
-    pdp_html = [p.get("html") or p.get("text") for p in s.pdps]
+    pdp_html = [p.get("text") for p in s.pdps]
     if products.has_subscription(s.products, pdp_html):
         if s.policy("subscription-policy"):
             ctx.add("POL-08", "pass")

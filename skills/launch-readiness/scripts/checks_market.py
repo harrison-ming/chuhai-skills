@@ -128,7 +128,7 @@ def gmc(ctx, claims):
         ctx.add("GMC-06", "unknown")
     else:
         ctx.add("GMC-06", "fail")
-    pdp_text = [p.get("html") or p.get("text") for p in s.pdps]
+    pdp_text = [p.get("text") for p in s.pdps]
     if products.has_subscription(s.products, pdp_text):
         ok = any(
             re.search(
