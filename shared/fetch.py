@@ -67,21 +67,21 @@ SECOND_LEVEL = {
 _CERT_NOTES = {
     "zh": {
         "darwin": (
-            "\u8bc1\u4e66\u6821\u9a8c\u5931\u8d25. \u5982\u679c Python \u662f\u4ece "
-            "python.org \u4e0b\u8f7d\u5b89\u88c5\u7684, \u8bf7\u5230 \u5e94\u7528\u7a0b\u5e8f "
-            "\u2192 Python \u6587\u4ef6\u5939\u91cc\u53cc\u51fb\u8fd0\u884c\u4e00\u6b21 "
-            "Install Certificates.command, \u7136\u540e\u91cd\u8bd5"
+            "证书校验失败. 如果 Python 是从 "
+            "python.org 下载安装的, 请到 应用程序 "
+            "→ Python 文件夹里双击运行一次 "
+            "Install Certificates.command, 然后重试"
         ),
         "win32": (
-            "\u8bc1\u4e66\u6821\u9a8c\u5931\u8d25. \u8bf7\u5148\u7528\u6d4f\u89c8\u5668 "
-            "(Edge \u6216 Chrome) \u6253\u5f00\u4e00\u6b21\u8be5\u7f51\u7ad9, "
-            "\u6216\u7b49\u51e0\u5206\u949f\u540e\u91cd\u8bd5 (Windows \u4f1a\u81ea\u52a8"
-            "\u8865\u9f50\u8bc1\u4e66)"
+            "证书校验失败. 请先用浏览器 "
+            "(Edge 或 Chrome) 打开一次该网站, "
+            "或等几分钟后重试 (Windows 会自动"
+            "补齐证书)"
         ),
         "other": (
-            "\u8bc1\u4e66\u6821\u9a8c\u5931\u8d25. \u8bf7\u66f4\u65b0\u7cfb\u7edf\u8bc1\u4e66 "
-            "(\u4f8b\u5982 sudo apt install ca-certificates, "
-            "\u6216 sudo yum update ca-certificates) \u540e\u91cd\u8bd5"
+            "证书校验失败. 请更新系统证书 "
+            "(例如 sudo apt install ca-certificates, "
+            "或 sudo yum update ca-certificates) 后重试"
         ),
     },
     "en": {

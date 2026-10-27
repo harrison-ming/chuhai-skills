@@ -35,13 +35,14 @@ BADGE_CLASS = {
 }
 BADGE_LABELS = {
     "zh": {
-        "verified": "已核实",  # 已核实
-        "self_claim": "店铺自称",  # 店铺自称
-        "third_party": "第三方说法",  # 第三方说法
-        "on_page": "页面显示",  # 页面显示
-        "inferred": "推测",  # 推测
-        "conflicting": "有矛盾",  # 有矛盾
-        "not_found": "查不到",  # 查不到
+        "verified": "已核实",
+        "self_claim": "店铺自称",
+        "third_party": "第三方说法",
+        "on_page": "页面显示",
+        "inferred": "推测",
+        "conflicting": "有矛盾",
+        "not_found": "查不到",
+        "user_input": "你提供的",
     },
     "en": {
         "verified": "Verified",

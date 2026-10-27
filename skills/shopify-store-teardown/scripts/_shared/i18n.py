@@ -12,12 +12,12 @@ DEFAULT_LANG = "zh"
 # skill normally passes its own root folder name to output.resolve_output_root.
 TEXT = {
     "zh": {
-        "raw_dirname": "原始数据",  # 原始数据
-        "readme_name": "说明.txt",  # 说明.txt
+        "raw_dirname": "原始数据",
+        "readme_name": "说明.txt",
         "html_lang": "zh-CN",
-        "summary_heading": "## 一页看懂",  # ## 一页看懂
+        "summary_heading": "## 一页看懂",
         "summary_marker": "一页看懂",
-        "appendix_prefix": "## 附录",  # ## 附录
+        "appendix_prefix": "## 附录",
         "appendix_marker": "附录",
         "appendix_example": "## 附录: 证据与数据来源",
         "fixed_ending": "本报告没有覆盖的",
