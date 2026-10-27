@@ -1,0 +1,522 @@
+{
+ "valid_as_of": "2026-10-27",
+ "source": "chuhai-skills-pro docs/specs/data/tracking-signatures.json (calibration 2026-10-27, 48 public stores)",
+ "_meta": {
+  "calibrated_on": "2026-10-27",
+  "method": "Static HTML (homepage + 1 product page, stdlib urllib, normal browser UA, 1 request / 2 s) of 48 public stores, 28 of which expose Shopify webPixelsConfigList; vendor identity of Shopify app pixels confirmed by downloading the app pixel extension code (/web-pixels/strict/app/web-pixel-<id>@<scriptVersion>.js) on edikted.com; 3 GTM containers downloaded; 1 browser load (edikted.com) for collection endpoints. Raw files only under ~/STELLAR_OUTPUT/_tmp/house-skills-2026-10/fact-check-tags/.",
+  "calibration_rule": "status=calibrated only if matched on >= 3 different real stores AND the matched snippet clearly identifies the vendor. Patterns are Python re, applied to raw HTML. Patterns inside webPixelsConfigList match the escaped JSON string (\\\" in HTML).",
+  "false_positive_warning": "Bare domain strings (sc-static.net/scevent.min.js, analytics.tiktok.com/i18n/pixel/events.js, s.pinimg.com/ct/core.js) were found inside cookie-consent inventories (OneTrust tag lists) and script-blocking regex lists on colourpop.com, princesspolly.com, us.ugreen.com. Never treat a bare domain hit as an installed tag; require code context (loader call / init call / script src) or the webPixelsConfigList entry.",
+  "apiClientId_note": "apiClientId values are not documented by Shopify; mapping below is empirical (config keys + extension code). Re-check on every calibration run."
+ },
+ "signatures": [
+  {
+   "vendor": "shopify_web_pixels",
+   "kind": "config_list",
+   "pattern": "webPixelsConfigList\\s*:\\s*\\[",
+   "id_pattern": "\"id\":\"(\\d+)\"[^{}]*?\"type\":\"(APP|CUSTOM)\"",
+   "evidence_stores_count": 28,
+   "sample_snippet": "webPixelsConfigList: [{\"id\":\"1061847120\",\"configuration\":\"{\\\"shopId\\\":\\\"weareallbirds.myshopify.com\\\"}\",\"eventPayloadVersion\":\"v1\",\"runtimeContext\":\"STRICT\",\"scriptVersion\":\"e249...\",\"type\":\"APP\",\"apiClientId\":2753413,\"privacyPurposes\":[\"ANALYTICS\",\"MARKETING\"],...}",
+   "structure": "JS array literal inside the web-pixels-manager init script. Entry keys seen: id, configuration (JSON string), eventPayloadVersion, runtimeContext (STRICT|OPEN|LAX), scriptVersion, type (APP|CUSTOM), apiClientId (APP only, or 'shopify-pixel'), privacyPurposes, dataSharingAdjustments, dataSharingState, name (some CUSTOM), enabledFlags, capabilities. Parse by bracket matching then json.loads.",
+   "source_url": "https://shopify.dev/docs/apps/build/marketing-analytics/pixels",
+   "status": "calibrated"
+  },
+  {
+   "vendor": "meta",
+   "kind": "shopify_app_pixel",
+   "pattern": "\\\\\"pixel_id\\\\\":\\\\\"(\\d{10,20})\\\\\",\\\\\"pixel_type\\\\\":\\\\\"facebook_pixel\\\\\"",
+   "id_pattern": "(\\d{10,20})",
+   "apiClientId": 2329312,
+   "evidence_stores_count": 12,
+   "sample_snippet": "\"configuration\":\"{\\\"pixel_id\\\":\\\"8474630952...\\\",\\\"pixel_type\\\":\\\"facebook_pixel\\\"}\"",
+   "source_url": "https://developers.facebook.com/docs/meta-pixel/get-started",
+   "status": "calibrated"
+  },
+  {
+   "vendor": "google",
+   "kind": "shopify_app_pixel",
+   "pattern": "\"apiClientId\":1780363",
+   "id_pattern": "\\b((?:G|AW|GT|DC|MC)-[A-Za-z0-9]{4,14})\\b",
+   "apiClientId": 1780363,
+   "evidence_stores_count": 17,
+   "sample_snippet": "\"configuration\":\"{\\\"config\\\":\\\"{\\\\\\\"google_tag_ids\\\\\\\":[\\\\\\\"AW-9735...\\\\\\\",\\\\\\\"G-80JG...\\\\\\\"],...\" (newer installs: \\\"pixel_id\\\":\\\"GT-...\\\",\\\"target_country\\\":\\\"US\\\")",
+   "source_url": "https://developers.google.com/tag-platform/gtagjs/install",
+   "status": "calibrated",
+   "note": "Apply id_pattern only inside this entry's configuration. Prefixes seen: G-, AW-, GT-, DC-, MC-."
+  },
+  {
+   "vendor": "tiktok",
+   "kind": "shopify_app_pixel",
+   "pattern": "\\\\\"pixelCode\\\\\":\\\\\"([A-Z0-9]{20})\\\\\"",
+   "id_pattern": "([A-Z0-9]{20})",
+   "apiClientId": 4383523,
+   "evidence_stores_count": 15,
+   "sample_snippet": "\"configuration\":\"{\\\"pixelCode\\\":\\\"CDHD4TBC77U8IR886OAG\\\"}\"",
+   "vendor_proof": "extension code: t.load(c.pixelCode) -> importScripts('https://analytics.tiktok.com/i18n/pixel/shopify.js?sdkid='+pixelCode+'&lib=ttq')",
+   "source_url": "https://ads.tiktok.com/help/article/get-started-pixel",
+   "status": "calibrated",
+   "note": "Pixel codes do not always start with C (seen B..., C..., D...)."
+  },
+  {
+   "vendor": "pinterest",
+   "kind": "shopify_app_pixel",
+   "pattern": "\\\\\"tagID\\\\\":\\\\\"(\\d{13})\\\\\"",
+   "id_pattern": "(\\d{13})",
+   "apiClientId": 3009811,
+   "evidence_stores_count": 10,
+   "sample_snippet": "\"configuration\":\"{\\\"tagID\\\":\\\"2618326805510\\\"}\"",
+   "vendor_proof": "extension code contains https://ct.pinterest.com/v3/ and https://ct.pinterest.com/user/",
+   "source_url": "https://help.pinterest.com/en/business/article/install-the-pinterest-tag",
+   "status": "calibrated"
+  },
+  {
+   "vendor": "snap",
+   "kind": "shopify_app_pixel",
+   "pattern": "\\\\\"pixelId\\\\\":\\\\\"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\\\\"\\}\"[^}]*\"apiClientId\":2556259",
+   "id_pattern": "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+   "apiClientId": 2556259,
+   "evidence_stores_count": 5,
+   "sample_snippet": "\"configuration\":\"{\\\"pixelId\\\":\\\"8b62311f-abb5-4a06-...\\\"}\",...,\"apiClientId\":2556259",
+   "vendor_proof": "extension code: Rt=\"sc-static.net\", Z=\"snapchat.com\", fetch(\"https://tr.\"+Z+..., body pid=${pixelId}...)",
+   "source_url": "https://developers.snap.com/api/marketing-api/Conversions-API/Deduplication",
+   "status": "calibrated",
+   "note": "Key 'pixelId' alone is generic; must anchor on apiClientId 2556259."
+  },
+  {
+   "vendor": "klaviyo",
+   "kind": "shopify_app_pixel",
+   "pattern": "\\\\\"accountID\\\\\":\\\\\"([A-Za-z0-9]{6})\\\\\",\\\\\"webPixelConfig\\\\\"",
+   "id_pattern": "([A-Za-z0-9]{6})",
+   "apiClientId": 123074,
+   "evidence_stores_count": 17,
+   "sample_snippet": "\"configuration\":\"{\\\"accountID\\\":\\\"PbvgDc\\\",\\\"webPixelConfig\\\":\\\"eyJl...\\\"}\"",
+   "vendor_proof": "accountID equals the company_id of static.klaviyo.com/onsite/js/<id>/klaviyo.js on 9 stores; extension code posts to https://a.klaviyo.com/client/events",
+   "source_url": "https://help.klaviyo.com/hc/en-us/articles/115005080407",
+   "status": "calibrated"
+  },
+  {
+   "vendor": "klaviyo",
+   "kind": "script_src",
+   "pattern": "static\\.klaviyo\\.com/onsite/js/(?:([A-Za-z0-9]{6})/)?klaviyo\\.js\\?company_id=([A-Za-z0-9]{6})",
+   "id_pattern": "company_id=([A-Za-z0-9]{6})",
+   "evidence_stores_count": 18,
+   "sample_snippet": "<script async src=\"https://static.klaviyo.com/onsite/js/TmEje7/klaviyo.js?company_id=TmEje7\"></script>",
+   "source_url": "https://help.klaviyo.com/hc/en-us/articles/115005080407",
+   "status": "calibrated",
+   "note": "Current form puts the id in the path too (onsite/js/<id>/klaviyo.js); legacy form onsite/js/klaviyo.js?company_id= seen once (anker.com, inside a JSON settings object)."
+  },
+  {
+   "vendor": "gtm",
+   "kind": "inline_snippet",
+   "pattern": "\\(\\s*window\\s*,\\s*document\\s*,\\s*['\"]script['\"]\\s*,\\s*['\"]dataLayer['\"]\\s*,\\s*['\"](GTM-[A-Z0-9]{4,10})['\"]\\s*\\)",
+   "id_pattern": "(GTM-[A-Z0-9]{4,10})",
+   "evidence_stores_count": 17,
+   "sample_snippet": "})(window,document,'script','dataLayer','GTM-P24TDVBX');</script>",
+   "source_url": "https://support.google.com/tagmanager/answer/14842164",
+   "status": "calibrated",
+   "note": "The dataLayer name can be customised; fall back to gtm_src."
+  },
+  {
+   "vendor": "gtm",
+   "kind": "script_src",
+   "pattern": "googletagmanager\\.com/gtm\\.js\\?id=(GTM-[A-Z0-9]{4,10})",
+   "id_pattern": "(GTM-[A-Z0-9]{4,10})",
+   "evidence_stores_count": 4,
+   "sample_snippet": "https://www.googletagmanager.com/gtm.js?id=GTM-XXXXXXX",
+   "source_url": "https://support.google.com/tagmanager/answer/14842164",
+   "status": "calibrated",
+   "note": "Literal id in URL is rarer than the inline snippet (which builds the URL at runtime); union of both forms matched 20 stores. GTM container JS (gtm.js?id=) is publicly downloadable and contains configured G-/AW- IDs (checked on 3 containers)."
+  },
+  {
+   "vendor": "google",
+   "kind": "script_src",
+   "pattern": "googletagmanager\\.com/gtag/js\\?id=((?:G|AW|GT|DC)-[A-Za-z0-9]+)",
+   "id_pattern": "((?:G|AW|GT|DC)-[A-Za-z0-9]+)",
+   "evidence_stores_count": 5,
+   "sample_snippet": "<script src='https://www.googletagmanager.com/gtag/js?id=AW-930458877' async></script>",
+   "source_url": "https://developers.google.com/tag-platform/gtagjs/install",
+   "status": "calibrated"
+  },
+  {
+   "vendor": "meta",
+   "kind": "script_src",
+   "pattern": "connect\\.facebook\\.net/[a-zA-Z_]+/fbevents\\.js",
+   "id_pattern": null,
+   "evidence_stores_count": 3,
+   "sample_snippet": "document,'script', 'https://connect.facebook.net/en_US/fbevents.js');",
+   "source_url": "https://developers.facebook.com/docs/meta-pixel/get-started",
+   "status": "calibrated",
+   "note": "Presence only; ID via meta init call (uncalibrated) or Shopify app entry."
+  },
+  {
+   "vendor": "google",
+   "kind": "inline_call",
+   "pattern": "gtag\\(\\s*['\"]config['\"]\\s*,\\s*['\"]((?:G|AW|GT|DC)-[A-Za-z0-9]+)['\"]",
+   "id_pattern": "((?:G|AW|GT|DC)-[A-Za-z0-9]+)",
+   "evidence_stores_count": 2,
+   "sample_snippet": "gtag('config', 'AW-611432738');",
+   "source_url": "https://developers.google.com/tag-platform/gtagjs/install",
+   "status": "uncalibrated"
+  },
+  {
+   "vendor": "meta",
+   "kind": "inline_call",
+   "pattern": "fbq\\(\\s*['\"]init['\"]\\s*,\\s*['\"](\\d{10,20})['\"]",
+   "id_pattern": "(\\d{10,20})",
+   "evidence_stores_count": 1,
+   "sample_snippet": "window.fbq('init', '1820146956...');",
+   "source_url": "https://developers.facebook.com/docs/meta-pixel/get-started",
+   "status": "uncalibrated"
+  },
+  {
+   "vendor": "meta",
+   "kind": "noscript",
+   "pattern": "facebook\\.com/tr\\?id=(\\d{10,20})",
+   "id_pattern": "(\\d{10,20})",
+   "evidence_stores_count": 1,
+   "sample_snippet": "https://www.facebook.com/tr?id=...&ev=PageView&noscript=1",
+   "source_url": "https://developers.facebook.com/docs/meta-pixel/get-started",
+   "status": "uncalibrated"
+  },
+  {
+   "vendor": "tiktok",
+   "kind": "inline_call",
+   "pattern": "ttq\\.load\\(\\s*['\"]([A-Z0-9]{20})['\"]",
+   "id_pattern": "([A-Z0-9]{20})",
+   "evidence_stores_count": 2,
+   "sample_snippet": "ttq.load('C4D2JTMJGOC88M156KBG')",
+   "source_url": "https://ads.tiktok.com/help/article/get-started-pixel",
+   "status": "uncalibrated",
+   "note": "Loader string analytics.tiktok.com/i18n/pixel/events.js matched 3 stores but 1 was a OneTrust tag list (false positive)."
+  },
+  {
+   "vendor": "pinterest",
+   "kind": "inline_call",
+   "pattern": "pintrk\\(\\s*['\"]load['\"]\\s*,\\s*['\"](\\d{13})['\"]",
+   "id_pattern": "(\\d{13})",
+   "evidence_stores_count": 0,
+   "sample_snippet": null,
+   "source_url": "https://help.pinterest.com/en/business/article/install-the-pinterest-tag",
+   "status": "uncalibrated",
+   "note": "s.pinimg.com/ct/core.js matched 1 store, inside a blocking-regex list (false positive)."
+  },
+  {
+   "vendor": "snap",
+   "kind": "inline_call",
+   "pattern": "snaptr\\(\\s*['\"]init['\"]\\s*,\\s*['\"]([0-9a-f-]{36})['\"]",
+   "id_pattern": "([0-9a-f-]{36})",
+   "evidence_stores_count": 0,
+   "sample_snippet": null,
+   "source_url": "https://developers.snap.com/api/marketing-api/Conversions-API/Deduplication",
+   "status": "uncalibrated",
+   "note": "sc-static.net/scevent.min.js matched 3 stores: 1 real inline loader (cupshe.com, init id passed via variable), 2 consent-inventory false positives."
+  },
+  {
+   "vendor": "tiktok",
+   "kind": "collection_endpoint",
+   "pattern": "analytics\\.tiktok\\.com/api/v2/pixel(?:/act|/inter|/perf)?",
+   "id_pattern": null,
+   "evidence_stores_count": 1,
+   "sample_snippet": "[POST] https://analytics.tiktok.com/api/v2/pixel",
+   "source_url": null,
+   "status": "uncalibrated",
+   "note": "Observed in browser network log on 1 store; payload not inspected."
+  },
+  {
+   "vendor": "pinterest",
+   "kind": "collection_endpoint",
+   "pattern": "ct\\.pinterest\\.com/v3/",
+   "id_pattern": "tid=(\\d{13})",
+   "evidence_stores_count": 0,
+   "sample_snippet": "Ut=\"https://ct.pinterest.com\",jt=`${Ut}/v3/`",
+   "source_url": null,
+   "status": "uncalibrated",
+   "note": "Seen only in Shopify app pixel extension code; tid param name not observed in traffic."
+  },
+  {
+   "vendor": "snap",
+   "kind": "collection_endpoint",
+   "pattern": "tr6?\\.snapchat\\.com",
+   "id_pattern": "pid=([0-9a-f-]{36})",
+   "evidence_stores_count": 0,
+   "sample_snippet": "fetch(\"https://tr.snapchat.com\"+..., {method:\"POST\", body:`pid=${pixelId}&u_hem=...`})",
+   "source_url": null,
+   "status": "uncalibrated",
+   "note": "Seen only in Shopify app pixel extension code."
+  },
+  {
+   "vendor": "klaviyo",
+   "kind": "collection_endpoint",
+   "pattern": "a\\.klaviyo\\.com/(?:onsite/track-analytics\\?company_id=|client/events|client/event-bulk-create)",
+   "id_pattern": "company_id=([A-Za-z0-9]{6})",
+   "evidence_stores_count": 1,
+   "sample_snippet": "[POST] https://a.klaviyo.com/onsite/track-analytics?company_id=XCZGbk",
+   "source_url": null,
+   "status": "uncalibrated"
+  },
+  {
+   "vendor": "google",
+   "kind": "collection_endpoint",
+   "pattern": "google\\.com/measurement/conversion\\?[^\\s]*tid=((?:G|AW)-[A-Za-z0-9]+)",
+   "id_pattern": "tid=((?:G|AW)-[A-Za-z0-9]+)",
+   "evidence_stores_count": 1,
+   "sample_snippet": "[POST] https://www.google.com/measurement/conversion?...&tid=G-PDLQ1WYJG6&...&en=login_status&...&gcd=13l3l3l3l1l1",
+   "source_url": null,
+   "status": "uncalibrated",
+   "note": "GA4 g/collect not observed in this run."
+  }
+ ],
+ "app_pixels": [
+  {
+   "apiClientId": 2329312,
+   "vendor": "meta",
+   "id_keys": [
+    "pixel_id"
+   ],
+   "status": "calibrated"
+  },
+  {
+   "apiClientId": 1780363,
+   "vendor": "google",
+   "id_keys": [
+    "config",
+    "pixel_id"
+   ],
+   "status": "calibrated"
+  },
+  {
+   "apiClientId": 4383523,
+   "vendor": "tiktok",
+   "id_keys": [
+    "pixelCode"
+   ],
+   "status": "calibrated"
+  },
+  {
+   "apiClientId": 3009811,
+   "vendor": "pinterest",
+   "id_keys": [
+    "tagID"
+   ],
+   "status": "calibrated"
+  },
+  {
+   "apiClientId": 2556259,
+   "vendor": "snap",
+   "id_keys": [
+    "pixelId"
+   ],
+   "status": "calibrated"
+  },
+  {
+   "apiClientId": 123074,
+   "vendor": "klaviyo",
+   "id_keys": [
+    "accountID"
+   ],
+   "status": "calibrated"
+  },
+  {
+   "apiClientId": "shopify-pixel",
+   "vendor": "shopify",
+   "id_keys": [],
+   "status": "calibrated",
+   "note": "Shopify's own pixels, present on every Shopify store; not an ad platform."
+  }
+ ],
+ "app_pixel_config_hints": [
+  {
+   "key": "redditPixelId",
+   "vendor": "reddit",
+   "status": "uncalibrated",
+   "note": "config key seen on 2 stores; vendor identity not confirmed by extension code"
+  },
+  {
+   "key": "ti",
+   "vendor": "microsoft",
+   "status": "uncalibrated",
+   "note": "key 'ti' with 'tagIds' (Microsoft UET tag id) seen on 3 stores; not confirmed"
+  }
+ ],
+ "custom_pixel_name_hints": {
+  "_note": "Custom pixel names are typed by the merchant; a name hint is at most [Inferred].",
+  "meta": [
+   "meta",
+   "facebook",
+   "fb pixel",
+   "fbq"
+  ],
+  "google": [
+   "google",
+   "gtag",
+   "ga4",
+   "adwords",
+   "google ads"
+  ],
+  "gtm": [
+   "gtm",
+   "tag manager"
+  ],
+  "tiktok": [
+   "tiktok"
+  ],
+  "pinterest": [
+   "pinterest"
+  ],
+  "snap": [
+   "snap"
+  ],
+  "klaviyo": [
+   "klaviyo"
+  ],
+  "reddit": [
+   "reddit"
+  ],
+  "microsoft": [
+   "bing",
+   "microsoft ads",
+   "uet"
+  ]
+ },
+ "placeholders": {
+  "_note": "IDs that are template text, not real IDs (T10).",
+  "patterns": [
+   "^$",
+   "(?i)your[_ -]?(pixel|tag|measurement|conversion)?[_ -]?id",
+   "(?i)^x{3,}$",
+   "(?i)^(G|AW|GTM|UA)-X{3,}",
+   "(?i)^(pixel|tag)[_ -]?id$",
+   "(?i)^(insert|replace|enter)",
+   "^0+$",
+   "^1234567890?$",
+   "\\{\\{.*\\}\\}",
+   "^%.*%$"
+  ]
+ },
+ "container_signals": {
+  "_note": "Strings searched inside downloaded public GTM / Google tag container scripts. Google IDs are calibrated on 3 containers; other vendors are uncalibrated (1 container) and max [Inferred].",
+  "google_id": {
+   "pattern": "\"((?:G|AW|GT|DC)-[A-Za-z0-9]{4,14})\"",
+   "status": "calibrated"
+  },
+  "ua_id": {
+   "pattern": "\"(UA-\\d{4,10}-\\d{1,4})\"",
+   "status": "calibrated"
+  },
+  "vendors": [
+   {
+    "vendor": "meta",
+    "pattern": "connect\\.facebook\\.net|fbq\\(",
+    "status": "uncalibrated"
+   },
+   {
+    "vendor": "tiktok",
+    "pattern": "analytics\\.tiktok\\.com/i18n/pixel",
+    "status": "uncalibrated"
+   },
+   {
+    "vendor": "pinterest",
+    "pattern": "s\\.pinimg\\.com/ct/core\\.js|pintrk\\(",
+    "status": "uncalibrated"
+   },
+   {
+    "vendor": "snap",
+    "pattern": "sc-static\\.net/scevent|snaptr\\(",
+    "status": "uncalibrated"
+   },
+   {
+    "vendor": "microsoft",
+    "pattern": "bat\\.bing\\.com",
+    "status": "uncalibrated"
+   }
+  ]
+ },
+ "legacy_ua": {
+  "pattern": "['\"](UA-\\d{4,10}-\\d{1,4})['\"]",
+  "status": "calibrated",
+  "note": "Literal UA ID in quotes; 2 of 48 stores on homepage + 1 container. Source text is shown as-is (D04)."
+ },
+ "consent": {
+  "_note": "Consent / privacy markers. All uncalibrated: max [Inferred], except the literal consent default call which is quoted code.",
+  "google_consent_default": {
+   "pattern": "gtag\\(\\s*['\"]consent['\"]\\s*,\\s*['\"]default['\"]",
+   "status": "literal",
+   "stores": 8
+  },
+  "consent_v2_params": {
+   "pattern": "ad_user_data|ad_personalization",
+   "status": "literal",
+   "stores": 8
+  },
+  "cmp": [
+   {
+    "name": "OneTrust",
+    "pattern": "cdn\\.cookielaw\\.org|otSDKStub",
+    "stores": 16
+   },
+   {
+    "name": "Shopify consent banner",
+    "pattern": "shopify-privacy-banner|privacy-banner|consent-tracking-api",
+    "stores": 16
+   },
+   {
+    "name": "Consentmo",
+    "pattern": "consentmo|isenseGDPR",
+    "stores": 8
+   },
+   {
+    "name": "Pandectes",
+    "pattern": "pandectes",
+    "stores": 4
+   },
+   {
+    "name": "Osano",
+    "pattern": "cmp\\.osano\\.com",
+    "stores": 2
+   },
+   {
+    "name": "Termly",
+    "pattern": "app\\.termly\\.io",
+    "stores": 1
+   },
+   {
+    "name": "Usercentrics",
+    "pattern": "usercentrics",
+    "stores": 1
+   },
+   {
+    "name": "CookieYes",
+    "pattern": "cookieyes",
+    "stores": 1
+   },
+   {
+    "name": "Ketch",
+    "pattern": "ketchcdn",
+    "stores": 1
+   },
+   {
+    "name": "Cookiebot",
+    "pattern": "consent\\.cookiebot\\.com",
+    "stores": 0
+   },
+   {
+    "name": "Didomi",
+    "pattern": "sdk\\.privacy-center\\.org",
+    "stores": 0
+   },
+   {
+    "name": "iubenda",
+    "pattern": "cdn\\.iubenda\\.com",
+    "stores": 0
+   },
+   {
+    "name": "TrustArc",
+    "pattern": "consent\\.trustarc\\.com",
+    "stores": 0
+   }
+  ],
+  "us_opt_out": {
+   "pattern": "(?i)your privacy choices|do not sell|do-not-sell",
+   "stores": 26
+  }
+ }
+}

@@ -1,0 +1,44 @@
+{
+  "skill": "tracking-audit",
+  "cases": [
+    {
+      "id": "normal",
+      "prompt": "帮我体检一下 allbirds.com 的广告追踪, 看看 Meta 和谷歌的像素装得对不对",
+      "lang": "zh",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["products.json", "myshopify", "fbq(", "webPixelsConfigList", "gtag(", "dataLayer", "E1", "E6"],
+        "must_contain_any": ["[页面显示]", "[已核实]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "non_shopify",
+      "prompt": "nike.com 装了哪些广告追踪代码? 有没有重复的",
+      "lang": "zh",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["products.json", "myshopify", "fbq(", "webPixelsConfigList", "E1", "E6"],
+        "must_contain_any": ["不是 Shopify", "非 Shopify", "[查不到]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "english",
+      "prompt": "Can you audit the ad tracking on brooklinen.com? Are their Meta and Google pixels set up right, any duplicates?",
+      "lang": "en",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["products.json", "myshopify", "fbq(", "webPixelsConfigList", "E1", "E6"],
+        "must_contain_any": ["[Shown on page]", "[Verified]", "[Inferred]"],
+        "fixed_ending": true
+      }
+    }
+  ]
+}

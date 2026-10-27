@@ -1,0 +1,75 @@
+{
+ "schema": "tracking-audit/status/1",
+ "domain": "gamma-goods.example",
+ "base_url": "https://gamma-goods.example",
+ "started_at_utc": "2026-10-27T01:00:00Z",
+ "finished_at_utc": "2026-10-27T01:01:00Z",
+ "requests": [
+  {
+   "key": "homepage",
+   "file": "homepage.html",
+   "url": "https://gamma-goods.example/homepage",
+   "final_url": null,
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 0,
+   "elapsed_ms": 1,
+   "note": ""
+  },
+  {
+   "key": "product",
+   "file": "product.html",
+   "url": "https://gamma-goods.example/product",
+   "final_url": null,
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 0,
+   "elapsed_ms": 1,
+   "note": ""
+  },
+  {
+   "key": "cart",
+   "file": null,
+   "url": "https://gamma-goods.example/cart",
+   "final_url": null,
+   "http_status": 404,
+   "result": "not_found",
+   "bytes": 0,
+   "elapsed_ms": 1,
+   "note": ""
+  },
+  {
+   "key": "privacy",
+   "file": "privacy.html",
+   "url": "https://gamma-goods.example/privacy",
+   "final_url": null,
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 0,
+   "elapsed_ms": 1,
+   "note": ""
+  },
+  {
+   "key": "collection",
+   "file": null,
+   "url": null,
+   "final_url": null,
+   "http_status": null,
+   "result": "not_found",
+   "bytes": 0,
+   "elapsed_ms": null,
+   "note": "not a Shopify storefront"
+  },
+  {
+   "key": "container:GTM-CCCC333",
+   "file": "container-GTM-CCCC333.js",
+   "url": "https://www.googletagmanager.com/gtm.js?id=GTM-CCCC333",
+   "final_url": null,
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 1,
+   "elapsed_ms": 1,
+   "note": ""
+  }
+ ]
+}
