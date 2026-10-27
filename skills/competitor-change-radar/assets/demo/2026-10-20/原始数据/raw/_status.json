@@ -1,0 +1,83 @@
+{
+ "schema": "store-teardown/status/1",
+ "domain": "demo-outdoors.example",
+ "base_url": "https://demo-outdoors.example",
+ "depth": "radar",
+ "started_at_utc": "2026-10-20T08:00:00Z",
+ "finished_at_utc": "2026-10-20T08:00:00Z",
+ "requests": [
+  {
+   "key": "meta_json",
+   "file": "meta.json",
+   "url": "https://demo-outdoors.example/meta.json",
+   "http_status": 200,
+   "result": "ok"
+  },
+  {
+   "key": "products_json",
+   "file": "products-1.json",
+   "url": "https://demo-outdoors.example/products.json?limit=250&page=1",
+   "http_status": 200,
+   "result": "ok"
+  },
+  {
+   "key": "products_json",
+   "file": "products-2.json",
+   "url": "https://demo-outdoors.example/products.json?limit=250&page=2",
+   "http_status": 200,
+   "result": "ok"
+  },
+  {
+   "key": "collections_json",
+   "file": "collections-1.json",
+   "url": "https://demo-outdoors.example/collections.json",
+   "http_status": 200,
+   "result": "ok"
+  },
+  {
+   "key": "homepage",
+   "file": "homepage.html",
+   "url": "https://demo-outdoors.example/",
+   "http_status": 200,
+   "result": "ok"
+  },
+  {
+   "key": "policy_refund_policy",
+   "file": "policy-refund-policy.html",
+   "url": "https://demo-outdoors.example/policies/refund-policy",
+   "http_status": 200,
+   "result": "ok"
+  },
+  {
+   "key": "policy_shipping_policy",
+   "file": "policy-shipping-policy.html",
+   "url": "https://demo-outdoors.example/policies/shipping-policy",
+   "http_status": 200,
+   "result": "ok"
+  },
+  {
+   "key": "policy_privacy_policy",
+   "file": "policy-privacy-policy.html",
+   "url": "https://demo-outdoors.example/policies/privacy-policy",
+   "http_status": 404,
+   "result": "not_found",
+   "note": "HTTP 404"
+  },
+  {
+   "key": "policy_terms_of_service",
+   "file": "policy-terms-of-service.html",
+   "url": "https://demo-outdoors.example/policies/terms-of-service",
+   "http_status": 404,
+   "result": "not_found",
+   "note": "HTTP 404"
+  },
+  {
+   "key": "policy_contact_information",
+   "file": "policy-contact-information.html",
+   "url": "https://demo-outdoors.example/policies/contact-information",
+   "http_status": 404,
+   "result": "not_found",
+   "note": "HTTP 404"
+  }
+ ]
+}
