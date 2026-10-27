@@ -1,0 +1,377 @@
+{
+ "blocked/bad": {
+  "check_json": [
+   1,
+   "1cd917e3ce4eaec98845e3465dc0148bdd99d25ecc2a009d29289e37a3a08691"
+  ],
+  "check_text": [
+   1,
+   "c45302918fce146044aaec692547dbefc7ab220ba6ad96eb80f7cc28f1e2ab32"
+  ],
+  "deliver": [
+   0,
+   "a62d3f686c0c65db24e573a1da93c264784d6ba68704a609bcb9759afe549d8a"
+  ],
+  "files": {
+   "example-store.com 对标拆解报告.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/evidence.jsonl": "89dc83834f7e484c1c177cc4d1aba63da3fc49d183c317666d8b2735f18aeea8",
+   "原始数据/products.tsv": "966a6d7d173d14572b8808dea4d84041441c20ddfd64dc4ed90a70b61b75592c",
+   "原始数据/report.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/report.md": "d9d65f1e59f62134fa4a4feb39e92f3d7167c98a3a5a9bdba7f9279af7cff215",
+   "原始数据/summary.json": "22ca40e99cb2472096b2afd702b12fe1ef599786b05eb9a6ee237067b6019040",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "63a778c38cc7910a7f9bf5fa93296b41baf9ab7ec9d6fb555ac1e161d998ce31"
+  },
+  "summarize": [
+   0,
+   "0a84346f3b5a55b30ed1b16ccd535173e83a446ba78dd8dbad89e2d10f80af57"
+  ]
+ },
+ "blocked/good": {
+  "check_json": [
+   0,
+   "2822e3f43b241000fbeb54440ce0c67fdfb074805e78cf8a0f07d5eee6943999"
+  ],
+  "check_text": [
+   0,
+   "15ff1a88b7925e0096ffc87b784c6de710db00d6ffd9ed7bc29aeffe06d21971"
+  ],
+  "deliver": [
+   0,
+   "e11cfa8151e7eabf09e897c7fbc3e16955345af5b7ee68cb679b242fda5a8759"
+  ],
+  "files": {
+   "example-store.com 对标拆解报告.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/evidence.jsonl": "89dc83834f7e484c1c177cc4d1aba63da3fc49d183c317666d8b2735f18aeea8",
+   "原始数据/products.tsv": "966a6d7d173d14572b8808dea4d84041441c20ddfd64dc4ed90a70b61b75592c",
+   "原始数据/report.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/report.md": "cb5819ecf18994198c971cd81fddf063f00146720ff682c6fc2b8082c9912f20",
+   "原始数据/summary.json": "22ca40e99cb2472096b2afd702b12fe1ef599786b05eb9a6ee237067b6019040",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "63a778c38cc7910a7f9bf5fa93296b41baf9ab7ec9d6fb555ac1e161d998ce31"
+  },
+  "summarize": [
+   0,
+   "0a84346f3b5a55b30ed1b16ccd535173e83a446ba78dd8dbad89e2d10f80af57"
+  ]
+ },
+ "collect/fake-store": {
+  "collect": [
+   0,
+   "f7d5be9659a9831e4a217dc64b6108fd604996a7fc32088c5657351e2dbcb27c"
+  ],
+  "deliver": [
+   0,
+   "a9e099b9949098a25d6f0d35ac9569842843d35fb30e19d9e32c7ea304362470"
+  ],
+  "deliver_title": [
+   0,
+   "26bbd3407a7b2bffaadfa51f48d9ec154ad4d90b31537fe34a06c463a167caea"
+  ],
+  "files": {
+   "Fake 对标拆解报告.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "T.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/evidence.jsonl": "4d0a827ab5e6676727a3835a3a56402e7330f6d7c41ef64eb37a14acab4d26e3",
+   "原始数据/products.tsv": "011d6095dbf57a3772f161ebadf639204d2d1ed7079fd62abfeb2eae1e75bcf8",
+   "原始数据/raw/_status.json": "b10e50476880026fa42133fda0bbdf37d9b553f2353add3543f13b42e70fccd4",
+   "原始数据/raw/best-selling.html": "c4f80e383841562deca40486e9fa999d85582ed47d481fa10b7edcbf742d8336",
+   "原始数据/raw/homepage.html": "c161c9d2ccff8857e333f0464f3cfed751d9daa4846ec8c7984650bba3bc01c9",
+   "原始数据/raw/meta.json": "23c088b3309386334b33ff112351791700c59c89271fe09ffc9504f737b5f161",
+   "原始数据/raw/page-about.html": "9e1e0e018167a06efb8319dcf6b79f22700ef3fd5e1aa740baf1615aec1e9ce1",
+   "原始数据/raw/page-collection-all.html": "c4f80e383841562deca40486e9fa999d85582ed47d481fa10b7edcbf742d8336",
+   "原始数据/raw/page-product-item-1.html": "45902224552e1ebe94a7cd6769420b38d8adabda43f9a848e73ae5845d03ac81",
+   "原始数据/raw/page-product-item-2.html": "30f6103cb42401051cb50c30aa1a3790b042f338571c11b3b8c34e9b1555c3de",
+   "原始数据/raw/page-product-item-3.html": "1cbb8e3eb2fb2fceda02b0c3f27f0f9430171f803ff14d14bd52330cedc09862",
+   "原始数据/raw/policy-refund-policy.html": "adcb9921784b3cd775f1501191f9a633a468921dd3d210f6dcb8cdd085e5b8cd",
+   "原始数据/raw/policy-refund-policy.txt": "8b05a7f411f8d8ae8ac9110356739aaaa6a39d84150dbfd1803d41606f377b68",
+   "原始数据/raw/products-1.json": "f3d10dbb8bb8345fdb87454ca556c504a4beb7f7dcbd852c00cec67e75047345",
+   "原始数据/raw/products-2.json": "bb49d4e819546bb6d884301d113102ff5e07cf921411345d56912931df614b36",
+   "原始数据/report.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/report.md": "cb5819ecf18994198c971cd81fddf063f00146720ff682c6fc2b8082c9912f20",
+   "原始数据/summary.json": "ebaf6022a68e61c0e431135fe88dcdb2778de4f729ea34cbc28b88cecfd50b63",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "515cda99db95ed1920c57034d662026a70b5333ed02e1e9652c25399de242e44"
+  },
+  "run_dir_name": "127.0.0.1 对标拆解 <TODAY>"
+ },
+ "collections_mismatch/bad": {
+  "check_json": [
+   1,
+   "1cd917e3ce4eaec98845e3465dc0148bdd99d25ecc2a009d29289e37a3a08691"
+  ],
+  "check_text": [
+   1,
+   "c45302918fce146044aaec692547dbefc7ab220ba6ad96eb80f7cc28f1e2ab32"
+  ],
+  "deliver": [
+   0,
+   "f0e35e01eb103f5820722a88f443ce1e56c1061a32c9575fd56bd216ad6d3a8a"
+  ],
+  "files": {
+   "Example Store 对标拆解报告.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/evidence.jsonl": "6b7cd27ecb36a6875b6050a6df09f53a95cea22cc1100f638fd2a17fc4b1d5be",
+   "原始数据/products.tsv": "cc064a9ca3bdb4b6463fa8d2543dbc5344b15ca173d1702a135e97fac75558e9",
+   "原始数据/report.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/report.md": "d9d65f1e59f62134fa4a4feb39e92f3d7167c98a3a5a9bdba7f9279af7cff215",
+   "原始数据/summary.json": "224eb42b7bd97cbdd6c20fd62250607444dd7543a5b48f12f8bdfa5612679f41",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "29cf9b0f995311869ab9e6d72d04b8a8ea95e19d419f1809e018061c97780460"
+  },
+  "summarize": [
+   0,
+   "a77fa1a30f569137c99051c0dc384871eb502988390dd65925957e23989d203c"
+  ]
+ },
+ "collections_mismatch/good": {
+  "check_json": [
+   0,
+   "2822e3f43b241000fbeb54440ce0c67fdfb074805e78cf8a0f07d5eee6943999"
+  ],
+  "check_text": [
+   0,
+   "15ff1a88b7925e0096ffc87b784c6de710db00d6ffd9ed7bc29aeffe06d21971"
+  ],
+  "deliver": [
+   0,
+   "4138c21e6c0ef9f627825d6dd6cb3bbdf01683aefadbe271f873075cff7c0911"
+  ],
+  "files": {
+   "Example Store 对标拆解报告.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/evidence.jsonl": "6b7cd27ecb36a6875b6050a6df09f53a95cea22cc1100f638fd2a17fc4b1d5be",
+   "原始数据/products.tsv": "cc064a9ca3bdb4b6463fa8d2543dbc5344b15ca173d1702a135e97fac75558e9",
+   "原始数据/report.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/report.md": "cb5819ecf18994198c971cd81fddf063f00146720ff682c6fc2b8082c9912f20",
+   "原始数据/summary.json": "224eb42b7bd97cbdd6c20fd62250607444dd7543a5b48f12f8bdfa5612679f41",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "29cf9b0f995311869ab9e6d72d04b8a8ea95e19d419f1809e018061c97780460"
+  },
+  "summarize": [
+   0,
+   "a77fa1a30f569137c99051c0dc384871eb502988390dd65925957e23989d203c"
+  ]
+ },
+ "empty_products/bad": {
+  "check_json": [
+   1,
+   "1cd917e3ce4eaec98845e3465dc0148bdd99d25ecc2a009d29289e37a3a08691"
+  ],
+  "check_text": [
+   1,
+   "c45302918fce146044aaec692547dbefc7ab220ba6ad96eb80f7cc28f1e2ab32"
+  ],
+  "deliver": [
+   0,
+   "3406dbe68464a5716f6d886c26dbd07313f91d71fb8acf0f2b2ffd1baf09d220"
+  ],
+  "files": {
+   "Example Store 对标拆解报告.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/evidence.jsonl": "ab74957014c7f2864ee80e128950b29f4977e6b443d016eebe9f16c59ba690e0",
+   "原始数据/products.tsv": "966a6d7d173d14572b8808dea4d84041441c20ddfd64dc4ed90a70b61b75592c",
+   "原始数据/report.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/report.md": "d9d65f1e59f62134fa4a4feb39e92f3d7167c98a3a5a9bdba7f9279af7cff215",
+   "原始数据/summary.json": "70ebcae1189fb4944462cf1cffbfb611ac994e030a9a6611a8af7fb6aa4e5f3b",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "63a778c38cc7910a7f9bf5fa93296b41baf9ab7ec9d6fb555ac1e161d998ce31"
+  },
+  "summarize": [
+   0,
+   "8174cdff07ed926cd7752c1b221288ad4bfcb11b3ac1b4fc194a201e88bc58a9"
+  ]
+ },
+ "empty_products/good": {
+  "check_json": [
+   0,
+   "2822e3f43b241000fbeb54440ce0c67fdfb074805e78cf8a0f07d5eee6943999"
+  ],
+  "check_text": [
+   0,
+   "15ff1a88b7925e0096ffc87b784c6de710db00d6ffd9ed7bc29aeffe06d21971"
+  ],
+  "deliver": [
+   0,
+   "fe98e1193f47a3a1a651e1095f039f8032893c1cd587bec74204e07c8f69db2d"
+  ],
+  "files": {
+   "Example Store 对标拆解报告.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/evidence.jsonl": "ab74957014c7f2864ee80e128950b29f4977e6b443d016eebe9f16c59ba690e0",
+   "原始数据/products.tsv": "966a6d7d173d14572b8808dea4d84041441c20ddfd64dc4ed90a70b61b75592c",
+   "原始数据/report.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/report.md": "cb5819ecf18994198c971cd81fddf063f00146720ff682c6fc2b8082c9912f20",
+   "原始数据/summary.json": "70ebcae1189fb4944462cf1cffbfb611ac994e030a9a6611a8af7fb6aa4e5f3b",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "63a778c38cc7910a7f9bf5fa93296b41baf9ab7ec9d6fb555ac1e161d998ce31"
+  },
+  "summarize": [
+   0,
+   "8174cdff07ed926cd7752c1b221288ad4bfcb11b3ac1b4fc194a201e88bc58a9"
+  ]
+ },
+ "normal/bad": {
+  "check_json": [
+   1,
+   "1cd917e3ce4eaec98845e3465dc0148bdd99d25ecc2a009d29289e37a3a08691"
+  ],
+  "check_text": [
+   1,
+   "c45302918fce146044aaec692547dbefc7ab220ba6ad96eb80f7cc28f1e2ab32"
+  ],
+  "deliver": [
+   0,
+   "f0e35e01eb103f5820722a88f443ce1e56c1061a32c9575fd56bd216ad6d3a8a"
+  ],
+  "files": {
+   "Example Store 对标拆解报告.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/evidence.jsonl": "cb5d5566096438c768340939123130d36309e1de5ee6970a1d6cefaddc0c6840",
+   "原始数据/products.tsv": "7645e430acb6d2b1f4de704bd4b77989a1492143cc3ccc8d64bdb6dc58b38226",
+   "原始数据/report.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/report.md": "d9d65f1e59f62134fa4a4feb39e92f3d7167c98a3a5a9bdba7f9279af7cff215",
+   "原始数据/summary.json": "b9778eaa668e2fab34445c433fa3390886b6e47e1f7ee515df33cf4f8db16cef",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "4e74dc47be84f319c478b67dca6fb86ee57aeaeaa77e136d5792d48d02a2fb84"
+  },
+  "summarize": [
+   0,
+   "4c8b008e463063ad28837fcbdddedb5e42ca814b7402a6392354f3f34e4e30f3"
+  ]
+ },
+ "normal/good": {
+  "check_json": [
+   0,
+   "2822e3f43b241000fbeb54440ce0c67fdfb074805e78cf8a0f07d5eee6943999"
+  ],
+  "check_text": [
+   0,
+   "15ff1a88b7925e0096ffc87b784c6de710db00d6ffd9ed7bc29aeffe06d21971"
+  ],
+  "deliver": [
+   0,
+   "4138c21e6c0ef9f627825d6dd6cb3bbdf01683aefadbe271f873075cff7c0911"
+  ],
+  "files": {
+   "Example Store 对标拆解报告.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/evidence.jsonl": "cb5d5566096438c768340939123130d36309e1de5ee6970a1d6cefaddc0c6840",
+   "原始数据/products.tsv": "7645e430acb6d2b1f4de704bd4b77989a1492143cc3ccc8d64bdb6dc58b38226",
+   "原始数据/report.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/report.md": "cb5819ecf18994198c971cd81fddf063f00146720ff682c6fc2b8082c9912f20",
+   "原始数据/summary.json": "b9778eaa668e2fab34445c433fa3390886b6e47e1f7ee515df33cf4f8db16cef",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "4e74dc47be84f319c478b67dca6fb86ee57aeaeaa77e136d5792d48d02a2fb84"
+  },
+  "summarize": [
+   0,
+   "4c8b008e463063ad28837fcbdddedb5e42ca814b7402a6392354f3f34e4e30f3"
+  ]
+ },
+ "not_shopify/bad": {
+  "check_json": [
+   1,
+   "1cd917e3ce4eaec98845e3465dc0148bdd99d25ecc2a009d29289e37a3a08691"
+  ],
+  "check_text": [
+   1,
+   "c45302918fce146044aaec692547dbefc7ab220ba6ad96eb80f7cc28f1e2ab32"
+  ],
+  "deliver": [
+   0,
+   "a62d3f686c0c65db24e573a1da93c264784d6ba68704a609bcb9759afe549d8a"
+  ],
+  "files": {
+   "example-store.com 对标拆解报告.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/evidence.jsonl": "de1b47e5c8e442051bee60059bbd057cb51670218f699ae0e682b4b19c4fe7aa",
+   "原始数据/products.tsv": "966a6d7d173d14572b8808dea4d84041441c20ddfd64dc4ed90a70b61b75592c",
+   "原始数据/report.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/report.md": "d9d65f1e59f62134fa4a4feb39e92f3d7167c98a3a5a9bdba7f9279af7cff215",
+   "原始数据/summary.json": "9bf01fdb4572e484ec33e6d081766da4d422f90d17c38f5b3d8e7cb79fa70fb8",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "63a778c38cc7910a7f9bf5fa93296b41baf9ab7ec9d6fb555ac1e161d998ce31"
+  },
+  "summarize": [
+   0,
+   "8b90b9aa8752556e05372b38232502fd19ced4d6e8cc4ea35445a46cebf1b761"
+  ]
+ },
+ "not_shopify/good": {
+  "check_json": [
+   0,
+   "2822e3f43b241000fbeb54440ce0c67fdfb074805e78cf8a0f07d5eee6943999"
+  ],
+  "check_text": [
+   0,
+   "15ff1a88b7925e0096ffc87b784c6de710db00d6ffd9ed7bc29aeffe06d21971"
+  ],
+  "deliver": [
+   0,
+   "e11cfa8151e7eabf09e897c7fbc3e16955345af5b7ee68cb679b242fda5a8759"
+  ],
+  "files": {
+   "example-store.com 对标拆解报告.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/evidence.jsonl": "de1b47e5c8e442051bee60059bbd057cb51670218f699ae0e682b4b19c4fe7aa",
+   "原始数据/products.tsv": "966a6d7d173d14572b8808dea4d84041441c20ddfd64dc4ed90a70b61b75592c",
+   "原始数据/report.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/report.md": "cb5819ecf18994198c971cd81fddf063f00146720ff682c6fc2b8082c9912f20",
+   "原始数据/summary.json": "9bf01fdb4572e484ec33e6d081766da4d422f90d17c38f5b3d8e7cb79fa70fb8",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "63a778c38cc7910a7f9bf5fa93296b41baf9ab7ec9d6fb555ac1e161d998ce31"
+  },
+  "summarize": [
+   0,
+   "8b90b9aa8752556e05372b38232502fd19ced4d6e8cc4ea35445a46cebf1b761"
+  ]
+ },
+ "truncated_markdown/bad": {
+  "check_json": [
+   1,
+   "1cd917e3ce4eaec98845e3465dc0148bdd99d25ecc2a009d29289e37a3a08691"
+  ],
+  "check_text": [
+   1,
+   "c45302918fce146044aaec692547dbefc7ab220ba6ad96eb80f7cc28f1e2ab32"
+  ],
+  "deliver": [
+   0,
+   "59f3b238a73c00e5a5f94ed0a45cced484cea4fdc0e5ff6c3362492135526d27"
+  ],
+  "files": {
+   "Example Store 对标拆解报告.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/evidence.jsonl": "2c13f7182be5c0fcd731aa126cfce7749ca000cb16af1298d964547e4e0cdebf",
+   "原始数据/products.tsv": "d2975e696d899696ce49836250517ff1a893ef9f887cb0fb457a4830dde86869",
+   "原始数据/report.html": "cc101769670a2ffdc18d8e5a27758903521f7c3e95934465a2b46cc62bf60af9",
+   "原始数据/report.md": "d9d65f1e59f62134fa4a4feb39e92f3d7167c98a3a5a9bdba7f9279af7cff215",
+   "原始数据/summary.json": "cae4173c2582c8accb3ffc14be7c767a48e5c4b67d0032c1a09c3a6b74b81c96",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "b3f55effdc4ea53c8cbd586119c36b1334f46adaa88a7f3b6e3e7162494823cc"
+  },
+  "summarize": [
+   0,
+   "4170465dca14454536cea69f2fe96d3e098c0c5514ad6e4be4f2e66323843abd"
+  ]
+ },
+ "truncated_markdown/good": {
+  "check_json": [
+   0,
+   "2822e3f43b241000fbeb54440ce0c67fdfb074805e78cf8a0f07d5eee6943999"
+  ],
+  "check_text": [
+   0,
+   "15ff1a88b7925e0096ffc87b784c6de710db00d6ffd9ed7bc29aeffe06d21971"
+  ],
+  "deliver": [
+   0,
+   "9ad3e2fbfd8e00d1dd4fb433525641b2444fec9707f62f7132b7408ca1efb137"
+  ],
+  "files": {
+   "Example Store 对标拆解报告.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/evidence.jsonl": "2c13f7182be5c0fcd731aa126cfce7749ca000cb16af1298d964547e4e0cdebf",
+   "原始数据/products.tsv": "d2975e696d899696ce49836250517ff1a893ef9f887cb0fb457a4830dde86869",
+   "原始数据/report.html": "5ba137a9a7cb011f5da91eb7f4165f95e5f4223da0d78fa62593f83a80825d05",
+   "原始数据/report.md": "cb5819ecf18994198c971cd81fddf063f00146720ff682c6fc2b8082c9912f20",
+   "原始数据/summary.json": "cae4173c2582c8accb3ffc14be7c767a48e5c4b67d0032c1a09c3a6b74b81c96",
+   "原始数据/说明.txt": "4fb76c2142868494a6fc54954bc02c83ed8aeca117147c899e2acfd082123ff2",
+   "商品清单.csv": "b3f55effdc4ea53c8cbd586119c36b1334f46adaa88a7f3b6e3e7162494823cc"
+  },
+  "summarize": [
+   0,
+   "4170465dca14454536cea69f2fe96d3e098c0c5514ad6e4be4f2e66323843abd"
+  ]
+ }
+}
