@@ -89,8 +89,9 @@ APP_SIGNATURES = [
     ("Klaviyo forms", "popup", ["static.klaviyo.com/onsite", "klaviyo-form"]),
     # third-party currency converters (M03)
     ("MLVeda currency converter", "currency", ["mlveda"]),
-    ("Doubly currency converter", "currency", ["doubly"]),
-    ("BEST Currency Converter", "currency", ["bacurr", "best-currency-converter"]),
+    # Only vendor strings unlikely to appear in normal copy; generic words
+    # ("doubly") matched marketing text on a real store and were dropped.
+    ("BEST Currency Converter", "currency", ["best-currency-converter"]),
     ("Auto Currency Switcher", "currency", ["autocurrencyswitcher"]),
 ]
 
@@ -111,7 +112,7 @@ CARD_ICONS = {
 }
 
 LEGAL_SUFFIX_RE = re.compile(
-    r"\b([A-Z][A-Za-z0-9&'.\- ]{1,60}?\s(?:Co\.,?\s?Ltd\.?|Company Limited|Limited|Ltd\.?|"
+    r"\b([A-Z][A-Za-z0-9&'.\- ]{1,60}?,?\s(?:Co\.,?\s?Ltd\.?|Company Limited|Limited|Ltd\.?|"
     r"LLC|L\.L\.C\.|Inc\.?|Corp\.?|Corporation|GmbH|Pty Ltd|B\.V\.|S\.A\.|SARL))(?![A-Za-z])"
 )
 CN_LEGAL_RE = re.compile(r"[一-鿿]{2,30}有限公司")
@@ -287,7 +288,8 @@ def page_links(src, base_host):
     out = []
     for m in re.finditer(r"(?is)<a\b([^>]*)>(.*?)</a>", src or ""):
         attrs = parse_attrs(m.group(1))
-        href = (attrs.get("href") or "").strip()
+        # hrefs inside JSON-escaped HTML look like \"https:\/\/x\/a\"
+        href = (attrs.get("href") or "").replace("\\/", "/").strip("\\\"' ")
         if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
             continue
         if href.startswith("//"):
@@ -542,6 +544,11 @@ def snippet(text, pattern, width=70):
         return None
     a = max(0, m.start() - width // 2)
     b = min(len(text), m.end() + width // 2)
+    # widen to word boundaries so quotes do not start mid-word
+    while a > 0 and a > m.start() - width and text[a - 1].isalnum():
+        a -= 1
+    while b < len(text) and b < m.end() + width and text[b].isalnum():
+        b += 1
     return re.sub(r"\s+", " ", text[a:b]).strip()
 
 
@@ -549,36 +556,68 @@ def contains(text, pattern):
     return bool(re.search(pattern, text or "", re.I))
 
 
+LEGAL_SUFFIX_ONLY = re.compile(
+    r"(?i)^(?:co\.?,?\s?ltd\.?|company limited|limited|ltd\.?|llc|l\.l\.c\.|inc\.?|corp\.?"
+    r"|corporation|gmbh|pty ltd|b\.v\.|s\.a\.|sarl)$"
+)
+NAME_WORD_RE = re.compile(r"^(?:[A-Z0-9][A-Za-z0-9&'.\-]*|&|and|of)$")
+
+
 def legal_names(text):
+    """Company names with a legal suffix, e.g. "AB Dnam, LLC".
+
+    Only the trailing run of capitalised words before the suffix is kept
+    (at most five), so "mail addressed to AB Dnam, LLC" gives "AB Dnam, LLC".
+    """
     names = []
     for m in LEGAL_SUFFIX_RE.finditer(text or ""):
-        name = re.sub(r"\s+", " ", m.group(1)).strip(" .,")
-        words = name.split()
-        # drop leading filler words caught by the greedy prefix
-        while words and words[0].lower() in (
+        full = re.sub(r"\s+", " ", m.group(1)).strip(" .")
+        sm = re.search(
+            r",?\s(Co\.,?\s?Ltd\.?|Company Limited|Limited|Ltd\.?|LLC|L\.L\.C\.|Inc\.?|Corp\.?"
+            r"|Corporation|GmbH|Pty Ltd|B\.V\.|S\.A\.|SARL)$",
+            full,
+        )
+        if not sm:
+            continue
+        words = full[: sm.start()].split()
+        keep = []
+        for w in reversed(words):
+            if not NAME_WORD_RE.match(w) or w.endswith((".", ",")) or len(keep) >= 5:
+                break
+            keep.insert(0, w)
+        while keep and keep[0] in ("&", "and", "of"):
+            keep = keep[1:]
+        while keep and keep[0].lower() in (
             "the",
+            "this",
+            "our",
             "by",
-            "of",
-            "and",
-            "is",
-            "operated",
-            "owned",
+            "copyright",
             "a",
             "an",
-            "this",
-            "website",
-            "site",
-            "store",
-            "copyright",
         ):
-            words = words[1:]
-        name = " ".join(words)
-        if len(name) >= 4 and name not in names:
+            keep = keep[1:]
+        if not keep:
+            continue
+        name = " ".join(keep) + full[sm.start() :]
+        if name not in names and not LEGAL_SUFFIX_ONLY.match(name.strip(" ,")):
             names.append(name)
     for m in CN_LEGAL_RE.finditer(text or ""):
         if m.group(0) not in names:
             names.append(m.group(0))
     return names
+
+
+def looks_js_rendered(src, text):
+    """True when a page carries almost no readable text but a big HTML shell
+    (client-side rendered or a script redirect): content needs a browser."""
+    if not src or "shopify-policy__body" in src:
+        return False
+    return (
+        len(text.strip()) < 150
+        and len(src) > 20000
+        or bool(re.match(r"(?i)^\s*redirecting", text or ""))
+    )
 
 
 def norm_legal(name):

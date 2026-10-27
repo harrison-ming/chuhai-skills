@@ -31,6 +31,7 @@ import draft  # noqa: E402
 import fees  # noqa: E402
 import pr_checks  # noqa: E402
 import questionnaire as Q  # noqa: E402
+import signals  # noqa: E402
 import skill_config as cfg  # noqa: E402
 from _shared import checks  # noqa: E402
 
@@ -407,24 +408,15 @@ class RuleTest(unittest.TestCase):
         self.assertIn("S01", self.ids(bad))
 
     def test_s03_cart_404_only_on_shopify(self):
-        self.assertIn(
-            "S03",
-            self.ids(
-                facts(
-                    cart={
-                        "state": "not_found",
-                        "checkout_button": False,
-                        "empty": False,
-                    }
-                )
-            ),
-        )
+        cart404 = {"state": "not_found", "checkout_button": False, "empty": False}
+        theme = ["cdn.shopify.com", "shopify.theme"]
+        self.assertIn("S03", self.ids(facts(cart=cart404, markers=theme)))
+        # headless storefronts keep their cart elsewhere: not an issue
         self.assertNotIn(
-            "S03",
-            self.ids(
-                facts(cart={"state": "ok", "checkout_button": False, "empty": True})
-            ),
+            "S03", self.ids(facts(cart=cart404, markers=["cdn.shopify.com"]))
         )
+        empty = {"state": "ok", "checkout_button": False, "empty": True}
+        self.assertNotIn("S03", self.ids(facts(cart=empty)))
 
     def test_s06_conflicts(self):
         q = Q.normalize({"gateways": ["paypal:100"]})
@@ -576,6 +568,12 @@ class RuleTest(unittest.TestCase):
         self.assertNotIn(
             "P08", self.ids(facts(home_text="Get 20% off today. Exclusions apply."))
         )
+        popup = [
+            {"name": "Klaviyo forms", "kind": "popup", "pattern": "x", "source": "x"}
+        ]
+        self.assertNotIn(
+            "P08", self.ids(facts(apps=popup, home_text="Sign up for news"))
+        )
 
     def test_m01_currency_code(self):
         pages = [("page-product-a.html", "<p>$45.00</p>")]
@@ -716,6 +714,44 @@ class RuleTest(unittest.TestCase):
         )
         unknown = self.ids(facts(), {}, "unknown")
         self.assertIn("E00", unknown)
+
+
+class RealDataRegressionTest(unittest.TestCase):
+    """Patterns seen on real stores (2026-10-27 runs), kept as synthetic text."""
+
+    def test_legal_names_trailing_run(self):
+        names = signals.legal_names
+        self.assertEqual(
+            names("by certified mail addressed to AB Dnam, LLC"), ["AB Dnam, LLC"]
+        )
+        self.assertEqual(names("CA 90211. AB Dnam, LLC"), ["AB Dnam, LLC"])
+        self.assertEqual(names("Limited"), [])
+
+    def test_js_rendered_policy_is_unknown_not_short(self):
+        shell = (
+            "<html>"
+            + "<script>var a=1;</script>" * 2000
+            + "<main>Redirecting...</main></html>"
+        )
+        self.assertTrue(signals.looks_js_rendered(shell, signals.main_text(shell)))
+        empty_policy = (
+            '<div class="shopify-policy__body"><div class="rte"> </div></div>'
+            + " " * 30000
+        )
+        self.assertFalse(signals.looks_js_rendered(empty_policy, ""))
+
+    def test_marketing_copy_is_not_a_converter_app(self):
+        src = [("homepage.html", "anker maggo-doubly fast in a snap")]
+        self.assertEqual(signals.match_signatures(src, signals.APP_SIGNATURES), [])
+
+    def test_escaped_json_links(self):
+        src = (
+            '<a href=\\"https:\\/\\/www.shop.example\\/cms?name=returns\\">Returns</a>'
+        )
+        found = signals.discover_links(src, "www.shop.example")
+        self.assertEqual(
+            found.get("refund-policy"), "https://www.shop.example/cms?name=returns"
+        )
 
 
 class CollectTest(Base):

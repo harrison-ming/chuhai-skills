@@ -100,7 +100,13 @@ def main(argv=None):
         print(msg["strict"] % len(result.errors), file=sys.stderr)
         return 1
     summary = load_summary(raw)
-    subject = summary.get("domain") or os.path.basename(run_dir).split(" ")[0]
+    # store name from the public store info when short enough, else domain
+    name = (summary.get("shop_name") or "").strip()
+    subject = (
+        name
+        if name and len(name) <= 40
+        else (summary.get("domain") or os.path.basename(run_dir).split(" ")[0])
+    )
     base = output.sanitize_filename(cfg.REPORT_NAME[lang] % subject, fallback="report")
     today = datetime.date.today().isoformat()
     doc, warnings = render.build_html(

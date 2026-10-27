@@ -293,9 +293,14 @@ class Rules(object):
                 ),
                 where=["raw/cart.html"],
             )
-        elif cart["state"] == "not_found" and f["identity"] in (
-            "confirmed",
-            "probable",
+        elif (
+            cart["state"] == "not_found"
+            and "shopify.theme" in f["markers"]
+            and f["identity"]
+            in (
+                "confirmed",
+                "probable",
+            )
         ):
             self.add(
                 "S03",
@@ -636,6 +641,13 @@ class Rules(object):
             else:
                 unknown.append(name)
         check = t("五个政策页齐全", "All five policy pages present")
+        if missing and any(
+            self.policy(n)["state"] == "js_rendered" for n in signals.POLICY_NAMES
+        ):
+            # pages on this site render with scripts; a 404 at the usual
+            # address says little about whether the policy exists elsewhere
+            unknown.extend(missing)
+            missing = []
         if missing:
             sev = "P0" if set(missing) & {"refund-policy", "shipping-policy"} else "P1"
             self.add(
@@ -673,9 +685,9 @@ class Rules(object):
                 "not_found",
                 t("政策页 (部分没取到)", "Policy pages (some not fetched)"),
                 t(
-                    "这些没取到, 不等于没有: %s."
+                    "这些没读到内容, 不等于没有 (有的网站要浏览器运行脚本才显示正文): %s."
                     % ", ".join(names[n] for n in unknown),
-                    "Not fetched (not the same as missing): %s."
+                    "No readable content (not the same as missing; some sites only show text after running scripts in a browser): %s."
                     % ", ".join(names[n] for n in unknown),
                 ),
             )
@@ -684,7 +696,7 @@ class Rules(object):
         for name in have:
             text = self.ptext(name)
             if len(text) < signals.POLICY_MIN_CHARS:
-                short.append("%s (%d)" % (names[name], len(text)))
+                short.append("%s (%s)" % (names[name], len(text) or t("空白", "empty")))
             if re.search(
                 r"\[(?:your |insert |company|store )[^\]]*\]|\{\{|lorem ipsum|YOUR COMPANY NAME|\[STORE NAME\]|xxx company",
                 text,
@@ -1004,7 +1016,7 @@ class Rules(object):
                 check,
                 t(
                     "退款政策写 %d 天, 抽查的其他页面没有不同的天数." % main,
-                    "The refund policy says %d days; sampled pages show no different number."
+                    "Refund policy: %d days; sampled pages show no different number."
                     % main,
                 ),
                 where=["raw/policy-refund-policy.html"],
@@ -1162,13 +1174,12 @@ class Rules(object):
 
     def p08(self):
         t, f = self.t, self.f
-        pops = [a["name"] for a in f["apps"] if a.get("kind") == "popup"]
         home_text = f["home_text"]
         promo = signals.snippet(
             home_text, r"\d{1,2}% off|discount code|use code|promo code|coupon"
         )
-        if not (pops or promo):
-            return
+        if not promo:
+            return  # a pop-up app alone is not a promotion
         check = t("促销活动写了条件", "Promotions state their terms")
         all_text = home_text + "\n" + self.ptext("terms-of-service")
         if signals.contains(
@@ -1187,7 +1198,7 @@ class Rules(object):
                 ),
             )
         else:
-            trig = ", ".join(pops) if pops else ('"%s"' % promo)
+            trig = '"%s"' % promo
             self.add(
                 "P08",
                 "P3",
@@ -1195,8 +1206,8 @@ class Rules(object):
                 "inferred",
                 check,
                 t(
-                    "有折扣弹窗或促销文字 (%s) [页面显示], 没找到活动条件说明" % trig,
-                    "Discount pop-up or promo text (%s) [Shown on page], but no promotion terms found"
+                    "首页有促销文字 (%s) [页面显示], 没找到活动条件说明" % trig,
+                    "Promotion text on the homepage (%s) [Shown on page], but no promotion terms found"
                     % trig,
                 ),
                 t(
@@ -1458,11 +1469,13 @@ class Rules(object):
                 "T01",
                 "P2",
                 "issue",
-                "verified",
+                "not_found",
                 check,
                 t(
-                    "只找到一种联系方式: %s." % methods[0],
-                    "Only one contact method found: %s." % methods[0],
+                    "只找到一种联系方式 (%s), 首页, 联系页和政策页里没找到其他方式."
+                    % methods[0],
+                    "Only one contact method found (%s); no other on the homepage, contact page or policies."
+                    % methods[0],
                 ),
                 t(
                     "再加一种 (邮箱, 电话或在线客服), 写在联系页和页脚.",
@@ -1476,7 +1489,7 @@ class Rules(object):
                 "T01",
                 "P1",
                 "issue",
-                "verified",
+                "not_found",
                 check,
                 t(
                     "只找到联系表单, 没找到邮箱, 电话或在线客服.",
@@ -1525,19 +1538,19 @@ class Rules(object):
         if len(names) > 1:
             self.add(
                 "T02",
-                "P1",
+                "P2",
                 "issue",
                 "conflicting",
                 check,
                 t(
-                    "不同页面写的公司名不一样: %s."
+                    "页面里出现了不止一个公司名: %s."
                     % "; ".join('"%s"' % n for n in names[:3]),
-                    "Pages name different companies: %s."
+                    "More than one company name appears: %s."
                     % "; ".join('"%s"' % n for n in names[:3]),
                 ),
                 t(
-                    "条款, 联系页, 退货地址统一成同一个主体名和地址.",
-                    "Use one legal name and address in terms, contact page and return address.",
+                    "确认收款账户的主体是哪一个; 条款, 联系页, 退货地址写清各自角色, 收款主体要和通道账户一致.",
+                    "Confirm which company holds the payment account; state each company's role and keep the payee consistent with the provider account.",
                 ),
                 "self",
                 ["raw/" + v[1] for v in legal.values()],
@@ -1650,7 +1663,7 @@ class Rules(object):
         # T05 trust badges
         trust = signals.snippet(
             f["home_text"],
-            r"secure checkout|100% secure|ssl secured|guaranteed safe|norton|mcafee|trustedsite|verified by visa|安全支付",
+            r"secure checkout|ssl secured|guaranteed safe checkout|norton secured|mcafee secure|trustedsite|安全支付",
         )
         if trust:
             self.add(

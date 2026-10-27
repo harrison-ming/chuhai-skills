@@ -32,6 +32,7 @@
 |---|---|
 | `homepage_unavailable`, `blocked` | 网站没打开或拦截了自动访问; 拿不到不等于网站有问题 |
 | `endpoints_failed:<项>` | 这些页面没取到, 列进 "还有哪些没查清" |
+| `pages_need_browser:<项>` | 这些页面要浏览器运行脚本才显示正文, 本工具读不到; 不等于没有, 建议用户自己打开看或用 Pro 浏览器实测 |
 | `not_shopify` / `platform_unconfirmed` | 不是 (或不确定是) Shopify, Shopify 专项和平台附加费跳过 |
 | `offline_no_store` | 网站没上线, 只做了主体通道检查和费用测算 |
 | `manual_collection` | 页面是手动保存的, 可能不全 |

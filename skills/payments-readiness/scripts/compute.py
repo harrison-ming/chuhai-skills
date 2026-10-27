@@ -131,6 +131,17 @@ def gather(data_dir):
         ep = endpoints.get(key, {})
         if src is not None and not (signals.looks_blocked(src) and len(src) < 30000):
             text = signals.main_text(src)
+            if signals.looks_js_rendered(src, text):
+                policies[name] = {
+                    "state": "js_rendered",
+                    "text": "",
+                    "raw": "",
+                    "chars": 0,
+                    "file": fname,
+                }
+                ep["result"] = "js_rendered"
+                endpoints[key] = ep
+                continue
             policies[name] = {
                 "state": "ok",
                 "text": text,
@@ -246,6 +257,10 @@ def run_status(facts):
     )
     if failed:
         warnings.append("endpoints_failed:%s" % ",".join(failed))
+    js = sorted(k for k, v in eps.items() if v.get("result") == "js_rendered")
+    if js:
+        warnings.append("pages_need_browser:%s" % ",".join(js))
+    failed += js
     if facts["identity"] == "not_shopify":
         warnings.append("not_shopify")
     if facts["identity"] == "unconfirmed":
