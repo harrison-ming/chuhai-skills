@@ -292,6 +292,18 @@ def evaluate_agent(
         acc,
         python=sys.executable,
     )
+    expected = (case.get("expect") or {}).get("deliverables") or []
+    if expected and any(
+        r.startswith("missing deliverable") for r in verdict["reasons"]
+    ):
+        ignore = judge.DEFAULT_RAW_DIRS + (".claude", ".agents", "deliverables")
+        _missing, elsewhere = judge.match_deliverables(workdir, expected, ignore)
+        found = sorted({p for v in elsewhere.values() for p in v})
+        if found:
+            verdict["notes"].append(
+                "deliverables written outside CHUHAI_OUTPUT_DIR: %s"
+                % ", ".join(os.path.relpath(p, workdir) for p in found)
+            )
     outside = outside_refs(parsed.get("commands") or [], workdir)
     if outside:
         verdict["notes"].append(
