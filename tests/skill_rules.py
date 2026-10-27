@@ -20,6 +20,8 @@ TOP_KEYS = {"name", "description", "license", "metadata"}
 META_KEYS = {"version", "author", "homepage", "status", "review_by"}
 STATUSES = ("complete", "partial", "failed")
 HARD_LINE_BUDGET = 500
+# Claude rejects a skill whose description is longer than this.
+DESCRIPTION_MAX = 1024
 # Agent-specific tool names must not appear in a portable SKILL.md.
 TOOL_NAME_RE = re.compile(
     r"WebFetch|WebSearch|web_fetch|web_search|TodoWrite|mcp__|browser_navigate"
@@ -93,6 +95,8 @@ def check_skill_md(skill_dir):
         problems.append("metadata.version must be X.Y.Z")
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", meta.get("review_by", "")):
         problems.append("metadata.review_by must be YYYY-MM-DD")
+    if len(fm.get("description") or "") > DESCRIPTION_MAX:
+        problems.append("description over %d characters" % DESCRIPTION_MAX)
     if fm.get("name") != os.path.basename(skill_dir):
         problems.append("name must equal the folder name")
     body = text.split("---", 2)[2]

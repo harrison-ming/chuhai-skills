@@ -1,10 +1,10 @@
 ---
 name: shopify-store-teardown
 description: >-
-  拆解任意公开 Shopify 独立站 (对标店/竞品店). 核实店铺身份与店龄, 全量统计商品数/价格带/折扣/上新节奏, 识别主题/应用/Markets/追踪标签, 检查政策页一致性, 交付一份大白话的中文 PDF 报告 (保留证据标签) 和一张可用 Excel 打开的商品清单. 用于: 对标店分析, 竞品独立站拆解, "这家店是真的吗/开了多久", "它靠什么卖这个价", Shopify store teardown, competitor store analysis. 只读公开页面, 不登录, 不下单.
+  拆解任意公开 Shopify 独立站 (对标店/竞品店). 核实店铺身份与店龄, 全量统计商品数/价格带/折扣/上新节奏, 识别主题/应用/Markets/追踪标签, 检查政策页一致性, 交付一份大白话的中文 PDF 报告 (保留证据标签) 和一张可用 Excel 打开的商品清单. 用户只给一个网址加一句短问题也用它, 例如 "xx.com 是 Shopify 店吗", "这个网站用什么建站的", "这家店是真的吗", "开了多久/规模多大", "它靠什么卖这个价", "帮我拆解一下这个独立站", "对标店分析", "竞品独立站拆解"; English: "is xx.com a Shopify store", "what platform is this store built on", "how old is this store", "Shopify store teardown", "competitor store analysis". 只读公开页面, 不登录, 不下单.
 license: MIT
 metadata:
-  version: "0.2.1"
+  version: "0.2.2"
   author: StellarByte
   homepage: https://github.com/harrison-ming/chuhai-skills
   status: experimental
@@ -46,14 +46,16 @@ py -3 --version
 
 ## 第 1 步: 明确用户想知道什么
 
-没有问题就不要做"全面分析". 先问用户一次; 用户没说或说"你看着办", 默认深度拆解并在报告里写明.
+**不要停下来提问, 直接开始.** 按用户的话选档位; 用户没说想知道什么或说"你看着办", 默认深度拆解并在报告里写明.
 
 | 用户想知道 | 档位 | 耗时 |
 |---|---|---|
-| 真的假的 / 是谁的 / 开了多久 / 规模多大 | L0 快速核验 | 约 10 分钟 |
+| 是不是 Shopify 店 / 真的假的 / 是谁的 / 开了多久 / 规模多大 | L0 快速核验 | 约 10 分钟 |
 | 它靠什么卖这个价 / 页面怎么推动购买 / 我能借鉴什么 | L1 深度拆解 | 约 30-60 分钟 |
 
 输入可以是域名, 首页链接或任意商品页链接.
+
+**哪怕只问了一句"是不是 Shopify 店", 也走完整流程: 采集 → 写报告 → 交付文件.** 不要先用别的方式 (命令行下载工具, 网页读取工具) 看一眼就在对话里回答; 网站打不开或不是 Shopify 店, 也要交付一份短报告 (见"失败时"). 对话里的回答同样只用大白话, 不出现技术词.
 
 ## 第 2 步: 采集数据 (按环境自动选模式)
 
@@ -71,24 +73,32 @@ python3 <skill 目录>/scripts/collect.py <店铺网址> --depth L1
 - 同一天重复拆同一家店, 文件夹会自动加 "(2)", 不会覆盖.
 - 如果输出显示几乎所有端点都是网络错误 (不是 404 或 403), 说明环境不能联网, 换模式 B.
 
-**模式 B: 能运行 Python 但不能联网, 有网页读取工具** → 自己建 `<运行目录>/原始数据/raw/`, 按 `references/manual-collection.md` 取数存文件, 再运行:
+**模式 B: 能运行 Python 但不能联网, 有网页读取工具** → 先让脚本建好运行目录 (不联网, 位置规则和模式 A 相同), **不要自己在当前目录建**:
 
 ```bash
-python3 <skill 目录>/scripts/summarize.py "<运行目录>/原始数据"
+python3 <skill 目录>/scripts/collect.py <店铺网址> --init-only
 ```
 
-(传 `<运行目录>` 本身也可以, 脚本会自动找里面的 `原始数据/`.)
+它打印运行目录和 `raw/` 的位置. 按 `references/manual-collection.md` 取数存到这个 `raw/`, 再运行:
+
+```bash
+python3 <skill 目录>/scripts/summarize.py "<运行目录>"
+```
+
+(传 `<运行目录>/原始数据` 也可以.)
 
 之后与模式 A 相同.
 
 **模式 C / D: 不能运行 Python, 或没有读取工具** → 按 `references/manual-collection.md` 对应小节处理. 这时生成不了 PDF 和商品清单, 完成状态最多写 `partial`, 第 6 步改为在对话里直接给完整报告.
 
+**所有模式的文件都只能写进交付根目录**: 设置了环境变量 `CHUHAI_OUTPUT_DIR` 就用它, 用户指定了位置就用用户的, 否则是"文档/出海拆解报告". 模式 C / D 能写文件时, 报告也存到 `<交付根目录>/<域名> 对标拆解 <YYYY-MM-DD>/原始数据/report.md`. **绝不写到当前目录或临时目录.**
+
 ## 第 3 步: 读统计结果, 先处理警告
 
 读 `<运行目录>/原始数据/summary.json`. 字段含义见 `references/data-contract.md`. 必须先看:
 
-1. `identity.status`: 只有 `confirmed` / `probable` 才继续按 Shopify 分析. `not_shopify` 就告诉用户并跳过 Shopify 专项部分.
-2. `warnings`: 每一条都要在报告里交代 (正文用大白话, 附录写原值和实际数值), 不要自行解释原因. 例如 `collections_count_mismatch` 时写出 `collections_all_products_count` 与 `products.count` 两个数, 并说明商品量以 `products.count` 为准.
+1. `warnings` 有 `site_unreachable` (网站打不开), 或 `identity.status` 不是 `confirmed` / `probable`: 直接按"失败时"写短报告并交付, 不做后面的分析.
+2. 其他 `warnings`: 每一条都要在报告里交代 (正文用大白话, 附录写原值和实际数值), 不要自行解释原因. 例如 `collections_count_mismatch` 时写出 `collections_all_products_count` 与 `products.count` 两个数, 并说明商品量以 `products.count` 为准.
 3. `endpoints` 里失败的项: 写进"还有哪些没查清", **拿不到不等于不存在**.
 
 ## 第 4 步: 分析
@@ -126,6 +136,7 @@ python3 <skill 目录>/scripts/check_report.py "<运行目录>"
 - 有"错误" (退出码 1): 按每条的"怎么改"改完 report.md, 重新运行, 直到没有错误.
 - 有"疑似标高": 逐条复查. 是判断就拆开: 事实部分留 `[已核实]`, 判断部分改 `[推测]` 并写 "依据: ...". 例: "同款各颜色同价 [已核实]. 定价核心是一款一价 [推测] 依据: 同款各颜色价格一致". 确认是纯事实的, 删掉判断用语 (核心, 基本, 所以等).
 - 其他"提示" (技术词带解释, 全角标点) 能改就改.
+- **每条提示要么改掉, 要么在附录"技术细节"里写一行交代**, 例如 `自检提示: 保留 1 条 (第 12 行 "核心" 是商品名原文)`. 改完重跑, 不要带着没处理的提示交付.
 
 ## 第 6 步: 生成交付文件, 告诉用户去哪看
 
@@ -133,7 +144,9 @@ python3 <skill 目录>/scripts/check_report.py "<运行目录>"
 python3 <skill 目录>/scripts/deliver.py "<运行目录>"
 ```
 
-它会先跑一遍同样的自检 (有错误时打印出来, 仍照常生成, 并在最后提醒; 加 `--strict` 则有错误就不生成), 然后在运行目录顶层生成 `<店名> 对标拆解报告.pdf` 和 `商品清单.csv` (中文表头, Excel/WPS 直接打开), 并自动打开文件夹 (不想打开加 `--no-open`). 电脑上找不到 Edge/Chrome, 或浏览器在当前运行方式下没法打印 (常见于后台服务) 时, 生成的是 `.html`: 双击用浏览器打开, 需要 PDF 就在浏览器里"打印 → 另存为 PDF".
+它会先跑一遍同样的自检 (有错误时打印出来, 仍照常生成, 并在最后提醒; 加 `--strict` 则有错误就不生成), 然后在运行目录顶层生成 `<店名> 对标拆解报告.pdf` 和 `商品清单.csv` (中文表头, Excel/WPS 直接打开), 并自动打开文件夹 (不想打开加 `--no-open`). 电脑上找不到 Edge/Chrome, 或浏览器在当前运行方式下没法打印 (常见于沙箱和后台服务) 时, 生成的是 `.html`: 双击用浏览器打开, 需要 PDF 就在浏览器里"打印 → 另存为 PDF".
+
+**生成 `.html` 就算交付完成.** 不要另找别的 PDF 工具 (其他脚本, 浏览器自动化, 安装第三方包), 也不要重复运行 deliver.py 试图拿到 PDF; 告诉用户上面那句"打印 → 另存为 PDF"即可.
 
 然后**用大白话告诉用户文件在哪**, 不要只甩一个路径. 例如:
 
@@ -145,7 +158,7 @@ python3 <skill 目录>/scripts/deliver.py "<运行目录>"
 
 ## 失败时
 
-- 店铺打不开或身份无法确认: 仍写一份 `failed` 状态的短报告并交付, 写清卡在哪一步, 建议用户换一个网址 (例如带 `https://` 的首页) 或稍后重试.
+- **网站打不开 (`site_unreachable`), 或确认不了是 Shopify 店**: 仍按 `references/report-template.md` 的"失败短报告模板"写 `report.md`, 照常跑 check_report.py 和 deliver.py 交付文件. 完成状态: 什么都没拿到写 `failed`, 看到了首页但不是 Shopify 写 `partial`. 正文用大白话写清卡在哪一步 (例如"网址对应的网站不存在, 可能拼错"), 建议用户核对网址或稍后重试; 技术原因只放附录. 不要改用其他工具绕过去, 也不要只在对话里回答.
 - 证书错误: 脚本已自动兼容 (Windows 上会先让系统补一次根证书再重试). 仍失败时把脚本打印的"提示"用大白话转告用户: macOS 上 python.org 版 Python 运行一次 "Install Certificates.command"; Windows 先用浏览器打开一次该网站, 或等几分钟再试; Linux 更新系统证书. **不要关闭证书校验.**
 - 被限流 (429): 加大 `--delay` 重试, 不要并发.
 - `deliver.py` 失败: 报告仍在 `原始数据/report.md`, 告诉用户这个位置, 并在对话里给出摘要.

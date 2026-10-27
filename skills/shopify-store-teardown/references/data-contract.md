@@ -49,7 +49,7 @@
 ```json
 {
   "schema": "store-teardown/summary/1",
-  "tool_version": "0.2.1",
+  "tool_version": "0.2.2",
   "domain": "example.com",
   "captured_at_utc": "2026-09-30T08:00:00Z",
   "endpoints": {

@@ -82,13 +82,10 @@ class TestInitOnly(FailurePathCase):
             raise AssertionError("--init-only must not touch the network")
 
         out = io.StringIO()
-        with (
-            mock.patch("socket.getaddrinfo", no_network),
-            contextlib.redirect_stdout(out),
-        ):
-            rc = collect.main(
-                ["no-such-store.example", "--init-only", "--out-root", self.tmp]
-            )
+        args = ["no-such-store.example", "--init-only", "--out-root", self.tmp]
+        with mock.patch("socket.getaddrinfo", no_network):
+            with contextlib.redirect_stdout(out):
+                rc = collect.main(args)
         self.assertEqual(rc, 0)
         runs = os.listdir(self.tmp)
         self.assertEqual(len(runs), 1)

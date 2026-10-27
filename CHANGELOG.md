@@ -6,6 +6,17 @@
 - shopify-store-teardown 改用 `_shared`, 输出不变 (黄金输出比对测试逐字节一致); 新增 `acceptance.json`.
 - marketplace.json 改为由 SKILL.md 生成, 版本号只在 SKILL.md 维护. Release 工作流检查副本同步, marketplace 与全部测试, zip 不含模板, 测试与验收文件.
 
+## v0.2.2 (未发布)
+
+首轮跨 agent 自动验收 (Claude / Codex) 暴露的问题修复.
+
+- 触发: description 加入用户原话式短问句 ("xx.com 是 Shopify 店吗", "这个网站用什么建站的", "is xx.com a Shopify store" 等), 只问一句也会用这个 skill.
+- 失败路径: 网站打不开时 `summary.json` 新增警告 `site_unreachable`, 采集摘要直接提示写短报告; 报告模板新增"失败短报告模板"; SKILL.md 写明打不开或不是 Shopify 店也要交付 `failed` / `partial` 短报告, 不只在对话里回答, 也不要停下来提问.
+- 采集更稳更快: 传输中断 (IncompleteRead, 连接重置, 对端断开) 带退避重试 (最多 3 次, 单次等待不超过 8 秒), 重试时请求不压缩的正文; 正文比声明长度短时不再当成完整页面. 域名解析失败立即结束且不再重复请求同一主机, 不存在的域名从约 77 秒降到约 2 秒.
+- 交付位置: 新增 `collect.py --init-only` (不联网, 只在交付根目录建运行目录), 模式 B 不再把目录建到当前目录; SKILL.md 写明所有模式的文件只进交付根目录.
+- 无浏览器时生成 `.html` 即算交付完成, SKILL.md 写明不要另找 PDF 工具.
+- 自检: 全角标点整份报告合并成一条提示 (之前每行一条, 首轮一份报告 29 条全是它); SKILL.md 要求每条提示要么改掉, 要么在附录写一行保留原因.
+
 ## v0.2.1 (2026-09-30)
 
 - 修复: Windows 上证书错误触发 PowerShell 补根证书并重试成功后, 控制台不再误打印 "证书校验失败" 提示; 只有请求最终仍失败时才提示. `_status.json` 的 note 仍记录 `windows root certificate refresh triggered, retried once` 以便追溯.
