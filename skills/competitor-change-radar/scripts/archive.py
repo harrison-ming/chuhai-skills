@@ -193,12 +193,10 @@ def capture_archive(
         info["result"] = "not_found"
         info["note"] = "no archived capture in the window"
         return None, info
-    day = (pick_p or pick_h)[0]
-    day = "%s-%s-%s" % (day[:4], day[4:6], day[6:8])
     base = snapshot.snap_root(store_dir, lang)
     os.makedirs(base, exist_ok=True)
-    sid = snapshot.next_id(store_dir, lang, day, "-archive")
-    tmp = os.path.join(base, ".%s.partial" % sid)
+    tmp = os.path.join(base, ".archive.partial")
+    shutil.rmtree(tmp, ignore_errors=True)
     raw = os.path.join(tmp, output.raw_dirname(lang), "raw")
     os.makedirs(raw)
     requests, stamps = [], {}
@@ -225,7 +223,11 @@ def capture_archive(
         info["result"] = "error"
         info["note"] = "archived files could not be read"
         return None, info
-    captured = ts_to_dt((pick_p or pick_h)[0]).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # the snapshot is dated by what was actually saved (products first)
+    anchor_ts = stamps.get("products-1.json") or stamps["homepage.html"]
+    captured = ts_to_dt(anchor_ts).strftime("%Y-%m-%dT%H:%M:%SZ")
+    day = "%s-%s-%s" % (anchor_ts[:4], anchor_ts[4:6], anchor_ts[6:8])
+    sid = snapshot.next_id(store_dir, lang, day, "-archive")
     status = {
         "schema": "store-teardown/status/1",
         "domain": domain,

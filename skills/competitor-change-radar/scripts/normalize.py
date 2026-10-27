@@ -313,11 +313,12 @@ def path_of(href):
     return parts.path or "/"
 
 
-def snapshot_id_of(snap_dir):
-    """Folder name, without the ``.<id>.partial`` wrapper used while writing."""
+def snapshot_id_of(snap_dir, meta_id=None):
+    """Folder name; while still in a ``.<x>.partial`` folder, the id the
+    writer recorded in snapshot-meta.json."""
     name = os.path.basename(os.path.normpath(snap_dir))
     if name.startswith(".") and name.endswith(".partial"):
-        name = name[1 : -len(".partial")]
+        name = meta_id or name[1 : -len(".partial")]
     return name
 
 
@@ -398,14 +399,15 @@ def build_snapshot(snap_dir, source=None):
     if source == "archive":
         coverage_products = "partial" if products else "none"
     status = snapshot_status(identity, prod_ep, home_ep, products)
-    if source == "archive" and status == "complete":
-        status = "partial"
+    if source == "archive":
+        # a 429 from the archive says nothing about the store itself
+        status = "partial" if (products or home_html is not None) else "blocked"
     loc = sig.get("localization_selector")
     out = {
         "schema": SCHEMA,
         "tool_version": TOOL_VERSION,
         "domain": meta.get("domain") or summary.get("domain"),
-        "snapshot_id": snapshot_id_of(snap_dir),
+        "snapshot_id": snapshot_id_of(snap_dir, meta.get("snapshot_id")),
         "captured_at_utc": meta.get("captured_at_utc")
         or summary.get("captured_at_utc"),
         "source": source,

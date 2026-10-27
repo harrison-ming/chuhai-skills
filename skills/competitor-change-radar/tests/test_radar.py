@@ -433,6 +433,47 @@ class ArchiveTest(Tmp):
         self.assertFalse(snap["coverage"]["pagination_complete"])
         self.assertIn("products-1.json", snap["archive_timestamps"])
 
+    def test_archive_products_rate_limited_keeps_homepage(self):
+        _old, new = ff.scenario("price-drop")
+        home = ff.homepage(new.domain, ff.HOME_OLD).encode()
+        extra = {
+            "url=alpha-outfitters.example/products.json": (
+                200,
+                self.cdx(
+                    [
+                        [
+                            "20260819053954",
+                            "https://alpha-outfitters.example/products.json",
+                            "b",
+                        ]
+                    ]
+                ),
+            ),
+            "url=alpha-outfitters.example/&": (
+                200,
+                self.cdx(
+                    [["20260824202745", "https://alpha-outfitters.example/", "c"]]
+                ),
+            ),
+            "url=alpha-outfitters.example/policies/": (200, self.cdx([])),
+            "20260819053954id_": (429, b"slow down"),
+            "20260824202745id_": (200, home),
+        }
+        store = os.path.join(self.tmp, "store")
+        import datetime
+
+        sid, _info = archive.capture_archive(
+            new.domain,
+            store,
+            "zh",
+            fetcher=FakeFetcher(new, extra),
+            today=datetime.date(2026, 10, 27),
+            log=lambda *a: None,
+        )
+        self.assertEqual(sid, "2026-08-24-archive")
+        snap = normalize.load_snapshot(os.path.join(store, "快照", sid))
+        self.assertEqual((snap["status"], snap["snapshot_id"]), ("partial", sid))
+
     def test_archive_unreachable(self):
         class Down(object):
             delay = 0
