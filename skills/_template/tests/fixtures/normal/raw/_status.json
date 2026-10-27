@@ -1,0 +1,7 @@
+{
+  "schema": "__SKILL_NAME__/status/1",
+  "domain": "alpha-outfitters.example",
+  "requests": [
+    {"key": "homepage", "file": "homepage.html", "url": "https://alpha-outfitters.example/", "http_status": 200, "result": "ok", "note": ""}
+  ]
+}

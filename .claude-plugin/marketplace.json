@@ -13,13 +13,23 @@
       "name": "shopify-store-teardown",
       "description": "拆解任意公开 Shopify 独立站 (对标店/竞品店): 身份与店龄核验, 全量商品与价格统计, 主题/应用/Markets 识别, 政策一致性检查.",
       "version": "0.2.1",
-      "author": { "name": "StellarByte" },
+      "author": {
+        "name": "StellarByte"
+      },
       "homepage": "https://github.com/harrison-ming/chuhai-skills",
       "license": "MIT",
-      "keywords": ["shopify", "ecommerce", "competitor-analysis", "cross-border", "出海"],
+      "keywords": [
+        "shopify",
+        "ecommerce",
+        "competitor-analysis",
+        "cross-border",
+        "出海"
+      ],
       "source": "./",
       "strict": false,
-      "skills": ["./skills/shopify-store-teardown"]
+      "skills": [
+        "./skills/shopify-store-teardown"
+      ]
     }
   ]
 }

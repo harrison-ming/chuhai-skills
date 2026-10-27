@@ -1,0 +1,44 @@
+{
+  "skill": "shopify-store-teardown",
+  "cases": [
+    {
+      "id": "normal",
+      "prompt": "帮我拆解一下 allbirds.com, 我想知道它的定价为什么能成立",
+      "lang": "zh",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["products.json", "myshopify", "Shopify.theme", "E1", "L1"],
+        "must_contain_any": ["[已核实]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "not-a-store",
+      "prompt": "example-not-a-store.com 是 Shopify 店吗",
+      "lang": "zh",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html"],
+        "status_in": ["partial", "failed"],
+        "must_not_contain": ["products.json", "myshopify", "Shopify.theme"],
+        "must_contain_any": ["[查不到]", "[已核实]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "l0-quick",
+      "prompt": "这家店 gymshark.com 开了多久, 规模多大",
+      "lang": "zh",
+      "needs_network": true,
+      "expect": {
+        "deliverables": ["*.pdf|*.html"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["products.json", "myshopify", "Shopify.theme", "L0"],
+        "must_contain_any": ["[已核实]", "[查不到]"],
+        "fixed_ending": true
+      }
+    }
+  ]
+}

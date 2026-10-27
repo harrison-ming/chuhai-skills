@@ -1,0 +1,7 @@
+{
+  "schema": "__SKILL_NAME__/status/1",
+  "domain": "blocked-store.example",
+  "requests": [
+    {"key": "homepage", "file": "homepage.html", "url": "https://blocked-store.example/", "http_status": 403, "result": "blocked", "note": "HTTP 403"}
+  ]
+}
