@@ -7,11 +7,42 @@
       "lang": "zh",
       "needs_network": true,
       "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["complete", "partial"],
-        "must_not_contain": ["products.json", "myshopify", "compare_at_price", "web.archive.org", "variant_id"],
-        "must_contain_any": ["[已核实]", "[页面显示]"],
-        "fixed_ending": true
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "complete",
+          "partial"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "compare_at_price",
+          "web.archive.org",
+          "variant_id"
+        ],
+        "must_contain_any": [
+          "[已核实]",
+          "[页面显示]"
+        ],
+        "fixed_ending": true,
+        "status_by_runner": {
+          "codex-nonet": [
+            "failed",
+            "partial"
+          ]
+        },
+        "expect_by_runner": {
+          "codex-nonet": {
+            "deliverables": [
+              "*.pdf|*.html"
+            ],
+            "must_contain_any": [
+              "[查不到]"
+            ]
+          }
+        }
       }
     },
     {
@@ -20,10 +51,21 @@
       "lang": "zh",
       "needs_network": false,
       "expect": {
-        "deliverables": ["*.pdf|*.html", "*.csv"],
-        "status_in": ["complete"],
-        "must_not_contain": ["products.json", "myshopify", "variant_id"],
-        "must_contain_any": ["[已核实]"],
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "complete"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "variant_id"
+        ],
+        "must_contain_any": [
+          "[已核实]"
+        ],
         "fixed_ending": true
       }
     },
@@ -33,18 +75,63 @@
       "lang": "zh",
       "needs_network": true,
       "expect": {
-        "deliverables": ["*.pdf|*.html"],
-        "status_in": ["failed", "partial"],
-        "must_not_contain": ["products.json", "myshopify"],
-        "must_contain_any": ["[查不到]"],
+        "deliverables": [
+          "*.pdf|*.html"
+        ],
+        "status_in": [
+          "failed",
+          "partial"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify"
+        ],
+        "must_contain_any": [
+          "[查不到]"
+        ],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "english-demo",
+      "prompt": "Show me what the competitor change radar report looks like, using the demo data, in English",
+      "lang": "en",
+      "needs_network": false,
+      "expect": {
+        "deliverables": [
+          "*.pdf|*.html",
+          "*.csv"
+        ],
+        "status_in": [
+          "complete"
+        ],
+        "must_not_contain": [
+          "products.json",
+          "myshopify",
+          "variant_id"
+        ],
+        "must_contain_any": [
+          "[Verified]"
+        ],
         "fixed_ending": true
       }
     }
   ],
-  "network_domains": ["web.archive.org", "archive.org", "rdap.org", "*.rdap.org", "rdap.verisign.com", "*.verisign.com"],
+  "network_domains": [
+    "web.archive.org",
+    "archive.org",
+    "rdap.org",
+    "*.rdap.org",
+    "rdap.verisign.com",
+    "*.verisign.com"
+  ],
   "script_cmds": [
     "{python} -c \"import ast, glob, sys; [ast.parse(open(p, encoding='utf-8').read(), p) for p in sorted(glob.glob(sys.argv[1] + '/scripts/*.py'))]\" {skill_dir}",
     "{python} {skill_dir}/scripts/radar.py demo --out-root {out_root} --quiet",
     "[ -z \"{domain}\" ] || {python} {skill_dir}/scripts/radar.py run {domain} --out-root {out_root}"
-  ]
+  ],
+  "fixed_ending_text": {
+    "zh": "本报告没有覆盖的",
+    "en": "What this report does not cover"
+  }
 }
