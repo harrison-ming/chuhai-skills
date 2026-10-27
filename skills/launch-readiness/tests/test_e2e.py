@@ -136,6 +136,9 @@ class E2E(unittest.TestCase):
             },
         )
         self.assertEqual(f["EU-01"]["badge"], "inferred")
+        # privacy policy is a stub linking to /pages/privacy: followed, so complete
+        self.assertEqual(f["PRV-01"]["result"], "pass", f["PRV-01"])
+        self.assertNotIn("privacy-policy", " ".join(f["POL-07"]["evidence"]))
         self.assertEqual(doc["verdict"], "hold")
         kinds = {p["kind"] for p in f["LOC-03"]["data"]["problems"]}
         self.assertIn("invalid_code", kinds)

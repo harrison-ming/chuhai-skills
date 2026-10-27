@@ -113,7 +113,25 @@ def warnings_for(site, status, how):
             out.append("blocked:%s" % r.get("key"))
     if how == "site":
         out.append("markets_default")
+    asked = (site.status.get("input") or "").lower()
+    final = (site.home_url or "").lower()
+    if (
+        site.home
+        and asked
+        and fetch_host(final)
+        and fetch_host(final) not in (fetch_host(asked), "www." + fetch_host(asked))
+        and fetch_host(asked) != "www." + fetch_host(final)
+    ):
+        out.append("redirected_host:%s" % fetch_host(final))
     return out
+
+
+def fetch_host(url):
+    from urllib.parse import urlsplit
+
+    if "://" not in url:
+        url = "https://" + url
+    return (urlsplit(url).hostname or "").lower()
 
 
 def run_checks(site, countries, lang_countries, ads):
@@ -135,7 +153,54 @@ def run_checks(site, countries, lang_countries, ads):
     checks_market.run(ctx, claims)
     checks_loc.run(ctx, claims)
     checks_trust.run(ctx)
+    host = fetch_host(site.home_url or "")
+    shell = (
+        host.startswith("checkout.")
+        or ".checkout." in host
+        or host.endswith("myshopify.com")
+    )
+    if pages.js_rendered(site.home or "") or shell:
+        soften_js_home(ctx, shell)
     return ctx, claims
+
+
+# Checks that read the homepage HTML: on a JavaScript-rendered homepage an
+# absence there is unreadable, not "missing".
+HOME_DEPENDENT = (
+    "POL-01",
+    "POL-02",
+    "POL-03",
+    "POL-04",
+    "POL-05",
+    "GMC-01",
+    "LOC-01",
+    "TRU-04",
+    "TRU-06",
+    "GMC-06",
+    "BIZ-03",
+)
+
+
+def soften_js_home(ctx, shell=False):
+    """``shell``: the visitor was sent to a checkout / admin domain (headless
+    storefront), so homepage-level results say nothing about the real shop."""
+    if shell:
+        for rid in (
+            "SEO-01",
+            "SEO-02",
+            "SEO-03",
+            "GMC-02",
+            "TRU-02",
+            "LOC-03",
+            "POL-06",
+        ):
+            f = ctx.findings.get(rid)
+            if f and f["result"] == "fail":
+                f.update(result="unknown", badge="not_found", note="js_home")
+    for rid in HOME_DEPENDENT:
+        f = ctx.findings.get(rid)
+        if f and f["result"] == "fail" and not f["evidence"]:
+            f.update(result="unknown", badge="not_found", note="js_home")
 
 
 def write_jsonl(path, rows):

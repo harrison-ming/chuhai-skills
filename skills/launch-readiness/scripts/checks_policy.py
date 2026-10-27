@@ -22,7 +22,8 @@ PLACEHOLDER_RE = re.compile(
     re.I,
 )
 FINAL_RE = re.compile(
-    r"all sales (?:are )?final|\bno refunds?\b|\bno returns?\b|non-?refundable|"
+    r"all sales (?:are )?final|\bno refunds?\b|\bno returns?\b|"
+    r"(?:items?|products?|orders?|purchases?|everything) (?:is|are) (?:final|non-?refundable)|"
     r"概不退换|不退不换",
     re.I,
 )
@@ -33,7 +34,7 @@ FAULTY_RE = re.compile(
 )
 EXEMPT_RE = re.compile(
     r"gift ?card|personali[sz]|custom(?:ized|-made)|hygiene|underwear|earring|"
-    r"shipping (?:fee|cost|charge)|duties|customs|insurance|e-?gift",
+    r"shipping (?:fee|cost|charge)|duties|customs|insurance|e-?gift|rejected|forfeit",
     re.I,
 )
 FREE_MAIL = re.compile(
@@ -252,17 +253,25 @@ def content(ctx, claims):
             ),
             "condition": re.search(
                 r"unused|unworn|original (packaging|condition)|tags|unopened|"
-                r"same condition|resal",
+                r"same condition|resal|unbenutzt|ungetragen|originalverpackung|etikett|neuwertig|"
+                r"non utilis|emballage d.origine|sin usar",
                 t,
                 re.I,
             ),
             "how": re.search(
-                r"contact|email|portal|start a return|request|initiate|rma|form",
+                r"contact|e-?mail|portal|start a return|request|initiate|rma|form|kontakt|"
+                r"retoure|r\u00fccksendung|erkl\u00e4rung|formular|formulaire|contacte",
                 t,
                 re.I,
             ),
             "refund_time": any(c["topic"] == "refund_days" for c in rc)
-            or re.search(r"refund.{0,80}(days|processed|issued)", t, re.I | re.S),
+            or re.search(
+                r"(refund|erstatt|zur\u00fcckzuzahlen|rembours|reembols).{0,120}"
+                r"(days|processed|issued|tage|jours|d\u00edas)|"
+                r"(tagen|days|jours|d\u00edas).{0,80}(zur\u00fcckzuzahlen|erstatt|refund|rembours)",
+                t,
+                re.I | re.S,
+            ),
         }
         miss = [k for k, v in need.items() if not v]
         ctx.add(
@@ -290,18 +299,26 @@ def content(ctx, claims):
         t = ship["text"]
         need = {
             "processing": re.search(
-                r"process|handling|dispatch|prepar|ships? within", t, re.I
+                r"process|handling|dispatch|prepar|ships? within|bearbeitung|versand(?:t|fertig)|"
+                r"verschickt|exp\u00e9di|preparaci",
+                t,
+                re.I,
             ),
             "transit": re.search(
-                r"(deliver|transit|arriv)\w*.{0,60}\d", t, re.I | re.S
+                r"(deliver|transit|arriv|lieferzeit|zustellung|lieferung|livraison|entrega)\w*.{0,60}\d",
+                t,
+                re.I | re.S,
             ),
             "rates": re.search(
-                r"free (shipping|delivery)|rate|cost|fee|calculated at checkout|"
+                r"free (shipping|delivery)|rate|cost|fee|calculated at checkout|versandkosten|"
+                r"kostenlos|frais|gratuit|gastos de env|"
                 r"[$€£]\s?\d",
                 t,
                 re.I,
             ),
-            "tracking": re.search(r"track", t, re.I),
+            "tracking": re.search(
+                r"track|sendungsverfolgung|suivi|seguimiento", t, re.I
+            ),
         }
         miss = [k for k, v in need.items() if not v]
         ctx.add(

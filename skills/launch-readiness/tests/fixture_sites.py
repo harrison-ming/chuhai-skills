@@ -268,7 +268,11 @@ def conflicts_missing():
         ),
         "/policies/refund-policy": policy("Refund policy", BAD_REFUND),
         "/policies/privacy-policy": policy(
-            "Privacy policy", CLEAN_PRIVACY.replace("Clean Shop GmbH", "Bad Shop Ltd")
+            "Privacy policy", 'Read it here: <a href="/pages/privacy">privacy</a>'
+        ),
+        "/pages/privacy": page(
+            "<main><p>%s</p></main>"
+            % CLEAN_PRIVACY.replace("Clean Shop GmbH", "Bad Shop Ltd")
         ),
         "/policies/terms-of-service": policy(
             "Terms", CLEAN_TERMS.replace("Clean Shop GmbH", "Bad Shop Ltd")

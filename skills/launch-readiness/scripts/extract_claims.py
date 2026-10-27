@@ -25,10 +25,20 @@ RETURN_W = re.compile(
     r"widerruf|withdraw|cancel)\w*|退货|退换",
     re.I,
 )
-REFUND_W = re.compile(r"\brefund\w*|erstatt|rembours|reembols|退款", re.I)
+# Statutory withdrawal / cancellation rights are a different topic from a
+# store's own (often longer) return window.
+WITHDRAW_W = re.compile(
+    r"widerruf|withdraw|right to cancel|cancellation right|r\u00e9tractation|desistimiento",
+    re.I,
+)
+REFUND_W = re.compile(
+    r"\brefund\w*|erstatt|zur\u00fcckzuzahl|zur\u00fcckzahl|rembours|reembols|退款",
+    re.I,
+)
 WARRANTY_W = re.compile(r"warrant|guarantee(?!.{0,20}(money|refund))|质保|保修", re.I)
 PROCESS_W = re.compile(
-    r"process|credited|issued|reflect|back to your|appear|到账", re.I
+    r"process|credited|issued|reflect|back to your|appear|zur\u00fcckzuzahlen|zur\u00fcckzahl|erstatten|到账",
+    re.I,
 )
 SHIP_W = re.compile(
     r"deliver|arriv|transit|shipping time|ship(?:ped|s)? within|versand|lieferzeit|"
@@ -38,12 +48,14 @@ SHIP_W = re.compile(
 HANDLING_W = re.compile(r"process|handling|prepar|dispatch|处理|备货", re.I)
 START_PURCHASE = re.compile(
     r"(?:from|of|after)\s+(?:the\s+)?(?:date\s+of\s+)?(?:your\s+)?"
-    r"(purchase|order(?:\s+date)?|ordering|payment|placing)\b|下单|购买之?日",
+    r"(purchase|order(?:\s+date)?|ordering|payment|placing)\b|bestelldatum|kaufdatum|"
+    r"ab (?:der )?bestellung|date de (?:la )?commande|fecha de (?:la )?compra|下单|购买之?日",
     re.I,
 )
 START_DELIVERY = re.compile(
     r"(?:from|of|after)\s+(?:the\s+)?(?:date\s+of\s+)?(?:your\s+)?"
-    r"(deliver\w*|receiv\w*|receipt|arrival)\b|签收|收到",
+    r"(deliver\w*|receiv\w*|receipt|arrival)\b|签收|收到|in besitz|erhalt|empfang|"
+    r"r\u00e9ception|livraison|recepci\u00f3n|entrega",
     re.I,
 )
 FREE_SHIP = re.compile(
@@ -57,12 +69,14 @@ BUYER_PAYS = re.compile(
     r"(?:cost of\s+)?return|return shipping (?:costs?|fees?) (?:are|is|will be) (?:paid|covered|borne) by (?:the )?"
     r"(customer|buyer|you)|at (?:the )?(?:customer|buyer)'?s? (?:own )?(?:expense|cost)|"
     r"(customer|buyer)s? (?:pay|cover)s? (?:for )?(?:the )?(?:cost of )?return|"
+    r"(?<!wir )tragen (?:sie )?die (?:unmittelbaren )?kosten der r\u00fccksendung|"
     r"买家承担|顾客承担",
     re.I,
 )
 SELLER_PAYS = re.compile(
     r"free returns?|we (?:will )?(?:cover|pay)(?: for)? (?:the )?return|prepaid return label|"
-    r"return shipping is free|returns? (?:are|is) free|免费退货",
+    r"return shipping is free|returns? (?:are|is) free|wir tragen die kosten der r\u00fccksendung|"
+    r"kostenlose r\u00fccksendung|免费退货",
     re.I,
 )
 RESTOCK = re.compile(
@@ -71,9 +85,27 @@ RESTOCK = re.compile(
 NO_RESTOCK = re.compile(r"no restocking fee", re.I)
 CURRENCY_WORD = re.compile(r"\b(RMB|CNY)\b|人民币")
 ENTITY = re.compile(
-    r"\b([A-Z][A-Za-z0-9&.' -]{1,50}?\s(?:Co\.,?\s?Ltd\.?|Ltd\.?|Limited|LLC|L\.L\.C\.|Inc\.?|GmbH|"
-    r"UG|S\.?A\.?S\.?|S\.?L\.?|B\.?V\.?|Pty Ltd|Corp\.?|Corporation))(?![A-Za-z])"
+    r"\b((?:[A-Z0-9][\w&.'-]*\s+){1,6}(?:Co\.,?\s?Ltd\.?|Ltd\.?|Limited|LLC|L\.L\.C\.|Inc\.?|"
+    r"GmbH|UG|S\.?A\.?S\.?|S\.?L\.?|B\.?V\.?|Pty\.? Ltd\.?|Corp\.?|Corporation))(?![A-Za-z])"
 )
+
+
+NUMBER_WORDS = {
+    "seven": "7",
+    "fourteen": "14",
+    "thirty": "30",
+    "sixty": "60",
+    "ninety": "90",
+    "sieben": "7",
+    "vierzehn": "14",
+    "drei\u00dfig": "30",
+    "dreissig": "30",
+    "quatorze": "14",
+    "trente": "30",
+    "catorce": "14",
+    "treinta": "30",
+}
+NUMBER_WORDS_RE = re.compile(r"\b(%s)\b" % "|".join(NUMBER_WORDS), re.I)
 
 
 def claims_from_text(text, source, url):
@@ -90,6 +122,7 @@ def claims_from_text(text, source, url):
             }
         )
 
+    text = NUMBER_WORDS_RE.sub(lambda m: NUMBER_WORDS[m.group(0).lower()], text or "")
     for sent in pages.sentences(text):
         if len(sent) > 600:
             sent = sent[:600]
@@ -107,14 +140,20 @@ def claims_from_text(text, source, url):
                 ):
                     if not (has_ref and processing):
                         add("return_days", n, sent)
+                        if WITHDRAW_W.search(sent):
+                            out[-1]["kind"] = "withdrawal"
                         break
-            if START_PURCHASE.search(sent):
+            # A start point only counts next to a day count ("30 days of
+            # purchase"), not in "original form of payment".
+            timed = re.search(NUM + r"\s*[- ]?\s*(?:calendar\s+)?" + DAY, sent, re.I)
+            if timed and START_PURCHASE.search(sent[timed.start() :]):
                 add("return_start", "purchase", sent)
-            elif START_DELIVERY.search(sent):
+            elif timed and START_DELIVERY.search(sent[timed.start() :]):
                 add("return_start", "delivery", sent)
         if has_ref and processing:
             m = re.search(
-                r"(?:within|up to|in)\s+" + NUM + r"\s*(?:business |working )?" + DAY,
+                r"(?:within|up to|in|binnen|innerhalb von|sp\u00e4testens|sous|dans un d\u00e9lai de|"
+                r"en un plazo de)\s+" + NUM + r"\s*(?:business |working )?" + DAY,
                 sent,
                 re.I,
             )
@@ -181,7 +220,8 @@ def conflicts(claims, topics=None):
     for c in claims:
         if topics and c["topic"] not in topics:
             continue
-        by_topic.setdefault(c["topic"], []).append(c)
+        key = c["topic"] + (":" + c["kind"] if c.get("kind") else "")
+        by_topic.setdefault(key, []).append(c)
     for topic, items in sorted(by_topic.items()):
         firsts, values = {}, {}
         for c in items:

@@ -150,15 +150,42 @@ def collect(target, raw, fetcher, markets_text=None, ads=True):
     return finish(raw, status, c)
 
 
+STUB_CHARS = 400
+
+
+def follow_stub(c, base, name, text):
+    """A short policy that only links to a /pages/ page: read that page too."""
+    if not text or len(pages.policy_text(text)) >= STUB_CHARS:
+        return
+    host = urlsplit(base).hostname
+    body = pages.balanced_div(text, "shopify-policy__body") or text
+    urls = [u for u, _t, _a in pages.links(body, base + "/")]
+    urls += re.findall(r"https?://[^\s\"'<>]+", pages.policy_text(text))
+    for url in urls:
+        url = pages.strip_fragment(url)
+        if pages.same_host(url, host) and "/policies/" not in url and "/pages/" in url:
+            c.get(
+                "policy_page:" + name,
+                url,
+                "policies/%s.page.html" % name,
+                "policy",
+                policy=name,
+                followed=True,
+            )
+            return
+
+
 def collect_shopify(c, base):
     for name in pages.POLICY_NAMES:
-        c.get(
+        text, _r, res = c.get(
             "policy:" + name,
             "%s/policies/%s" % (base, name),
             "policies/%s.html" % name,
             "policy",
             policy=name,
         )
+        if res == "ok":
+            follow_stub(c, base, name, text)
     c.get("meta", base + "/meta.json", "meta.json", "meta", accept=fetch.ACCEPT_JSON)
     text, _r, res = c.get(
         "products",
@@ -340,6 +367,12 @@ def main(argv=None):
     ap.add_argument("--timeout", type=float, default=20.0)
     ap.add_argument("--no-audit", action="store_true")
     args = ap.parse_args(argv)
+    if re.search(r"\s", args.target.strip()):
+        print(
+            "error: one store URL only, without spaces: %r" % args.target,
+            file=sys.stderr,
+        )
+        return 2
     try:
         _scheme, host = fetch.normalize_input(args.target)
     except ValueError as e:

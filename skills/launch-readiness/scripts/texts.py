@@ -4,13 +4,15 @@ Python 3.8+, standard library only.
 
 NOTES = {
     "zh": {
-        "exists_not_in_footer": "页面存在, 但首页页脚没有指向它的链接",
+        "exists_not_in_footer": "页面存在, 但首页源码里没有指向它的链接 (如果是脚本加载的链接, 请用浏览器确认)",
         "not_in_pasted_text": "你提供的文本里没有这一项",
         "homepage_unavailable": "首页没打开, 无法检查",
         "footer_link_not_read": "页脚有链接, 但那一页没读到",
         "no_page_no_footer_link": "政策网址打不开 (找不到页面), 首页页脚和页头也没有相应链接",
         "not_evaluated": "没有检查",
         "agent_reviewed": "人工复核后排除 (脚本误判)",
+        "js_home": "首页内容靠脚本显示, 脚本读不到, 请用浏览器确认",
+        "fetch_js_rendered": "页面内容靠脚本显示, 脚本读不到",
         "password_only": "店铺开着密码页, 只能看到密码页; 走粘贴模式或上线后重跑",
         "needs_live_site": "需要线上页面, 粘贴模式或店铺未公开时查不到",
         "needs_browser": "需要浏览器实测, 免费版不覆盖",
@@ -38,6 +40,8 @@ NOTES = {
         "no_page_no_footer_link": "Policy URL not found and no footer/header link",
         "not_evaluated": "Not checked",
         "agent_reviewed": "Excluded after manual review (false positive)",
+        "js_home": "Homepage content is drawn by JavaScript and could not be read; check in a browser",
+        "fetch_js_rendered": "Page content is drawn by JavaScript and could not be read",
         "password_only": "Only the password page is public; use paste mode or re-run after launch",
         "needs_live_site": "Needs the live site (not available in paste mode or behind a password)",
         "needs_browser": "Needs a browser test (not in the free version)",

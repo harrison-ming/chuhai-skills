@@ -319,7 +319,8 @@ def js_rendered(src):
         return False
     words = len(full_text(src).split())
     scripts = len(re.findall(r"(?i)<script\b", src))
-    return words < 25 and scripts >= 1
+    app_root = re.search(r'(?i)id=["\'](app|root|__next|__nuxt)["\']', src)
+    return words < 25 and (scripts >= 3 or (scripts >= 1 and bool(app_root)))
 
 
 def sentences(text):

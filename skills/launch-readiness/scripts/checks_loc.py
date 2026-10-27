@@ -29,24 +29,37 @@ CONSENT_RE = re.compile(
     re.I,
 )
 PRIVACY_ITEMS = [
-    ("controller_contact", r"contact|e-?mail|@"),
+    ("controller_contact", r"contact|e-?mail|@|kontakt|verantwortlich"),
     (
         "purposes",
-        r"purpose|we use (your|the|this|personal)|use (of )?(your )?(personal )?information",
+        r"purpose|we use (your|the|this|personal)|use (of )?(your )?(personal )?information|"
+        r"zweck|finalit|finalidad",
     ),
-    ("recipients", r"share|third[- ]part|service provider|disclos|processor"),
+    (
+        "recipients",
+        r"share|third[- ]part|service provider|disclos|processor|empf\u00e4nger|"
+        r"weitergabe|dritte|destinataire|destinatario",
+    ),
     (
         "transfer",
-        r"transfer|outside (of )?(the )?(eea|eu|european|uk)|international|countries",
+        r"transfer|outside (of )?(the )?(eea|eu|european|uk)|international|countries|"
+        r"drittl\u00e4nder|drittland|\u00fcbermittlung|pays tiers",
     ),
     (
         "retention",
-        r"retain|retention|as long as|keep (your )?(personal )?(data|information)|delete",
+        r"retain|retention|as long as|keep (your )?(personal )?(data|information)|delete|"
+        r"speicherdauer|gespeichert|l\u00f6sch|conserv",
     ),
-    ("rights", r"right to|your rights|access, correct|delete your|erasure|opt[- ]out"),
+    (
+        "rights",
+        r"right to|your rights|access, correct|delete your|erasure|opt[- ]out|"
+        r"recht auf|ihre rechte|auskunft|droit|derecho",
+    ),
 ]
 LEGAL_BASIS_RE = re.compile(
-    r"legal basis|lawful basis|legitimate interest|consent|contract", re.I
+    r"legal basis|lawful basis|legitimate interest|consent|contract|rechtsgrundlage|"
+    r"art\.? ?6|einwilligung|base l\u00e9gale|base jur\u00eddica",
+    re.I,
 )
 ENGLISH_WORDS = set(
     "the and your with you our are for cart free shipping add more about sign all from "
@@ -54,7 +67,7 @@ ENGLISH_WORDS = set(
 )
 UNIT_METRIC = re.compile(r"\b\d+(\.\d+)?\s?(cm|mm|kg|ml)\b", re.I)
 UNIT_IMPERIAL = re.compile(
-    r"\b\d+(\.\d+)?\s?(in|inch|inches|lbs?|oz|ft)\b|\d+(\.\d+)?\s?\"", re.I
+    r"\b\d+(\.\d+)?\s?(inch|inches|lbs?|oz|ft)\b|\b\d+(\.\d+)?\s?\"(?=[\s,;)x])", re.I
 )
 DUTY_RE = re.compile(
     r"dut(y|ies)|customs|import (tax|fee|charge)|\bzoll|douane|\bDDP\b|\bDAP\b|"
@@ -207,7 +220,7 @@ def currencies(ctx):
     bad, checked = [], 0
     for m in s.markets:
         h = m.get("market_home")
-        region = (m.get("code") or "").split("-")[-1].upper()
+        region = markets.region_of(m.get("code"))
         want = markets.currency("GB" if region == "UK" else region)
         if not (h and h.get("html") and want):
             continue
@@ -267,7 +280,7 @@ def same_policy(ctx):
     same = []
     for m in s.markets:
         p = m.get("market_policy")
-        region = (m.get("code") or "").split("-")[-1].upper()
+        region = markets.region_of(m.get("code"))
         if region not in markets.EU and region not in ("GB", "UK"):
             continue
         if main and p and p.get("text") and p["text"].strip() == main["text"].strip():

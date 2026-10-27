@@ -30,10 +30,10 @@ ADDRESS_RE = re.compile(
     re.I,
 )
 WITHDRAW_RE = re.compile(
-    r"(14|fourteen)[ -]?(day|tage|jours|días|giorni|dagen)\w*.{0,120}"
+    r"(14|fourteen|vierzehn|quatorze|catorce)[ -]?(day|tage|jours|días|giorni|dagen)\w*.{0,120}"
     r"(withdraw|widerruf|rétractation|desistimiento|cancel)|"
     r"(withdraw|widerruf|rétractation|desistimiento|right to cancel|cancel).{0,120}"
-    r"(14|fourteen)[ -]?(day|tage|jours|días)",
+    r"(14|fourteen|vierzehn|quatorze|catorce)[ -]?(day|tage|jours|días)",
     re.I | re.S,
 )
 FORM_RE = re.compile(
@@ -199,12 +199,16 @@ def legal(ctx, claims):
         c["value"] == "purchase" for c in claims if c["topic"] == "return_start"
     )
     has_14 = bool(WITHDRAW_RE.search(blob)) or (
-        days and min(days) >= 14 and not purchase
+        days and max(days) >= 14 and not purchase
     )
     if not items:
         for rid in ("EU-01", "EU-02", "EU-03", "EU-04", "UK-01", "UK-02"):
             ctx.add(
-                rid, "fail" if s.paste or s.home else "unknown", note="no_return_text"
+                rid,
+                "fail"
+                if s.paste or s.policy_result("refund-policy") == "not_found"
+                else "unknown",
+                note="no_return_text",
             )
     else:
         ev = ["return days: %s" % ", ".join(map(str, days))] if days else None

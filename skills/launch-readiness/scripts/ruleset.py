@@ -157,13 +157,15 @@ class Ctx(object):
 
 
 def first_match(regex, items, flags=re.I):
-    """(item, sentence) for the first sentence matching regex in
-    items [(label, url, text)], else (None, None)."""
+    """(item, snippet) for the first match of regex in items
+    [(label, url, text)], else (None, None). Matches on the whole text (a
+    sentence splitter would break "inkl. MwSt." or "Co., Ltd.")."""
     import pages
 
     rx = re.compile(regex, flags) if isinstance(regex, str) else regex
     for item in items:
-        for sent in pages.sentences(item[2]):
-            if rx.search(sent):
-                return item, sent
+        text = item[2] or ""
+        m = rx.search(text)
+        if m:
+            return item, pages.snippet(text, m.start(), m.end(), 90)
     return None, None

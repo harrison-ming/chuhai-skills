@@ -184,3 +184,14 @@ def default_markets(user_text, seen):
         if (c in EU or c in OTHER) and c not in out:
             out.append(c)
     return out, "site"
+
+
+def region_of(code):
+    """'en-gb' -> 'GB', 'de-DE' -> 'DE', 'es' or 'x-default' -> None."""
+    parts = (code or "").split("-")
+    if len(parts) < 2 or parts[0].lower() == "x":
+        return None
+    r = parts[-1].upper()
+    if not re.match(r"^[A-Z]{2}$", r):
+        return None
+    return "GB" if r == "UK" else r

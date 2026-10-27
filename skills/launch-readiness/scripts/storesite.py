@@ -51,7 +51,7 @@ def infer_index(raw):
             if rel == "homepage.html":
                 row.update(role="home", key="homepage")
             elif parts[0] == "policies":
-                h = re.sub(r"\.(html?|txt|md)$", "", parts[-1])
+                h = re.sub(r"(\.page)?\.(html?|txt|md)$", "", parts[-1])
                 row.update(role="policy", policy=h, key="policy:" + h)
             elif parts[0] == "pdp":
                 row.update(role="pdp")
@@ -126,6 +126,9 @@ class Site(object):
             "html": src,
             "text": pages.policy_text(src) if src else "",
         }
+        if src and len(entry["text"]) < 200 and pages.js_rendered(src):
+            # Content drawn by JavaScript: unreadable, not "missing".
+            entry.update(text="", result="js_rendered")
         if role == "page" and row.get("page_role") in ROLE_TO_POLICY and src:
             handle = ROLE_TO_POLICY[row["page_role"]]
             if handle not in self.policies or not self.policies[handle]["text"]:
@@ -134,13 +137,14 @@ class Site(object):
         if role == "policy":
             handle = row.get("policy")
             old = self.policies.get(handle)
-            if old is None or (not old["text"] and entry["text"]):
+            if old is None or len(entry["text"]) > len(old["text"] or ""):
                 self.policies[handle] = entry
         elif role == "page":
             self.info.setdefault(row.get("page_role") or "other", []).append(entry)
         elif role == "pdp":
             entry.update(handle=row.get("handle"), sample=row.get("sample"))
-            self.pdps.append(entry)
+            if entry["result"] != "js_rendered":
+                self.pdps.append(entry)
         elif role in ("market_home", "market_product", "market_policy"):
             m = self.market(row.get("code"))
             m[role] = entry
@@ -178,9 +182,11 @@ class Site(object):
 
     def footer_has(self, regex):
         rx = re.compile(regex, re.I)
-        for url, text, _a in self.footer_links():
-            if rx.search(text or "") or rx.search(url or ""):
-                return url
+        # Footer first; any homepage link still makes the page reachable.
+        for links in (self.footer_links(), pages.links(self.home, self.home_url)):
+            for url, text, _a in links:
+                if rx.search(text or "") or rx.search(url or ""):
+                    return url
         return None
 
     def texts(self):
