@@ -204,6 +204,10 @@ T = {
         "removed_na": "未判断",
         "nothing": "- 本期无变化: 两次看到的商品, 价格, 折扣, 首页促销和政策都一样 %s",
         "top": "- 最重要的变化:",
+        "top_none": "- 没有值得单列的变化 (只有首页文字等小改动, 见下文) %s",
+        "products_na": "- 这一期商品没法比 (%s 没有商品数据), 只比首页, 主题, 多国站点和政策 [查不到]",
+        "products_na_text": "这一期商品没法比 [查不到]",
+        "price_na": "这一期价格没法比 [查不到]",
         "next": '- 下次建议 %s 再跑: 对 AI 说 "再看一下 %s 有什么变化".',
         "price_h": "## 价格变动",
         "price_skip": "两次的基础币种不同 (%s → %s), 价格不能直接比, 这一期跳过价格比较 %s",
@@ -265,14 +269,14 @@ T = {
         "signals_h": "## 需要关注的信号",
         "signals_ph": "<待写: 3-5 条, 每条写 动作 (今晚 / 本周 / 观察) + 依据的事件编号 + [推测] 依据: ... 不写销量和利润判断. 可参考的事件: %s>",
         "gaps_h": "## 还有哪些没查清",
-        "gap_dim": "- %s这一期没法比 [查不到]. 拿不到不等于没变.",
+        "gap_dim": "- %s 这一期没法比 [查不到]. 拿不到不等于没变.",
         "dim": {
-            "products": "商品, ",
-            "prices": "价格, ",
-            "removals": "下架, ",
-            "homepage": "首页, ",
-            "collections": "商品分类, ",
-            "markets": "多国站点与配送, ",
+            "products": "商品",
+            "prices": "价格",
+            "removals": "下架",
+            "homepage": "首页",
+            "collections": "商品分类",
+            "markets": "多国站点与配送",
         },
         "gap_none": "- 主要维度两次都读到了. 两次之间来回的变化 (例如先降后涨) 看不到.",
         "appendix_h": "## 附录: 口径与数据来源",
@@ -341,6 +345,10 @@ T["en"] = {
     "removed_na": "not judged",
     "nothing": "- No changes: products, prices, discounts, homepage promos and policies are the same in both captures %s",
     "top": "- Most important changes:",
+    "top_none": "- Nothing worth listing on its own (only minor homepage text and the like, see below) %s",
+    "products_na": "- Products could not be compared this time (no product data in %s); only homepage, theme, country sites and policies were compared [Not found]",
+    "products_na_text": "Products could not be compared this time [Not found]",
+    "price_na": "Prices could not be compared this time [Not found]",
     "next": '- Next suggested run: %s. Tell the assistant "check %s for changes again".',
     "price_h": "## Price changes",
     "price_skip": "The base currency changed (%s → %s), so prices cannot be compared this time %s",
@@ -402,14 +410,14 @@ T["en"] = {
     "signals_h": "## Signals to watch",
     "signals_ph": "<to be written: 3-5 items, each an action (tonight / this week / watch) + the event ids + [Inferred] Basis: ... No sales or profit claims. Events to consider: %s>",
     "gaps_h": "## What we could not check",
-    "gap_dim": "- %scould not be compared this time [Not found]. Missing data is not the same as no change.",
+    "gap_dim": "- %s could not be compared this time [Not found]. Missing data is not the same as no change.",
     "dim": {
-        "products": "products, ",
-        "prices": "prices, ",
-        "removals": "removals, ",
-        "homepage": "homepage, ",
-        "collections": "collections, ",
-        "markets": "country sites and shipping, ",
+        "products": "products",
+        "prices": "prices",
+        "removals": "removals",
+        "homepage": "homepage",
+        "collections": "collections",
+        "markets": "country sites and shipping",
     },
     "gap_none": "- The main areas were read both times. Changes that went back and forth between the two captures are invisible.",
     "appendix_h": "## Appendix: method and sources",
@@ -639,6 +647,12 @@ def diff_md(diff, ctx):
             diff["from"]["status"], ""
         )
         L.append(t["fail_glance"] % (diff["domain"], why))
+    elif not comp["products"]:
+        side = diff["from"] if not diff["from"]["products"] else diff["to"]
+        L.append(
+            t["products_na"]
+            % ("%s, %s" % (side["snapshot"], SOURCE_LABEL[lang].get(side["source"])))
+        )
     else:
         removed = "%d" % c["product_removed"] if comp["removals"] else t["removed_na"]
         L.append(
@@ -656,8 +670,12 @@ def diff_md(diff, ctx):
     if not real and not bad:
         L.append(t["nothing"] % ob)
     elif real:
-        L.append(t["top"])
-        L += top_changes(diff, lang)
+        tops = top_changes(diff, lang)
+        if tops:
+            L.append(t["top"])
+            L += tops
+        else:
+            L.append(t["top_none"] % ob)
     L.append(t["next"] % (ctx["next_due"], diff["domain"]))
     L.append("")
     if bad:
@@ -672,7 +690,7 @@ def diff_md(diff, ctx):
         if e:
             L.append(t["price_skip"] % (e[0]["before"], e[0]["after"], ob))
         else:
-            L.append(t["price_none"] % badge("not_found", lang))
+            L.append(t["price_na"])
     else:
         for e in by_type(ev, "price_sitewide_shift"):
             d = e.get("details") or {}
@@ -716,105 +734,11 @@ def diff_md(diff, ctx):
             L += ["", t["price_small"] % (small, ("%g" % th))]
     L.append("")
     # -- new / removed ---------------------------------------------------------
-    L += [t["new_h"], "", t["new_sub"], ""]
-    added = by_type(ev, "product_added")
-    if added:
-        L += [t["new_table"], "|---|---|---|---|---|"]
-        for e in added:
-            d = e.get("details") or {}
-            L.append(
-                "| %s | %s | %s | %s | %s %s |"
-                % (
-                    cell(e["title"]),
-                    cell(d.get("product_type")) or "-",
-                    money(e["after"], cur),
-                    date_of(d.get("published_at") or d.get("created_at")) or "-",
-                    e["event_id"],
-                    badge(e["badge"], lang),
-                )
-            )
-    elif comp["products"]:
-        L.append(t["new_none"] % ob)
-    surfaced = by_type(ev, "product_surfaced")
-    if surfaced:
-        L += ["", t["surfaced"] % len(surfaced)]
-    L += ["", t["removed_sub"], ""]
-    removed = by_type(ev, "product_removed")
-    missing = by_type(ev, "product_missing_unconfirmed")
-    if not comp["removals"]:
-        why = (
-            t["removed_na_archive"]
-            if "archive_baseline" in diff["warnings"]
-            else t["removed_na_why"]
-        )
-        L.append(t["removed_na_text"] % (why, len(missing), badge("not_found", lang)))
-    elif removed:
-        L += [t["removed_table"], "|---|---|---|"]
-        for e in removed:
-            L.append(
-                "| %s | %s | %s %s |"
-                % (
-                    cell(e["title"]),
-                    money(e["before"], cur),
-                    e["event_id"],
-                    badge(e["badge"], lang),
-                )
-            )
-        if missing:
-            L += [
-                "",
-                t["removed_na_text"]
-                % (t["removed_na_why"], len(missing), badge("not_found", lang)),
-            ]
-    elif missing:
-        L.append(
-            t["removed_na_text"]
-            % (t["removed_na_why"], len(missing), badge("not_found", lang))
-        )
+    L += [t["new_h"], ""]
+    if comp["products"]:
+        L += new_removed(diff, t, lang, ev, ob, cur, comp)
     else:
-        L.append(t["removed_none"] % ob)
-    stock = by_type(ev, "sold_out", "restocked")
-    if stock:
-        L += ["", t["stock_sub"], ""]
-        for e in stock:
-            L.append(
-                t["stock_line"]
-                % (
-                    label(e["type"], lang),
-                    cell(e["title"]),
-                    badge(e["badge"], lang),
-                    e["event_id"],
-                )
-            )
-    var = by_type(ev, "variant_added", "variant_removed")
-    if var:
-        L += ["", t["variant_sub"], ""]
-        for e in var[:20]:
-            L.append(
-                t["stock_line"]
-                % (
-                    label(e["type"], lang),
-                    cell(item_of(e, lang)),
-                    badge(e["badge"], lang),
-                    e["event_id"],
-                )
-            )
-        if len(var) > 20:
-            L.append(t["events_more"] % (len(var) - 20))
-    cad = diff["cadence"]
-    L += ["", t["cadence_sub"], ""]
-    if cad["added_per_week"] is None:
-        L.append(t["cadence_na"])
-    else:
-        L.append(t["cadence_line"] % (cad["added"], cad["added_per_week"], ob))
-    months = cad["published_by_month"]
-    if months.get("after"):
-        L += ["", t["month_table"], "|---|---|---|"]
-        for m in sorted(months["after"]):
-            L.append(
-                "| %s | %s | %s |"
-                % (m, months["before"].get(m, "-"), months["after"][m])
-            )
+        L.append(t["products_na_text"])
     L.append("")
     # -- promotions -------------------------------------------------------------
     L += [t["promo_h"], ""]
@@ -991,6 +915,113 @@ def diff_md(diff, ctx):
     return "\n".join(L) + "\n"
 
 
+def new_removed(diff, t, lang, ev, ob, cur, comp):
+    L = [t["new_sub"], ""]
+    added = by_type(ev, "product_added")
+    if added:
+        L += [t["new_table"], "|---|---|---|---|---|"]
+        for e in added:
+            d = e.get("details") or {}
+            L.append(
+                "| %s | %s | %s | %s | %s %s |"
+                % (
+                    cell(e["title"]),
+                    cell(d.get("product_type")) or "-",
+                    money(e["after"], cur),
+                    date_of(d.get("published_at") or d.get("created_at")) or "-",
+                    e["event_id"],
+                    badge(e["badge"], lang),
+                )
+            )
+    elif comp["products"]:
+        L.append(t["new_none"] % ob)
+    surfaced = by_type(ev, "product_surfaced")
+    if surfaced:
+        L += ["", t["surfaced"] % len(surfaced)]
+    L += ["", t["removed_sub"], ""]
+    removed = by_type(ev, "product_removed")
+    missing = by_type(ev, "product_missing_unconfirmed")
+    if not comp["removals"]:
+        why = (
+            t["removed_na_archive"]
+            if "archive_baseline" in diff["warnings"]
+            else t["removed_na_why"]
+        )
+        L.append(t["removed_na_text"] % (why, len(missing), badge("not_found", lang)))
+    elif removed:
+        L += [t["removed_table"], "|---|---|---|"]
+        for e in removed:
+            L.append(
+                "| %s | %s | %s %s |"
+                % (
+                    cell(e["title"]),
+                    money(e["before"], cur),
+                    e["event_id"],
+                    badge(e["badge"], lang),
+                )
+            )
+        if missing:
+            L += [
+                "",
+                t["removed_na_text"]
+                % (t["removed_na_why"], len(missing), badge("not_found", lang)),
+            ]
+    elif missing:
+        L.append(
+            t["removed_na_text"]
+            % (t["removed_na_why"], len(missing), badge("not_found", lang))
+        )
+    else:
+        L.append(t["removed_none"] % ob)
+    stock = by_type(ev, "sold_out", "restocked")
+    if stock:
+        L += ["", t["stock_sub"], ""]
+        for e in stock:
+            L.append(
+                t["stock_line"]
+                % (
+                    label(e["type"], lang),
+                    cell(e["title"]),
+                    badge(e["badge"], lang),
+                    e["event_id"],
+                )
+            )
+    var = by_type(ev, "variant_added", "variant_removed")
+    if var:
+        L += ["", t["variant_sub"], ""]
+        for e in var[:20]:
+            L.append(
+                t["stock_line"]
+                % (
+                    label(e["type"], lang),
+                    cell(item_of(e, lang)),
+                    badge(e["badge"], lang),
+                    e["event_id"],
+                )
+            )
+        if len(var) > 20:
+            L.append(t["events_more"] % (len(var) - 20))
+    cad = diff["cadence"]
+    L += ["", t["cadence_sub"], ""]
+    if cad["added_per_week"] is None:
+        L.append(t["cadence_na"])
+    else:
+        L.append(t["cadence_line"] % (cad["added"], cad["added_per_week"], ob))
+    months = cad["published_by_month"]
+    if months.get("after"):
+        L += ["", t["month_table"], "|---|---|---|"]
+        for m in sorted(months["after"]):
+            L.append(
+                "| %s | %s | %s |"
+                % (
+                    m,
+                    months["before"].get(m, "-") if diff["from"]["products"] else "-",
+                    months["after"][m],
+                )
+            )
+    return L
+
+
 def clip(text, n=160):
     text = (text or "").replace('"', "'")
     return text if len(text) <= n else text[: n - 3] + "..."
@@ -1005,7 +1036,7 @@ def signals_and_gaps(diff, t, lang, ev, failed=False):
     if failed:
         L.append(t["fail_gap"])
     else:
-        dims = "".join(
+        dims = ", ".join(
             t["dim"][k]
             for k in (
                 "products",
