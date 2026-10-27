@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 新 skill `launch-readiness` (开店上线前体检, v0.1.0 experimental): 自己的独立站上线或投谷歌购物广告前, 查政策页齐全与内容缺项, 公告栏/商品页/常见问题/政策前后矛盾, 谷歌商家中心基本要求, 欧盟/德国/英国/加拿大/澳洲/美国的基本消费者要求 (法规类结论只标推测), 隐私与 Cookie 迹象, 多市场与翻译, 示例文字/测试商品, 收录基础. 交付大白话报告 + `整改清单.csv` (P0-P3). 店铺开着密码页时走粘贴/导出模式 (`paste_ingest.py`), 不收店铺密码; 非 Shopify 站点有界爬取 (同站, 40 页, 深度 2, 遵守抓取规则). 检查目录在 `references/rules.json` (71 条, 依据来源 S 编号, 90 天复核).
 - 生产线: 公共代码抽到 `shared/` (采集, 交付, 自检引擎, 证据标签, 中英双语), 每个 skill 带一份 `scripts/_shared/` 副本; 新增 `skills/_template/`, `tools/new_skill.py`, `tools/sync_shared.py`, `tools/gen_marketplace.py`, `tools/run_tests.py`, `CONTRIBUTING.md`.
 - shopify-store-teardown 改用 `_shared`, 输出不变 (黄金输出比对测试逐字节一致); 新增 `acceptance.json`.
 - marketplace.json 改为由 SKILL.md 生成, 版本号只在 SKILL.md 维护. Release 工作流检查副本同步, marketplace 与全部测试, zip 不含模板, 测试与验收文件.
