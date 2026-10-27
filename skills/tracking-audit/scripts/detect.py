@@ -433,6 +433,8 @@ def scan_page(text, sigs, source):
                 platform = google_platform(ident) if "-" in ident else "google_tag"
             else:
                 platform = vendor
+            if vendor == "gtm" and re.fullmatch(r"[A-Z0-9]{5,9}", ident):
+                ident = "GTM-" + ident  # custom loaders add the prefix themselves
             hits.append(
                 make_hit(platform, ident, "theme_code", kind, cal, source, sigs)
             )

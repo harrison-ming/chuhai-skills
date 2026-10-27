@@ -600,7 +600,14 @@ class Audit(object):
                 ),
             )
             return
-        for h in bad:
+        merged = {}
+        for h in bad:  # one row per platform + ID, all pages listed
+            key = (h["platform"], h["id"], h["problem"])
+            if key in merged:
+                merged[key]["sources"].append(h["source"])
+            else:
+                merged[key] = dict(h, sources=[h["source"]])
+        for h in merged.values():
             what = (
                 self.t(("模板文字", "placeholder text"))
                 if h["problem"] == "placeholder"
@@ -625,7 +632,7 @@ class Audit(object):
                     "%s原文里的编号是%s (见附录)" % (where[0], what),
                     "the ID in %s source text is %s (see appendix)" % (where[1], what),
                 ),
-                evidence_files=[h["source"]],
+                evidence_files=h["sources"],
             )
 
     def check_ad_platform_gap(self):
@@ -682,7 +689,8 @@ class Audit(object):
                 continue
             groups.setdefault((h["platform"], h["id"]), []).append(h)
         for (plat, ident), hs in sorted(groups.items()):
-            vias = sorted(set(h["install_via"] for h in hs))
+            # a Google tag script is loaded by the page code already counted
+            vias = sorted(set(h["install_via"] for h in hs) - {"google_tag_script"})
             if plat == "klaviyo":
                 vias = [
                     v for v in vias if v != "app_pixel"
@@ -690,7 +698,9 @@ class Audit(object):
             repeated = [
                 h
                 for h in hs
-                if h.get("count", 1) > 1 and h["install_via"] == "theme_code"
+                if h.get("count", 1) > 1
+                and h["install_via"] == "theme_code"
+                and h["kind"] in ("inline_call", "inline_snippet")
             ]
             if len(vias) >= 2 or repeated:
                 where = ", ".join(self.t(cat.VIA[v]) for v in vias)
@@ -830,8 +840,8 @@ class Audit(object):
             overlap = [
                 i
                 for i in customs
-                if i["platform"] in apps
-                or (i["platform"] == "google" and apps & {"google"})
+                # Klaviyo custom pixels usually add events the app does not send
+                if i["platform"] in apps and i["platform"] != "klaviyo"
             ]
             up = self.from_user("U1-a") if self.mode == "own" else None
             if up and up[0] != "needs_input":
