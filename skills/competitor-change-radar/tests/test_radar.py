@@ -134,6 +134,23 @@ class ScenarioTest(Tmp):
         md = draft.diff_md(d, {"lang": "zh", "next_due": "2026-11-03"})
         self.assertIn("不判断下架", md)
 
+    def test_market_mismatch_skips_homepage_and_policies(self):
+        a, b = ff.write_pair(self.tmp, "price-drop")
+        for d, cc in ((a, "US"), (b, "CA")):
+            path = os.path.join(d, "原始数据", "raw", "homepage.html")
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write('<script>Shopify.country = "%s";</script>\n' % cc)
+        d = diffmod.compute_diff(
+            normalize.write_snapshot(a), normalize.write_snapshot(b)
+        )
+        self.assertIn("market_mismatch", d["warnings"])
+        kinds = {e["type"] for e in d["events"]}
+        self.assertFalse(kinds & {"homepage_promo_changed", "policy_changed"})
+        self.assertIn("price_down", kinds)
+        md = draft.diff_md(d, {"lang": "zh", "next_due": "2026-11-03"})
+        self.assertIn("不同国家的站点版本", md)
+        self.assertNotIn("都没有变化", md)
+
     def test_currency_switch(self):
         d = self.diff("currency-switch")
         self.assertEqual([e["type"] for e in d["events"]], ["currency_changed"])

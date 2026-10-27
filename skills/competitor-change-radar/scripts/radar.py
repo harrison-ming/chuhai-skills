@@ -269,7 +269,8 @@ def cmd_snap(args, store_dir=None, root=None):
         if s[2] and s[0][:10] < today
     ]
     if (
-        not older
+        # bootstrap only: first run for this store (or an explicit date)
+        ((not older and not had) or args.archive_date)
         and not args.no_archive
         and snap["status"] not in ("not_shopify", "blocked")
     ):

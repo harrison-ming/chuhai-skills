@@ -90,6 +90,7 @@
 | `currency_source_mismatch` | 两次币种来源不同 | 币种是否变了无法确认 |
 | `interval_short` / `interval_long` | 间隔 < 20 小时 / > 45 天 | 变化少属正常 / 中间来回变化看不到 |
 | `ambiguous_identity` | 有商品对不上号 | 没有强行配对 |
+| `market_mismatch` | 两次看到的是不同国家的站点版本 (例如存档是美国站, 今天从加拿大访问) | 首页, 主题痕迹, 政策这一期不比较; 商品和价格 (基础币种) 照常比 |
 
 ## 5. 其他文件
 

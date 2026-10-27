@@ -176,6 +176,7 @@ WARNING_TEXT = {
         "prices_skipped_currency_changed": "基础币种变了, 这一期跳过所有价格比较.",
         "ambiguous_identity": "有几款商品对不上号 (同名多款), 没有强行配对.",
         "snapshots_out_of_order": "选的 '旧' 快照比 '新' 快照还晚, 请检查日期.",
+        "market_mismatch": "两次看到的是这家店不同国家的站点版本 (例如一次是美国站, 一次是加拿大站), 首页文案, 主题痕迹和政策会因国家不同而不同, 这一期不比较这几项.",
     },
     "en": {
         "mass_removal_suspect": "Over 30% of products are missing this time; this looks like incomplete data, so no removals are reported. Capture again in a day or two.",
@@ -187,6 +188,7 @@ WARNING_TEXT = {
         "prices_skipped_currency_changed": "The base currency changed, so prices were not compared this time.",
         "ambiguous_identity": "Some products could not be matched one-to-one (same names), so they were not paired.",
         "snapshots_out_of_order": "The 'old' snapshot is later than the 'new' one; check the dates.",
+        "market_mismatch": "The two captures saw different country versions of the store (e.g. the US site once, the Canadian site once); homepage text, page traces and policies differ by country, so they were not compared.",
     },
 }
 
@@ -194,12 +196,12 @@ T = {
     "zh": {
         "title": "# %s 竞品变化报告",
         "title_base": "# %s 竞品基线报告",
-        "sub": "<sub>%s · 比较 %s 至 %s · 间隔 %s 天</sub>",
+        "sub": "<sub>%s · 比较 %s 至 %s · 间隔 %s</sub>",
         "sub_base": "<sub>%s · 快照日期 %s</sub>",
         "demo": "> 演示数据, 非真实店铺. 用来看报告长什么样.",
         "demo_tag": "演示数据",
         "glance": "## 一页看懂",
-        "range": "- 比较区间: %s 到 %s (间隔 %s 天). 旧的一份: %s; 新的一份: %s.",
+        "range": "- 比较区间: %s 到 %s (间隔 %s). 旧的一份: %s; 新的一份: %s.",
         "counts": "- 这一期: 上新 %d 款, 下架 %s 款, 降价 %d 款, 涨价 %d 款, 开始打折 %d 款 %s",
         "removed_na": "未判断",
         "nothing": "- 本期无变化: 两次看到的商品, 价格, 折扣, 首页促销和政策都一样 %s",
@@ -258,7 +260,8 @@ T = {
         "coll": "- 商品分类: %s %s",
         "policy_h": "## 政策变化",
         "policy_none": "两次都读到的政策页 (%s) 没有实质改动 %s",
-        "policy_na": "政策页两次没有都读到, 这一期不比较 [查不到]",
+        "policy_na": "政策页这一期没有比较 (两次没有都读到, 或看到的是不同国家的版本) [查不到]",
+        "tech_na": "首页, 主题和应用痕迹这一期没有比较 (首页没有都读到, 或看到的是不同国家的版本) [查不到]",
         "policy_term": "- %s, %s: %s → %s %s",
         "policy_text": "- %s 文字有改动: 新增 %d 句, 删掉 %d 句, 改写 %d 句 %s",
         "policy_add": '  - 新增: "%s"',
@@ -338,12 +341,12 @@ T = {
 T["en"] = {
     "title": "# %s competitor change report",
     "title_base": "# %s competitor baseline report",
-    "sub": "<sub>%s · compared %s to %s · %s days apart</sub>",
+    "sub": "<sub>%s · compared %s to %s · %s apart</sub>",
     "sub_base": "<sub>%s · snapshot of %s</sub>",
     "demo": "> Demo data, not a real store. It shows what the report looks like.",
     "demo_tag": "demo data",
     "glance": "## At a glance",
-    "range": "- Period: %s to %s (%s days). Older capture: %s; newer capture: %s.",
+    "range": "- Period: %s to %s (%s apart). Older capture: %s; newer capture: %s.",
     "counts": "- This period: %d new, %s removed, %d price cuts, %d price rises, %d discounts started %s",
     "removed_na": "not judged",
     "nothing": "- No changes: products, prices, discounts, homepage promos and policies are the same in both captures %s",
@@ -402,7 +405,8 @@ T["en"] = {
     "coll": "- Collections: %s %s",
     "policy_h": "## Policy changes",
     "policy_none": "Policy pages read in both captures (%s) have no material change %s",
-    "policy_na": "Policy pages were not read in both captures, so they were not compared [Not found]",
+    "policy_na": "Policy pages were not compared this time (not read in both captures, or different country versions) [Not found]",
+    "tech_na": "Homepage, theme and app traces were not compared this time (homepage not read in both captures, or different country versions) [Not found]",
     "policy_term": "- %s, %s: %s → %s %s",
     "policy_text": "- %s text changed: %d sentences added, %d removed, %d rewritten %s",
     "policy_add": '  - Added: "%s"',
@@ -628,7 +632,7 @@ def diff_md(diff, ctx):
         date_of(diff["from"]["captured_at_utc"]),
         date_of(diff["to"]["captured_at_utc"]),
     )
-    days = "%s" % diff["interval_days"]
+    days = span(diff["interval_days"], lang)
     if ctx.get("demo"):
         name = "%s (%s)" % (name, t["demo_tag"])
     L = [t["title"] % name, "", t["sub"] % (diff["domain"], fr, to, days), ""]
@@ -857,8 +861,10 @@ def diff_md(diff, ctx):
         )
     if tech:
         L += tech[:30]
-    else:
+    elif comp["homepage"]:
         L.append(t["tech_none"] % badge("page_shown", lang))
+    else:
+        L.append(t["tech_na"])
     L.append("")
     # -- policies -----------------------------------------------------------------
     L += [t["policy_h"], ""]
@@ -1029,6 +1035,15 @@ def new_removed(diff, t, lang, ev, ob, cur, comp):
                 )
             )
     return L
+
+
+def span(interval_days, lang):
+    """'7.0 天' / '1.1 小时' (en: '7.0 days' / '1.1 hours')."""
+    if interval_days is None:
+        return "-"
+    if interval_days < 1:
+        return ("%.1f 小时" if lang == "zh" else "%.1f hours") % (interval_days * 24)
+    return ("%s 天" if lang == "zh" else "%s days") % interval_days
 
 
 def clip(text, n=160):

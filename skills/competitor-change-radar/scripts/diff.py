@@ -355,6 +355,7 @@ class Diff(object):
         self.price_changes = []
         self.homepage_detail = {}
         self.currency_changed = False
+        self.market_pair = None
         self.interval_days = None
         self.t_from = None
 
@@ -452,6 +453,14 @@ class Diff(object):
         self.diff_markets()
         self.diff_products()
         self.diff_collections()
+        v1 = (self.a.get("shop") or {}).get("visitor_country")
+        v2 = (self.b.get("shop") or {}).get("visitor_country")
+        if v1 and v2 and v1 != v2:
+            # two different market versions: banners and policy wording differ
+            # by country, so comparing them would report false changes
+            self.warnings.append("market_mismatch")
+            self.market_pair = (v1, v2)
+            return self
         self.diff_homepage()
         self.diff_tech()
         self.diff_policies()
@@ -1045,6 +1054,7 @@ class Diff(object):
                 key=lambda p: (-abs(p["delta_pct"] or 0), id_key(p["product_id"])),
             ),
             "homepage_detail": self.homepage_detail,
+            "market_pair": self.market_pair,
             "thresholds": self.t,
             "events": events,
             "warnings": sorted(set(self.warnings), key=self.warnings.index),

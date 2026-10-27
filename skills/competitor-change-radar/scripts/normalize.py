@@ -297,6 +297,18 @@ def network_only(status):
     return None
 
 
+VISITOR_COUNTRY_RE = re.compile(r'Shopify\.country\s*=\s*"([A-Z]{2})"')
+
+
+def visitor_country(home_html):
+    """Market the homepage was rendered for (Shopify.country), or None.
+
+    A store with several markets serves another homepage, banners and even
+    policies to visitors from another country (or to the archive crawler)."""
+    m = VISITOR_COUNTRY_RE.search(home_html or "")
+    return m.group(1) if m else None
+
+
 def collect_page_size():
     return 250  # collect.PRODUCTS_LIMIT, also used for collections
 
@@ -452,6 +464,7 @@ def build_snapshot(snap_dir, source=None):
             else ("homepage" if shop.get("currency") else None),
             "country": shop.get("country"),
             "ships_to_count": shop.get("ships_to_count"),
+            "visitor_country": visitor_country(home_html),
         },
         "theme": {
             "name": theme.get("name"),
