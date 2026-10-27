@@ -5,7 +5,7 @@ Python 3.8+, standard library only.
 NOTES = {
     "zh": {
         "exists_not_in_footer": "页面存在, 但首页源码里没有指向它的链接 (如果是脚本加载的链接, 请用浏览器确认)",
-        "not_in_pasted_text": "你提供的文本里没有这一项",
+        "not_in_pasted_text": "你提供的文本里没有这一项; 如果后台也没有, 就要补上",
         "homepage_unavailable": "首页没打开, 无法检查",
         "footer_link_not_read": "页脚有链接, 但那一页没读到",
         "no_page_no_footer_link": "政策网址打不开 (找不到页面), 首页页脚和页头也没有相应链接",
@@ -34,7 +34,7 @@ NOTES = {
     },
     "en": {
         "exists_not_in_footer": "The page exists but the homepage footer does not link to it",
-        "not_in_pasted_text": "Not in the text you provided",
+        "not_in_pasted_text": "Not in the text you provided; add it if your admin has none either",
         "homepage_unavailable": "Homepage not reachable",
         "footer_link_not_read": "Footer links to it, but the page could not be read",
         "no_page_no_footer_link": "Policy URL not found and no footer/header link",

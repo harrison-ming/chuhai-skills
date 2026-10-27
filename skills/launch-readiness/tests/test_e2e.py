@@ -177,7 +177,7 @@ class E2E(unittest.TestCase):
         self.assertEqual(f["CNS-01"]["result"], "fail")
         self.assertEqual(f["AU-01"]["result"], "fail")
         self.assertEqual(f["GMC-01"]["result"], "unknown")  # on-page check
-        self.assertEqual(f["POL-03"]["result"], "fail")  # no privacy text given
+        self.assertEqual(f["POL-03"]["result"], "manual")  # absent from text given
 
     def test_f4_non_shopify(self):
         _r, _d, doc, f, paths = self.run_site("F4")

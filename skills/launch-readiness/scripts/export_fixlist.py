@@ -72,11 +72,11 @@ def build_rows(findings, lang="zh"):
                 "id": f["id"],
                 "issue": rule[lang],
                 "markets": mk_text or MARKET_ALL[lang],
-                "where": texts.plain_where(f.get("where"), lang) or "-",
+                "where": texts.plain_where(f.get("where"), lang) or "",
                 "evidence": "\n".join(
                     texts.plain_evidence(e, lang) for e in f.get("evidence") or []
                 )
-                or (texts.note_text(f.get("note"), lang) or "-"),
+                or (texts.note_text(f.get("note"), lang) or ""),
                 "badge": "[%s]" % evidence.label(badge, lang) if badge else "",
                 "fix": rule["fix_" + lang],
                 "basis": source_text(rule, data["sources"]),

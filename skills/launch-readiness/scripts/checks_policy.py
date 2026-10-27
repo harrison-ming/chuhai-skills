@@ -109,7 +109,7 @@ def presence(ctx):
             else:
                 ctx.add(rid, "pass", where=p["url"])
         elif s.paste:
-            ctx.add(rid, "fail", note="not_in_pasted_text")
+            ctx.add(rid, "manual", note="not_in_pasted_text", badge="not_found")
         elif not s.home:
             ctx.add(rid, "unknown", note="homepage_unavailable")
         elif link:
