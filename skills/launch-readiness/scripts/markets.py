@@ -44,6 +44,9 @@ OTHER = {
     "GB": (("en",), "GBP"),
     "CA": (("en", "fr"), "CAD"),
     "AU": (("en",), "AUD"),
+    "NZ": (("en",), "NZD"),
+    "CH": (("de", "fr", "it"), "CHF"),
+    "NO": (("nb", "no"), "NOK"),
 }
 ALIASES = {
     "UK": "GB",
