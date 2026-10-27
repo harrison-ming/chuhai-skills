@@ -1,0 +1,57 @@
+{
+  "skill": "profit-model",
+  "cases": [
+    {
+      "id": "normal",
+      "prompt": "帮我算一下这个产品在美国独立站卖赚不赚钱: 售价 39.99 美元, 采购价 45 元, 包装 3 元, 头程每件 12 元, 汇率按 1 美元 = 7.20 元, 关税合计 25% 按货值算, 海外仓拣货每单 3 美元, 仓储每件 0.2 美元, 尾程每单 5.5 美元, 退货率 8%, 退货运费 6 美元, 退回来一半能再卖, 用 Shopify Payments 费率 2.9% + 0.30 美元, Basic 套餐 39 美元/月, 插件 30 美元/月, 预计获客成本 10 美元.",
+      "lang": "zh",
+      "needs_network": false,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["ue_model", "pm_calc", "result.json", "Decimal"],
+        "must_contain_any": ["[已核实]", "[推测]", "[你提供的]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "negative",
+      "prompt": "这个款我想卖 19.99 美元, 采购 60 元, 包装 5 元, 头程 20 元一件, 汇率 7.2, 关税 25% 按货值, 拣货 3.5 美元, 仓储 0.2 美元, 尾程 7.5 美元, 退货率 15%, 退货运费 7.5 美元, 退回来的不能再卖, 收款用 PayPal 中国账户 4.4% + 0.30 美元, Shopify Basic 第三方交易费 2%, 月费 39 美元, 获客成本估计 12 美元. 这个价能做吗, 最低该卖多少?",
+      "lang": "zh",
+      "needs_network": false,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["ue_model", "保证盈利", "稳赚"],
+        "must_contain_any": ["[推测]", "[你提供的]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "missing_invalid",
+      "prompt": "帮我测下利润: 美国站, 售价 39.99 美元, 采购 45 元, 包装 3 元, 头程 12 元, 汇率 7.20, 尾程 5.5 美元, 拣货 3 美元, 收款 2.9% + 0.3 美元, 平均折扣 120%. 退货率和关税我还不知道.",
+      "lang": "zh",
+      "needs_network": false,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["partial"],
+        "must_not_contain": ["ue_model"],
+        "must_contain_any": ["[推测]", "[查不到]"],
+        "fixed_ending": true
+      }
+    },
+    {
+      "id": "english",
+      "prompt": "Is this product profitable on my Shopify store? I sell it for $39.99 in the US, it costs 45 CNY from the factory plus 3 CNY packaging and 12 CNY freight per unit, exchange rate 7.20 CNY per USD, duty 25% on goods value, 3PL pick and pack $3 per order, last mile $5.50, returns 8% with $6 return shipping, half of returns can be resold, Shopify Payments 2.9% + $0.30, Basic plan $39/month, apps $30/month, expected CPA $10.",
+      "lang": "en",
+      "needs_network": false,
+      "expect": {
+        "deliverables": ["*.pdf|*.html", "*.csv"],
+        "status_in": ["complete", "partial"],
+        "must_not_contain": ["ue_model", "pm_calc", "result.json", "Decimal"],
+        "must_contain_any": ["[Inferred]", "[You provided]", "[Verified]"],
+        "fixed_ending": true
+      }
+    }
+  ]
+}
