@@ -45,6 +45,32 @@ Readers are sellers without a technical background. Delete every `<...>` hint.
 - warnings: <raw values>
 ```
 
+## Short failed report (site unreachable, or nothing could be read)
+
+Use it when `status` in `summary.json` is `failed`. Write and deliver it even for a one-line question; do not just answer in the chat. No technical words in the body.
+
+```markdown
+# <Subject> __TITLE_EN__ report
+
+<sub><URL the user gave> · Checked on <YYYY-MM-DD></sub>
+
+## At a glance
+
+- <One-line answer, e.g.: this address does not open right now, so nothing could be checked> [Not found]
+- <Where it stopped, e.g.: the site does not exist (maybe a typo) or the network is down>
+
+**What to do next**
+1. Check the spelling and retry with the full https:// homepage address.
+2. Open it once in a browser; if it loads, send me the address again.
+
+**What this report cannot see**: the site did not open, so nothing was checked.
+
+## Appendix: evidence and sources
+
+- Status: failed
+- Failed sources and reasons: <result / note from endpoints>
+```
+
 ## Fixed ending (after the appendix, unchanged)
 
 ```markdown

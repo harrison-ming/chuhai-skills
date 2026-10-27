@@ -4,11 +4,14 @@
 CLI:
     python collect.py <url_or_domain> [--lang zh|en] [--out-root DIR | --out DIR]
                       [--delay 0.5] [--timeout 20] [--no-compute]
+                      [--init-only]
 
 Creates ``<root>/<domain> <label> <date>/`` (root: --out-root >
 $CHUHAI_OUTPUT_DIR > cloud sandbox > Documents/<root name>), saves pages to
 ``<raw-data>/raw/`` and every request to ``raw/_status.json``, then runs
 compute.py unless --no-compute. A failing request never aborts the run.
+``--init-only`` only creates the run folder and prints it (no network), so
+mode B saves hand-collected files in the same delivery root.
 Python 3.8+, standard library only. TLS verification is always on.
 """
 
@@ -77,6 +80,12 @@ def main(argv=None):
     ap.add_argument("--delay", type=float, default=0.5)
     ap.add_argument("--timeout", type=float, default=20.0)
     ap.add_argument("--no-compute", action="store_true")
+    ap.add_argument(
+        "--init-only",
+        action="store_true",
+        help="only create the run folder (and raw/) in the delivery root and "
+        "print it; no network. For mode B (files saved by hand).",
+    )
     args = ap.parse_args(argv)
     try:
         _scheme, host = fetch.normalize_input(args.target)
@@ -94,6 +103,11 @@ def main(argv=None):
         data_dir = os.path.join(run_dir, output.raw_dirname(args.lang))
     os.makedirs(data_dir, exist_ok=True)
     output.write_readme(data_dir, cfg.README_TEXT[args.lang], args.lang)
+    if args.init_only:
+        os.makedirs(os.path.join(data_dir, "raw"), exist_ok=True)
+        print("run folder: %s" % run_dir)
+        print("save raw files to: %s" % os.path.join(data_dir, "raw"))
+        return 0
     fetcher = fetch.Fetcher(
         timeout=args.timeout, delay=max(args.delay, 0.0), lang=args.lang
     )
