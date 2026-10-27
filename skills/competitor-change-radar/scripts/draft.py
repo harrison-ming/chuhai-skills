@@ -327,6 +327,7 @@ T = {
         "fail_why": {
             "blocked": "网站打不开, 或者拦住了自动读取",
             "network": "连不上这个网址 (无法解析域名或网络不通): 可能网址不存在, 也可能是当前运行环境不能联网, 不代表店铺本身有问题",
+            "unreachable": "这个网址打不开, 而其他网站能连上: 多半是网址不存在或网站本身出了问题",
             "not_shopify": "它看起来不是 Shopify 店, 本技能只支持 Shopify 店",
         },
         "fail_next": "- 没有可比的数据, 所以没有变化结论. 确认网址后可以再试一次; 下次建议 %s 再跑.",
@@ -470,6 +471,7 @@ T["en"] = {
     "fail_why": {
         "blocked": "the site did not open or blocked automated reading",
         "network": "the address could not be reached (name not resolved or no network): the address may not exist, or this environment has no internet; it says nothing about the store itself",
+        "unreachable": "this address does not open while other sites do: most likely the address does not exist or the site itself has a problem",
         "not_shopify": "it does not look like a Shopify store, and this skill only supports Shopify",
     },
     "fail_next": "- No comparable data, so no change findings. Check the address and try again; next suggested run: %s.",

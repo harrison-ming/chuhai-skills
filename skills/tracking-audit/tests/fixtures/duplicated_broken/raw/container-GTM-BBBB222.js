@@ -1,0 +1,1 @@
+var data={"resource":{"tags":[{"function":"__html","vtp_html":"<script src=\"https://connect.facebook.net/en_US/fbevents.js\"></script>"},{"function":"__ua","vtp_trackingId":"UA-12345-1"}],"x":"UA-12345-1"}};

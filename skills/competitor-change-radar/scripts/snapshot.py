@@ -185,6 +185,10 @@ class RadarCollector(collect.Collector):
                 )
             if not self.skip_offsite:
                 self.collect_offsite()
+        elif all(r.get("http_status") is None for r in self.requests):
+            # Nothing answered: two off-site lookups tell "this machine is
+            # offline" (network_unavailable) from "this address is dead".
+            self.collect_offsite()
         self.write_status()
 
     def _pagination_done(self):

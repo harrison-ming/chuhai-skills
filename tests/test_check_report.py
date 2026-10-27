@@ -155,6 +155,16 @@ class TestRules(unittest.TestCase):
         self.assertTrue(r.ok)
         self.assertIn(("warning", "fullwidth"), kinds(r))
 
+    def test_fullwidth_reported_once(self):
+        # A report typed with a Chinese input method: one warning for the
+        # whole file, listing the lines, so over-label warnings stay visible.
+        md = GOOD.replace(", ", "\uff0c")
+        r = self.check(md)
+        full = [i for i in r.warnings if i.kind == "fullwidth"]
+        self.assertEqual(len(full), 1)
+        self.assertRegex(full[0].why, r"^\d+ ")
+        self.assertIn("\u7b2c", full[0].why)
+
     def test_code_fences_ignored(self):
         md = GOOD.replace(
             "## 价格怎么定的", "```\nproducts.json [事实]\n```\n\n## 价格怎么定的"

@@ -36,6 +36,55 @@ class SkillFolderTest(unittest.TestCase):
         for d in skill_rules.real_skills():
             self.assertEqual(skill_rules.check_halfwidth(d), [], d)
 
+    def test_acceptance_optional_keys(self):
+        import json
+        import shutil
+        import tempfile
+
+        tmp = tempfile.mkdtemp(prefix="acc-")
+        try:
+            skill = os.path.join(tmp, "demo-check")
+            os.makedirs(skill)
+            exp = {
+                "deliverables": ["*.html"],
+                "status_in": ["complete"],
+                "must_not_contain": [],
+                "must_contain_any": [],
+                "fixed_ending": True,
+                "status_by_runner": {"codex-nonet": ["failed"]},
+                "expect_by_runner": {"codex-nonet": {"must_contain_any": []}},
+            }
+            data = {
+                "skill": "demo-check",
+                "cases": [
+                    {
+                        "id": "a",
+                        "prompt": "p",
+                        "lang": "zh",
+                        "needs_network": True,
+                        "expect": exp,
+                    }
+                ],
+                "script_cmds": [],
+                "network_domains": [],
+                "fixed_ending_text": {"zh": "x", "en": "y"},
+            }
+            path = os.path.join(skill, "acceptance.json")
+
+            def problems(d):
+                with open(path, "w", encoding="utf-8") as fh:
+                    json.dump(d, fh)
+                return skill_rules.check_acceptance(skill)
+
+            self.assertEqual(problems(data), [])
+            exp["status_by_runner"] = {"codex-nonet": ["broken"]}
+            self.assertTrue(problems(data))
+            exp["status_by_runner"] = {}
+            data["bogus"] = 1
+            self.assertTrue(problems(data))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
     def test_marketplace_generated(self):
         self.assertEqual(gen_marketplace.main(["--check"]), 0)
 

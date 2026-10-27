@@ -12,12 +12,14 @@ CLI:
     python collect.py <store_url_or_domain> [--out-root DIR | --out DIR]
                       [--depth L0|L1] [--max-pages 100] [--skip-offsite]
                       [--delay 0.5] [--timeout 20] [--no-summarize]
+                      [--init-only]
 
 By default a new run folder ``<root>/<domain> 对标拆解 <YYYY-MM-DD>[ (N)]/``
 is created, where <root> is resolved by delivery.resolve_output_root
 (``--out-root`` > $CHUHAI_OUTPUT_DIR > cloud sandbox > Documents/出海拆解报告),
 and data goes to its ``原始数据/`` subfolder. ``--out`` names that raw-data
-folder directly (legacy behaviour).
+folder directly (legacy behaviour). ``--init-only`` only creates that run
+folder and prints it (no network), so mode B saves files in the same place.
 Python 3.8+, standard library only. TLS verification is always on; the
 HTTP / certificate handling lives in ``_shared/fetch.py``.
 """
@@ -452,6 +454,12 @@ def main(argv=None):
     ap.add_argument("--delay", type=float, default=0.5, help="seconds between requests")
     ap.add_argument("--timeout", type=float, default=20.0)
     ap.add_argument("--no-summarize", action="store_true")
+    ap.add_argument(
+        "--init-only",
+        action="store_true",
+        help="only create the run folder (and raw/) in the delivery root and "
+        "print it; no network. For mode B (files saved by hand).",
+    )
     args = ap.parse_args(argv)
 
     try:
@@ -472,6 +480,12 @@ def main(argv=None):
     except OSError as e:
         print("错误: 无法创建输出文件夹: %s" % e, file=sys.stderr)
         return 2
+    if args.init_only:
+        os.makedirs(os.path.join(out, "raw"), exist_ok=True)
+        print("本次拆解文件夹: %s" % run_dir)
+        print("原始文件请存到: %s" % os.path.join(out, "raw"))
+        print('存好后运行: python summarize.py "%s"' % run_dir)
+        return 0
     fetcher = Fetcher(timeout=args.timeout, delay=max(args.delay, 0.0))
     col = Collector(
         args.store, out, args.depth, max(args.max_pages, 1), args.skip_offsite, fetcher

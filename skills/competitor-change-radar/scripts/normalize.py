@@ -275,6 +275,17 @@ def norm_product(p):
     }
 
 
+def fetch_error(summary, status):
+    """network (this machine is offline) | unreachable (only the site fails) |
+    None. Uses teardown's warnings when it could tell, else a heuristic."""
+    warnings = summary.get("warnings") or []
+    if "network_unavailable" in warnings:
+        return "network"
+    if "site_unreachable" in warnings:
+        return "unreachable"
+    return network_only(status)
+
+
 def network_only(status):
     """ "network" when every request failed before any HTTP answer (DNS,
     no route, sandbox without internet): says nothing about the store."""
@@ -413,7 +424,7 @@ def build_snapshot(snap_dir, source=None):
         "source": source,
         "status": status,
         "identity_status": identity,
-        "fetch_error": network_only(run.status),
+        "fetch_error": fetch_error(summary, run.status),
         "coverage": {
             "products": coverage_products,
             "pagination_complete": bool(

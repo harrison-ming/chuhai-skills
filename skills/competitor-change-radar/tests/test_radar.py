@@ -164,7 +164,27 @@ class ScenarioTest(Tmp):
             ("products_json", "products-1.json"),
         ):
             s.fail(key, fname, "/", "error", None)
+        offline = ff.Snap("gone2.example", "2026-10-27", ff.T_NEW)
+        offline.requests = list(s.requests)
+        offline.requests.append(
+            {
+                "key": "rdap",
+                "file": "rdap.json",
+                "url": "https://rdap.org/x",
+                "http_status": None,
+                "result": "error",
+                "note": "timeout",
+            }
+        )
         snap = normalize.write_snapshot(s.write(self.tmp))
+        self.assertEqual(
+            (snap["fetch_error"], snap["status"]), ("unreachable", "blocked")
+        )
+        md = draft.baseline_md(
+            diffmod.baseline(snap), {"lang": "zh", "next_due": "2026-11-03"}
+        )
+        self.assertIn("其他网站能连上", md)
+        snap = normalize.write_snapshot(offline.write(self.tmp))
         self.assertEqual((snap["fetch_error"], snap["status"]), ("network", "blocked"))
         md = draft.baseline_md(
             diffmod.baseline(snap), {"lang": "zh", "next_due": "2026-11-03"}

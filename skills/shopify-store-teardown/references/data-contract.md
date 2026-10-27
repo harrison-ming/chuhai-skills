@@ -49,7 +49,7 @@
 ```json
 {
   "schema": "store-teardown/summary/1",
-  "tool_version": "0.2.1",
+  "tool_version": "0.2.2",
   "domain": "example.com",
   "captured_at_utc": "2026-09-30T08:00:00Z",
   "endpoints": {
@@ -134,6 +134,8 @@
 | `products_pagination_unverified` | 无法确认已翻到最后一页 | 商品数是下限 |
 | `products_json_empty` | 端点正常但商品为空 | 可能关闭了公开商品或未上架商品 |
 | `policy_near_empty:<name>` | 该政策页正文极短, 疑似默认空模板 | 信任与合规部分列为缺口 |
+| `network_unavailable` | 店铺和站外查询 (网站注册记录, 网页历史存档) 都没有 HTTP 响应: 当前环境不能联网 | 换模式 B; 做不了就写 `failed` 短报告, 说明是环境不能联网, 不是网站不存在 |
+| `site_unreachable` | 首页没有任何 HTTP 响应 (域名不存在或拼错), 店铺端点全部失败, 但站外查询有响应 | 走 SKILL.md "失败时": 写 `failed` 短报告并用 deliver.py 交付 |
 | `json_extracted:<file>` / `json_<状态>:<file>` | 从带包裹或损坏的文本里抽取了 JSON | 注明该数据经过修复, 可信度降一级 |
 
 `summary.json` 中还可能出现以上未列的字段 (例如 `products_json.pagination_complete`, `shop.published_products_count`, `html_signals.frameworks_possible`); 含义不明确的字段不要引用进报告.

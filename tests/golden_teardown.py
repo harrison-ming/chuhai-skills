@@ -61,10 +61,18 @@ BAD_REPORT = (
 )
 
 
-def sample_reports():
-    with open(os.path.join(GOLDEN_DIR, "report-good.md"), encoding="utf-8") as fh:
-        good = fh.read()
-    return [("good", good), ("bad", BAD_REPORT)]
+def read_golden(name):
+    with open(os.path.join(GOLDEN_DIR, name), encoding="utf-8") as fh:
+        return fh.read()
+
+
+def sample_reports(fixture=None):
+    """good + bad for every fixture; the unreachable fixture also gets the
+    short failed report the failure path asks for."""
+    out = [("good", read_golden("report-good.md")), ("bad", BAD_REPORT)]
+    if fixture == "unreachable":
+        out.append(("failed", read_golden("report-failed.md")))
+    return out
 
 
 def normalize(data, run_dir, today, port=None):
@@ -163,7 +171,7 @@ def build_manifest(dump_dir=None):
             src_raw = os.path.join(FIXTURES, fixture, "raw")
             if not os.path.isdir(src_raw):
                 continue
-            for report_name, report in sample_reports():
+            for report_name, report in sample_reports(fixture):
                 key = "%s/%s" % (fixture, report_name)
                 run_dir = os.path.join(tmp, "%s %s" % (fixture, report_name))
                 raw_parent = os.path.join(run_dir, RAW_DIRNAME)
