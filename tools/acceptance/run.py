@@ -14,9 +14,12 @@ Reads <skill-dir>/acceptance.json:
                            "status_in": ["complete", "partial"],
                            "must_not_contain": ["products.json"],
                            "must_contain_any": ["[已核实]"],
-                           "fixed_ending": true}}],
+                           "fixed_ending": true,
+                           "status_by_runner": {"codex-nonet": ["failed"]},
+                           "expect_by_runner": {"codex-nonet": {"must_contain_any": []}}}}],
      "script_cmds": ["{python} {skill_dir}/scripts/x.py {domain} --out-root {out_root}"],
-     "fixed_ending_text": "optional; default FIXED_ENDING in scripts/check_report.py",
+     "fixed_ending_text": "optional; a string or {zh, en}; default FIXED_ENDING in
+                           scripts/check_report.py (zh) or the shared default",
      "network_domains": ["optional extra hosts for the claude sandbox, e.g. rdap.org"]}
 
 Each run gets an isolated workdir
@@ -91,9 +94,43 @@ CLAUDE_SANDBOX_ALLOWED = [
     "WebFetch",
     "Bash",
 ]
-# Default output root of the skill; anything new here means the agent escaped
-# the CHUHAI_OUTPUT_DIR we gave it.
-LEAK_DIRS = [os.path.join(os.path.expanduser("~"), "Documents", "出海拆解报告")]
+# Default delivery roots of the skills (Documents/<root>); anything new there
+# means the agent escaped the CHUHAI_OUTPUT_DIR we gave it. leak_dirs() adds
+# the roots a skill declares itself.
+KNOWN_ROOT_NAMES = ["出海拆解报告", "出海体检报告", "Store checks", "出海测算报告"]
+ROOT_NAME_RE = re.compile(r"^ROOT_NAME\s*=\s*(\{[^}]*\}|\"[^\"]+\")", re.M)
+LEAK_DIRS = [
+    os.path.join(os.path.expanduser("~"), "Documents", name)
+    for name in KNOWN_ROOT_NAMES
+]
+
+
+def skill_root_names(skill_dir):
+    """ROOT_NAME values declared in scripts/skill_config.py or delivery.py."""
+    names = []
+    for fname in ("skill_config.py", "delivery.py"):
+        path = os.path.join(skill_dir or "", "scripts", fname)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                m = ROOT_NAME_RE.search(fh.read())
+        except OSError:
+            continue
+        if m:
+            names.extend(re.findall(r'"([^"]+)"\s*(?:[,}]|$)', m.group(1)))
+    return [n for n in names if n and not n.startswith("__")]
+
+
+def leak_dirs(skill_dir=None):
+    """Documents/<root> for every known and skill-declared delivery root."""
+    docs = os.path.join(os.path.expanduser("~"), "Documents")
+    out = list(LEAK_DIRS)
+    for name in skill_root_names(skill_dir):
+        path = os.path.join(docs, name)
+        if path not in out:
+            out.append(path)
+    return out
+
+
 DOMAIN_RE = re.compile(r"\b((?:[a-z0-9-]+\.)+[a-z]{2,})\b", re.IGNORECASE)
 
 
@@ -145,6 +182,7 @@ def base_env(workdir, shim_dir):
     env.pop("CLAUDE_CONFIG_DIR", None)
     env.pop("CLAUDECODE", None)
     env["CHUHAI_OUTPUT_DIR"] = os.path.join(workdir, "deliverables")
+    env["CHUHAI_NO_OPEN"] = "1"  # deliver.py must not pop file-manager windows
     env["PATH"] = shim_dir + os.pathsep + env.get("PATH", "")
     return env
 
@@ -291,6 +329,7 @@ def evaluate_agent(
         installed,
         acc,
         python=sys.executable,
+        runner=runner,
     )
     expected = (case.get("expect") or {}).get("deliverables") or []
     if expected and any(
@@ -374,12 +413,13 @@ def run_agent(runner, case, ctx):
         }
     transcript = os.path.join(workdir, "transcript.jsonl")
     stderr_path = os.path.join(workdir, "stderr.txt")
-    before = snapshot(LEAK_DIRS)
+    watched = leak_dirs(ctx["skill_dir"])
+    before = snapshot(watched)
     log("start %s/%s" % (runner, case["id"]))
     code, secs, timed_out = run_proc(
         cmd, workdir, env, args.timeout, transcript, stderr_path
     )
-    leaks = leaked(before, snapshot(LEAK_DIRS))
+    leaks = leaked(before, snapshot(watched))
     row = evaluate_agent(
         runner, case, acc, workdir, installed, code, timed_out, leaks, args.timeout
     )

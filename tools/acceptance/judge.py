@@ -267,21 +267,51 @@ def extract_status(text):
     return None
 
 
-def fixed_ending_marker(skill_dir, acceptance):
-    """Marker text for the skill's fixed ending.
+# Default fixed-ending markers per report language (shared/i18n.py).
+DEFAULT_FIXED_ENDINGS = {
+    "zh": "本报告没有覆盖的",
+    "en": "What this report does not cover",
+}
 
-    acceptance.json may set "fixed_ending_text"; otherwise read FIXED_ENDING
-    from scripts/check_report.py.
+
+def fixed_ending_marker(skill_dir, acceptance, lang=None):
+    """Marker text for the skill's fixed ending in the case language.
+
+    Order: acceptance.json "fixed_ending_text" (a string, or a {"zh": ...,
+    "en": ...} map); for zh (or no language) the FIXED_ENDING constant of
+    scripts/check_report.py; the shared default for the language.
     """
-    if acceptance.get("fixed_ending_text"):
-        return acceptance["fixed_ending_text"]
-    path = os.path.join(skill_dir, "scripts", "check_report.py")
-    if os.path.isfile(path):
-        with open(path, encoding="utf-8") as fh:
-            m = re.search(r'^FIXED_ENDING\s*=\s*"([^"]+)"', fh.read(), re.M)
-        if m:
-            return m.group(1)
-    return None
+    custom = acceptance.get("fixed_ending_text")
+    if isinstance(custom, dict):
+        if custom.get(lang or "zh"):
+            return custom[lang or "zh"]
+    elif custom:
+        return custom
+    if lang in (None, "zh"):
+        path = os.path.join(skill_dir, "scripts", "check_report.py")
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as fh:
+                m = re.search(r'^FIXED_ENDING\s*=\s*"([^"]+)"', fh.read(), re.M)
+            if m:
+                return m.group(1)
+    return DEFAULT_FIXED_ENDINGS.get(lang or "zh")
+
+
+def effective_expect(case, runner=None):
+    """The case's "expect" block with per-runner overrides applied.
+
+    expect.status_by_runner {runner: [statuses]} replaces status_in for that
+    runner (e.g. accept "failed" as graceful degradation on codex-nonet);
+    expect.expect_by_runner {runner: {key: value}} overrides any other key.
+    """
+    expect = dict(case.get("expect") or {})
+    by_status = expect.pop("status_by_runner", None) or {}
+    by_runner = expect.pop("expect_by_runner", None) or {}
+    if runner and runner in by_status:
+        expect["status_in"] = list(by_status[runner])
+    if runner and runner in by_runner:
+        expect.update(by_runner[runner])
+    return expect
 
 
 def run_check_report(skill_dir, report_path, python=None, timeout=60):
@@ -326,9 +356,10 @@ def judge_agent_run(
     acceptance,
     raw_dirs=DEFAULT_RAW_DIRS,
     python=None,
+    runner=None,
 ):
     """Apply a case's "expect" block to one agent run. Returns a verdict dict."""
-    expect = case.get("expect") or {}
+    expect = effective_expect(case, runner)
     reasons, notes = [], []
     if not parsed.get("triggered"):
         reasons.append("skill not triggered (no SKILL.md read / Skill invocation)")
@@ -353,7 +384,7 @@ def judge_agent_run(
     if any_of and not any(w in text for w in any_of):
         reasons.append("none of must_contain_any present: %s" % ", ".join(any_of))
     if expect.get("fixed_ending"):
-        marker = fixed_ending_marker(skill_dir, acceptance)
+        marker = fixed_ending_marker(skill_dir, acceptance, case.get("lang"))
         if not marker:
             reasons.append("fixed_ending expected but no marker configured")
         elif marker not in text:

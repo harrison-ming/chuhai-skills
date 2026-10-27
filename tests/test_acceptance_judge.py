@@ -289,6 +289,74 @@ class VerdictTests(Base):
         self.assertIn("missing deliverable *.csv", joined)
         self.assertIn("status None", joined)
 
+    def test_status_by_runner_accepts_graceful_failure(self):
+        failed = GOOD_REPORT.replace("完成状态 complete", "完成状态 failed")
+        root = self.make_deliverables(report=failed)
+        case = json.loads(json.dumps(CASE))
+        case["expect"]["status_by_runner"] = {"codex-nonet": ["failed"]}
+        v = judge.judge_agent_run(case, self.parsed(), root, SKILL_DIR, {})
+        self.assertIn("status failed not in", " | ".join(v["reasons"]))
+        v = judge.judge_agent_run(
+            case, self.parsed(), root, SKILL_DIR, {}, runner="codex-nonet"
+        )
+        self.assertTrue(v["passed"], v["reasons"])
+
+
+class HarnessOptionTests(unittest.TestCase):
+    def test_fixed_ending_per_language(self):
+        self.assertEqual(
+            judge.fixed_ending_marker(SKILL_DIR, {}, "en"),
+            "What this report does not cover",
+        )
+        self.assertEqual(
+            judge.fixed_ending_marker(SKILL_DIR, {}, "zh"), "本报告没有覆盖的"
+        )
+        acc = {"fixed_ending_text": {"zh": "甲", "en": "B"}}
+        self.assertEqual(judge.fixed_ending_marker(SKILL_DIR, acc, "en"), "B")
+        self.assertEqual(judge.fixed_ending_marker(SKILL_DIR, acc), "甲")
+
+    def test_effective_expect(self):
+        case = {
+            "expect": {
+                "status_in": ["complete"],
+                "must_contain_any": ["[已核实]"],
+                "status_by_runner": {"codex-nonet": ["failed", "partial"]},
+                "expect_by_runner": {"codex-nonet": {"must_contain_any": []}},
+            }
+        }
+        plain = judge.effective_expect(case, "claude")
+        self.assertEqual(plain["status_in"], ["complete"])
+        self.assertNotIn("status_by_runner", plain)
+        nonet = judge.effective_expect(case, "codex-nonet")
+        self.assertEqual(nonet["status_in"], ["failed", "partial"])
+        self.assertEqual(nonet["must_contain_any"], [])
+        self.assertEqual(case["expect"]["status_in"], ["complete"])  # not mutated
+
+    def test_leak_dirs_cover_known_and_declared_roots(self):
+        import run
+
+        names = [os.path.basename(p) for p in run.leak_dirs(SKILL_DIR)]
+        for name in ("出海拆解报告", "出海体检报告", "Store checks", "出海测算报告"):
+            self.assertIn(name, names)
+        tmp = tempfile.mkdtemp(prefix="leak-")
+        try:
+            os.makedirs(os.path.join(tmp, "scripts"))
+            with open(
+                os.path.join(tmp, "scripts", "skill_config.py"), "w", encoding="utf-8"
+            ) as fh:
+                fh.write('ROOT_NAME = {"zh": "出海新报告", "en": "New checks"}\n')
+            self.assertEqual(run.skill_root_names(tmp), ["出海新报告", "New checks"])
+            names = [os.path.basename(p) for p in run.leak_dirs(tmp)]
+            self.assertIn("New checks", names)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_harness_env_disables_open(self):
+        import run
+
+        env = run.base_env("/w", "/shim")
+        self.assertEqual(env["CHUHAI_NO_OPEN"], "1")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -28,6 +28,9 @@ TOOL_NAME_RE = re.compile(
     r"|\bBash tool\b|\bRead tool\b|\bWrite tool\b|computer_use"
 )
 CASE_KEYS = {"id", "prompt", "lang", "needs_network", "expect"}
+# Optional harness hints (tools/acceptance); other branches use the same names.
+OPTIONAL_TOP_KEYS = {"script_cmds", "network_domains", "fixed_ending_text"}
+OPTIONAL_EXPECT_KEYS = {"status_by_runner", "expect_by_runner"}
 EXPECT_KEYS = {
     "deliverables",
     "status_in",
@@ -120,11 +123,17 @@ def check_acceptance(skill_dir):
         return ["acceptance.json unreadable: %s" % e]
     problems = []
     # script_cmds / network_domains are optional harness hints (tools/acceptance)
-    extra = set(data) - {"skill", "cases", "script_cmds", "network_domains"}
+    extra = set(data) - {"skill", "cases"} - OPTIONAL_TOP_KEYS
     if not {"skill", "cases"} <= set(data) or extra:
         problems.append(
-            "top-level keys must be skill, cases (+ optional script_cmds, network_domains)"
+            "top-level keys must be skill, cases (+ optional %s)"
+            % ", ".join(sorted(OPTIONAL_TOP_KEYS))
         )
+    fet = data.get("fixed_ending_text")
+    if fet is not None and not (
+        isinstance(fet, str) or (isinstance(fet, dict) and set(fet) <= {"zh", "en"})
+    ):
+        problems.append("fixed_ending_text must be a string or a {zh, en} map")
     if data.get("skill") != os.path.basename(skill_dir):
         problems.append("skill must equal the folder name")
     cases = data.get("cases") or []
@@ -143,9 +152,18 @@ def check_acceptance(skill_dir):
         if not isinstance(c["needs_network"], bool) or not c["prompt"]:
             problems.append("%s: needs_network bool and prompt required" % cid)
         exp = c["expect"]
-        if set(exp) != EXPECT_KEYS:
-            problems.append("%s: expect keys must be %s" % (cid, sorted(EXPECT_KEYS)))
+        if not EXPECT_KEYS <= set(exp) or set(exp) - EXPECT_KEYS - OPTIONAL_EXPECT_KEYS:
+            problems.append(
+                "%s: expect keys must be %s (+ optional %s)"
+                % (cid, sorted(EXPECT_KEYS), ", ".join(sorted(OPTIONAL_EXPECT_KEYS)))
+            )
             continue
+        for runner, statuses in (exp.get("status_by_runner") or {}).items():
+            if not statuses or not set(statuses) <= set(STATUSES):
+                problems.append("%s: status_by_runner.%s invalid" % (cid, runner))
+        for runner, over in (exp.get("expect_by_runner") or {}).items():
+            if not isinstance(over, dict) or set(over) - EXPECT_KEYS:
+                problems.append("%s: expect_by_runner.%s invalid" % (cid, runner))
         if not set(exp["status_in"]) <= set(STATUSES) or not exp["status_in"]:
             problems.append("%s: status_in must be a subset of %s" % (cid, STATUSES))
         for key in ("deliverables", "must_not_contain", "must_contain_any"):
