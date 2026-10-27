@@ -134,6 +134,7 @@
 | `products_pagination_unverified` | 无法确认已翻到最后一页 | 商品数是下限 |
 | `products_json_empty` | 端点正常但商品为空 | 可能关闭了公开商品或未上架商品 |
 | `policy_near_empty:<name>` | 该政策页正文极短, 疑似默认空模板 | 信任与合规部分列为缺口 |
+| `site_unreachable` | 首页没有任何 HTTP 响应 (域名不存在, 拼错, 或当前网络不通), 店铺端点全部失败 | 走 SKILL.md "失败时": 写 `failed` 短报告并用 deliver.py 交付 |
 | `json_extracted:<file>` / `json_<状态>:<file>` | 从带包裹或损坏的文本里抽取了 JSON | 注明该数据经过修复, 可信度降一级 |
 
 `summary.json` 中还可能出现以上未列的字段 (例如 `products_json.pagination_complete`, `shop.published_products_count`, `html_signals.frameworks_possible`); 含义不明确的字段不要引用进报告.

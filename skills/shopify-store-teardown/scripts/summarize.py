@@ -653,6 +653,8 @@ def summarize_run(run_dir, domain=None):
             }
         )
     identity = {"status": identity_status(signals, endpoints), "signals": signals}
+    if site_unreachable(endpoints):
+        run.warnings.append("site_unreachable")
     for sig in signals:
         run.add_evidence(
             "E1",
@@ -1439,6 +1441,28 @@ def write_outputs(run, summary, rows):
             fh.write(json.dumps(ev, ensure_ascii=False) + "\n")
 
 
+STORE_ENDPOINTS = (
+    "homepage",
+    "meta_json",
+    "products_json",
+    "collections_json",
+    "sitemap",
+    "best_selling",
+)
+
+
+def site_unreachable(endpoints):
+    """True when the homepage failed on the network (no HTTP answer) and no
+    store endpoint returned anything: wrong domain, DNS failure or offline."""
+    home = endpoints.get("homepage") or {}
+    if home.get("result") != "error" or home.get("http_status") is not None:
+        return False
+    return not any(
+        (endpoints.get(k) or {}).get("result") in ("ok", "blocked", "not_found")
+        for k in STORE_ENDPOINTS
+    )
+
+
 def human_digest(summary):
     """Short Chinese digest printed by both CLIs."""
     p = summary.get("products") or {}
@@ -1472,6 +1496,11 @@ def human_digest(summary):
     lines.append("失败端点: %s" % (", ".join(failed) if failed else "无"))
     if summary.get("warnings"):
         lines.append("警告: %s" % ", ".join(summary["warnings"]))
+    if "site_unreachable" in (summary.get("warnings") or []):
+        lines.append(
+            "注意: 网站打不开 (域名不存在, 拼错或当前网络不通). 不要改用别的方式"
+            "回答, 按 SKILL.md 的'失败时'写一份 failed 短报告并运行 deliver.py 交付."
+        )
     return "\n".join(lines)
 
 
