@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deep script round on a test VM: the whole delivery chain per package.
 
-    python3 tools/acceptance/vm/run_deep.py --bench <bench id> \
+    python3 tools/acceptance/vm/run_deep.py [--bench <bench id>] \
         --pro-repo <chuhai-skills-pro checkout> <zip> [<zip> ...]
 
 For each skill zip (free or Pro) this writes a one-case acceptance file
@@ -84,13 +84,17 @@ def acceptance_for(name):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--bench", required=True)
+    ap.add_argument(
+        "--bench", help="bench id; default: the single ACTIVE skill_acceptance bench"
+    )
     ap.add_argument("--pro-repo", required=True)
     ap.add_argument("--timeout", type=int, default=3000, help="seconds per package")
     ap.add_argument("--label", default="deep")
     ap.add_argument("zips", nargs="+")
     args = ap.parse_args(argv)
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    if not args.bench:
+        args.bench = run_vm.load_bench(run_vm.DEFAULT_BENCH_JSON)["id"]
     top = os.path.join(OUT_BASE, "%s-%s-%s" % (args.label, args.bench, stamp))
     os.makedirs(top)
     fx = fixtures_zip(top, os.path.abspath(args.pro_repo))

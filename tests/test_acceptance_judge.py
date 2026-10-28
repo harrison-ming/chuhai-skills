@@ -198,6 +198,24 @@ class TranscriptTests(Base):
         self.assertEqual(p["final_message"], "bye")
         self.assertEqual(len(p["permission_denials"]), 1)
 
+    def test_codex_windows_doubled_backslash_path_triggers(self):
+        cmd = (
+            '"C:\\\\WINDOWS\\\\powershell.exe" -Command "Get-Content -Raw '
+            "'C:\\\\Users\\\\ming\\\\w\\\\.agents\\\\skills\\\\%s\\\\SKILL.md'\""
+            % SKILL
+        )
+        p = judge.parse_codex(
+            [
+                {
+                    "type": "item.completed",
+                    "item": {"type": "command_execution", "command": cmd},
+                },
+                {"type": "turn.completed"},
+            ],
+            SKILL,
+        )
+        self.assertTrue(p["triggered"])
+
     def test_codex_without_turn_completed_is_error(self):
         p = judge.parse_codex(
             [{"type": "turn.failed", "error": {"message": "boom"}}], SKILL

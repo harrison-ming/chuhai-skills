@@ -44,13 +44,18 @@ def read_jsonl(path):
     return events
 
 
+def _norm_path(text):
+    # Windows commands quote paths with doubled backslashes (C:\\Users\\...)
+    return re.sub(r"[\\/]+", "/", text)
+
+
 def _skill_path_hit(text, skill):
-    text = text.replace("\\", "/")
+    text = _norm_path(text)
     return ("skills/%s/SKILL.md" % skill) in text or ("/%s/SKILL.md" % skill) in text
 
 
 def _skill_script_hit(text, skill):
-    return ("skills/%s/scripts/" % skill) in text.replace("\\", "/")
+    return ("skills/%s/scripts/" % skill) in _norm_path(text)
 
 
 def parse_claude(events, skill):

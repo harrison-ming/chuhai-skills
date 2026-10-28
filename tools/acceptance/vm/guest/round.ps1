@@ -211,6 +211,13 @@ try {
             Expand-Archive -LiteralPath $zip -DestinationPath $skillParent -Force
             $skillDir = Join-Path $skillParent $plan.skill
             if (-not (Test-Path -LiteralPath (Join-Path $skillDir 'SKILL.md'))) { throw 'SKILL.md missing after unzip' }
+            if ($plan.fixtures -and $client -ne 'script') {
+                # test inputs the release zip leaves out (tests/fixtures/...)
+                $fx = Join-Path $Dir $plan.fixtures.name
+                $fh = (Get-FileHash -Algorithm SHA256 -LiteralPath $fx).Hash.ToLower()
+                if ($fh -ne $plan.fixtures.sha256) { throw 'fixtures sha256 mismatch in guest' }
+                Expand-Archive -LiteralPath $fx -DestinationPath $skillDir -Force
+            }
             $meta.install_ok = $true
             $baseEnv = @{ CHUHAI_OUTPUT_DIR = $deliv; CHUHAI_NO_OPEN = '1' }
 

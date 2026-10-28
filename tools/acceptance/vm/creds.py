@@ -154,6 +154,14 @@ def write_back_codex_auth(raw, codex_home=CODEX_HOME):
     return "updated"
 
 
+# Codex writes these itself on its first run in a CODEX_HOME (built-in system
+# skills, the curated plugin cache): every fresh install has them.
+CODEX_STOCK = {
+    "skills": {".system"},
+    "plugins": {"cache", ".remote-plugin-install-staging"},
+}
+
+
 def codex_home_clean(codex_home=CODEX_HOME):
     """Entries in CODEX_HOME that could leak user context into a clean run."""
     bad = []
@@ -166,8 +174,17 @@ def codex_home_clean(codex_home=CODEX_HOME):
         "rules",
         "prompts",
     ):
-        if os.path.exists(os.path.join(codex_home, name)):
-            bad.append(name)
+        path = os.path.join(codex_home, name)
+        if not os.path.exists(path):
+            continue
+        stock = CODEX_STOCK.get(name)
+        if stock is not None and os.path.isdir(path):
+            extra = sorted(set(os.listdir(path)) - stock)
+            if not extra:
+                continue
+            bad.append("%s/%s" % (name, ",".join(extra)))
+            continue
+        bad.append(name)
     return bad
 
 

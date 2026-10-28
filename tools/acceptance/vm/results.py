@@ -40,6 +40,36 @@ RATE_LIMIT_RE = re.compile(
 )
 
 
+def limit_signal_text(transcript_text):
+    """Transcript lines where the agent client itself reports an error.
+
+    Tool results (a store answering HTTP 429 to WebFetch) and message text
+    (a skill that documents "限流 (429)") are not quota signals; only the
+    client's own error / retry / failed-result events are.
+    """
+    out = []
+    for line in (transcript_text or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except ValueError:
+            out.append(line)
+            continue
+        if not isinstance(ev, dict):
+            continue
+        kind = ev.get("type")
+        if (
+            kind in ("error", "turn.failed")
+            or (kind == "system" and ev.get("subtype") == "api_retry")
+            or (kind == "result" and ev.get("is_error"))
+            or (kind == "assistant" and ev.get("error"))
+        ):
+            out.append(line)
+    return "\n".join(out)
+
+
 def utc_now():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -114,7 +144,7 @@ def agent_verdict(meta, judged, transcript_text, stderr_text):
             "runner: %s" % (meta.get("error") or "").splitlines()[0][:200]
         ]
     st = (meta.get("steps") or [{}])[0]
-    blob = (stderr_text or "")[-20000:] + "\n" + (transcript_text or "")[-20000:]
+    blob = (stderr_text or "")[-20000:] + "\n" + limit_signal_text(transcript_text)
     if RATE_LIMIT_RE.search(blob) and not judged.get("passed"):
         return "inconclusive", ["rate_limited"]
     if not transcript_text.strip():

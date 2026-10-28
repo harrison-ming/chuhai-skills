@@ -219,6 +219,29 @@ class LocksTest(Tmp):
         with self.assertRaises(locks.LockBusy):
             locks.Lock("x", lock_dir=self.tmp, heartbeat=0).acquire()
 
+    def test_reused_pid_after_reboot_is_gone(self):
+        # 2026-10-27: after a host reboot the lock's pid belonged to StocksWidget.
+        me = {"pid": os.getpid()}
+        self.assertFalse(locks.holder_gone(me))
+        rebooted = dict(me, host_boot_at="2000-01-01T00:00:00Z")
+        self.assertTrue(locks.holder_gone(rebooted, boot_at="2026-10-28T04:30:12Z"))
+        same_boot = dict(me, host_boot_at="2026-10-28T04:30:12Z")
+        self.assertFalse(locks.holder_gone(same_boot, boot_at="2026-10-28T04:30:12Z"))
+        other_proc = dict(me, pid_started_at="2000-01-01T00:00:00Z")
+        self.assertTrue(
+            locks.holder_gone(other_proc, started_at="2026-10-28T07:00:00Z")
+        )
+
+    def test_lock_records_boot_and_start_time(self):
+        lk = locks.Lock("bench-t", lock_dir=self.tmp, heartbeat=0).acquire()
+        holder = lk.read()["holder"]
+        lk.release()
+        self.assertEqual(holder["pid"], os.getpid())
+        if sys.platform == "darwin":
+            self.assertTrue(holder["host_boot_at"])
+            self.assertTrue(holder["pid_started_at"])
+        self.assertFalse(locks.holder_gone(holder))
+
     def test_default_dir_is_outside_stellar_output(self):
         self.assertIn(
             os.path.join("Application Support", "agent-skill-acceptance", "locks"),
@@ -306,6 +329,13 @@ class CredsTest(Tmp):
         self.assertEqual(creds.codex_home_clean(home), [])
         os.makedirs(os.path.join(home, "memories"))
         self.assertEqual(creds.codex_home_clean(home), ["memories"])
+        # what Codex itself writes on a first run is not user context
+        os.rmdir(os.path.join(home, "memories"))
+        os.makedirs(os.path.join(home, "skills", ".system", "imagegen"))
+        os.makedirs(os.path.join(home, "plugins", "cache"))
+        self.assertEqual(creds.codex_home_clean(home), [])
+        os.makedirs(os.path.join(home, "skills", "my-skill"))
+        self.assertEqual(creds.codex_home_clean(home), ["skills/my-skill"])
 
     def test_leak_scan(self):
         d = os.path.join(self.tmp, "ev")
@@ -414,6 +444,46 @@ class ResultsTest(Tmp):
             "fail",
         )
 
+    def test_rate_limit_ignores_tool_results_and_skill_text(self):
+        meta = {"install_ok": True, "steps": [{"exit_code": 0}]}
+        judged = {"passed": False, "reasons": ["missing deliverable"]}
+        tool_429 = json.dumps(
+            {
+                "type": "user",
+                "message": {
+                    "content": [
+                        {"type": "tool_result", "content": "HTTP 429 Too Many Requests"}
+                    ]
+                },
+            }
+        )
+        skill_text = json.dumps(
+            {"type": "assistant", "message": {"content": "被限流 (429): 加大 --delay"}}
+        )
+        transcript = tool_429 + "\n" + skill_text
+        self.assertEqual(
+            results.agent_verdict(meta, judged, transcript, ""),
+            ("fail", ["missing deliverable"]),
+        )
+        for ev in (
+            {
+                "type": "result",
+                "is_error": True,
+                "result": "Claude usage limit reached",
+            },
+            {"type": "system", "subtype": "api_retry", "error": "rate_limit"},
+            {"type": "error", "message": "You've hit your usage limit"},
+        ):
+            self.assertEqual(
+                results.agent_verdict(
+                    meta, judged, transcript + "\n" + json.dumps(ev), ""
+                ),
+                ("inconclusive", ["rate_limited"]),
+            )
+
+    def test_claude_allowlist_covers_windows_python_probe(self):
+        self.assertIn("Bash(py:*)", host_run.CLAUDE_ALLOWED)
+
     def test_deliverable_list_excludes_raw(self):
         d = os.path.join(self.tmp, "deliv", "run 1")
         os.makedirs(os.path.join(d, "原始数据"))
@@ -504,7 +574,7 @@ class PrlTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 LEDGER_BENCH = {
-    "id": "vm-parallels-win11-arm64-zhcn-agent",
+    "id": "vm-parallels-win11-arm64-zhcn-py312-agent",
     "kind": "parallels_vm",
     "host": {"hostname": "MacPro", "accessMethod": "prlctl", "loginUser": "ming"},
     "arch": "arm64",
@@ -514,8 +584,8 @@ LEDGER_BENCH = {
     "status": "ACTIVE",
     "baselines": [
         {
-            "baselineId": "agent-clients-2026-10-27",
-            "revertCommand": "prlctl snapshot-switch 'skilltest-win11-arm64-zhcn' --id {c597bf5a-17cc-4f57-bd5b-f090fd982084}",
+            "baselineId": "agent-clients-2026-10-27-py312",
+            "revertCommand": "prlctl snapshot-switch 'skilltest-win11-arm64-zhcn-py312' --id {b89783a8-cb94-46f2-a026-9e9001a583ec}",
         }
     ],
 }
@@ -537,8 +607,8 @@ def ns(**kw):
 class RunVmTest(Tmp):
     def test_bench_from_ledger(self):
         b = run_vm.bench_from_ledger(LEDGER_BENCH)
-        self.assertEqual(b["vm"], "skilltest-win11-arm64-zhcn")
-        self.assertEqual(b["snapshot_id"], "{c597bf5a-17cc-4f57-bd5b-f090fd982084}")
+        self.assertEqual(b["vm"], "skilltest-win11-arm64-zhcn-py312")
+        self.assertEqual(b["snapshot_id"], "{b89783a8-cb94-46f2-a026-9e9001a583ec}")
         self.assertEqual(
             (b["os"], b["arch"], b["user"]), ("windows-11-25h2", "arm64", "ming")
         )
@@ -546,6 +616,23 @@ class RunVmTest(Tmp):
             bad = dict(LEDGER_BENCH, **patch)
             with self.assertRaises(SystemExit):
                 run_vm.bench_from_ledger(bad)
+
+    def test_default_bench_is_the_single_active_one(self):
+        retired = dict(LEDGER_BENCH, id="old", status="RETIRED", retiredAt="2026-10-28")
+        other = dict(LEDGER_BENCH, id="install", role=["install_test"])
+        path = os.path.join(self.tmp, "bench.json")
+
+        def ledger(*benches):
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump({"benches": list(benches)}, fh)
+            return path
+
+        b = run_vm.load_bench(ledger(retired, LEDGER_BENCH, other))
+        self.assertEqual(b["id"], LEDGER_BENCH["id"])
+        with self.assertRaises(SystemExit):  # two ACTIVE test VMs: refuse to guess
+            run_vm.load_bench(ledger(LEDGER_BENCH, dict(LEDGER_BENCH, id="second")))
+        with self.assertRaises(SystemExit):
+            run_vm.load_bench(ledger(retired))
 
     def test_zip_identity(self):
         z = os.path.join(self.tmp, "profit-model-v0.1.0.zip")
@@ -560,6 +647,65 @@ class RunVmTest(Tmp):
         with self.assertRaises(SystemExit):
             run_vm.zip_identity(z2)
 
+    def test_fixtures_zip_only_when_prompt_points_there(self):
+        accp = os.path.join(ROOT, "skills", "launch-readiness", "acceptance.json")
+        acc = load_acc("launch-readiness")
+        cases = [c for c in acc["cases"] if c["id"] == "paste-conflicts"]
+        info = run_vm.build_fixtures_zip(accp, "claude-cli", cases, self.tmp)
+        self.assertEqual(info["name"], "fixtures.zip")
+        with zipfile.ZipFile(os.path.join(self.tmp, "fixtures.zip")) as zf:
+            names = zf.namelist()
+        self.assertTrue(names)
+        self.assertTrue(all(n.startswith("tests/fixtures/") for n in names))
+        self.assertTrue(any(n.startswith("tests/fixtures/F3-paste/") for n in names))
+        self.assertIsNone(run_vm.build_fixtures_zip(accp, "script", cases, self.tmp))
+        other = [
+            c for c in acc["cases"] if "tests/fixtures/" not in c.get("prompt", "")
+        ]
+        self.assertIsNone(
+            run_vm.build_fixtures_zip(accp, "claude-cli", other, self.tmp)
+        )
+
+    def test_secret_pipe_restarted_when_not_listening(self):
+        class Proc:
+            returncode = None
+
+            def poll(self):
+                return None
+
+            def kill(self):
+                pass
+
+            def wait(self):
+                pass
+
+        started, up = [], [False]
+        orig = (
+            run_vm.start_secret_pipe,
+            run_vm.pipe_listening,
+            run_vm.PIPE_READY_TIMEOUT,
+            run_vm.time.sleep,
+        )
+        try:
+            run_vm.start_secret_pipe = lambda *a: started.append(1) or Proc()
+            run_vm.pipe_listening = lambda vm, name: up[0]
+            run_vm.PIPE_READY_TIMEOUT = 0.05
+            run_vm.time.sleep = lambda s: None
+            with self.assertRaises(run_vm.RoundError):
+                run_vm.start_secret_pipe_checked(None, "p", "u", {})
+            self.assertEqual(len(started), run_vm.PIPE_START_TRIES)
+            started.clear()
+            up[0] = True
+            run_vm.start_secret_pipe_checked(None, "p", "u", {})
+            self.assertEqual(len(started), 1)
+        finally:
+            (
+                run_vm.start_secret_pipe,
+                run_vm.pipe_listening,
+                run_vm.PIPE_READY_TIMEOUT,
+                run_vm.time.sleep,
+            ) = orig
+
     def test_agent_argv_no_bypass(self):
         case = {
             "id": "normal",
@@ -567,16 +713,27 @@ class RunVmTest(Tmp):
             "needs_network": True,
         }
         codex = run_vm.agent_argv("codex-cli", case, ns())
-        self.assertEqual(codex[:2], ["exec", "--sandbox"])
+        self.assertEqual(codex[:3], ["exec", "--sandbox", "danger-full-access"])
+        codex_ww = run_vm.agent_argv(
+            "codex-cli", case, ns(codex_sandbox="workspace-write")
+        )
+        self.assertEqual(codex_ww[:3], ["exec", "--sandbox", "workspace-write"])
         self.assertIn("sandbox_workspace_write.network_access=true", codex)
         self.assertIn("--ignore-user-config", codex)
         self.assertEqual(codex[-1], case["prompt"])
-        claude = run_vm.agent_argv("claude-cli", case, ns())
+        claude = run_vm.agent_argv("claude-cli", case, ns(claude_bash="allowlist"))
         self.assertEqual(claude[0], "-p")
         self.assertNotIn(
             "--settings", claude
         )  # allowlist mode: no OS sandbox on Windows
         self.assertIn("Bash(python:*)", claude)
+        # Windows agents chain `cd "C:/..." && python ...`
+        self.assertIn("Bash(cd:*)", claude)
+        self.assertNotIn("Bash(rm:*)", claude)
+        self.assertNotIn("Bash", claude)  # allowlist: prefix rules only
+        claude_open = run_vm.agent_argv("claude-cli", case, ns())  # default vm-open
+        self.assertIn("Bash", claude_open)
+        self.assertIn("dontAsk", claude_open)
         for argv in (codex, claude):
             for bad in ("--dangerously-skip-permissions", "--bare", "--yolo"):
                 self.assertNotIn(bad, argv)
@@ -686,7 +843,7 @@ class CleanRunnersTest(Tmp):
         self.assertEqual(env["HOME"], os.path.join(self.tmp, "_home"))
         self.assertNotIn("OPENAI_API_KEY", env)
         self.assertEqual(os.listdir(env["HOME"]), [])
-        os.makedirs(os.path.join(home, "skills"))
+        os.makedirs(os.path.join(home, "skills", "my-skill"))
         env, why = host_run.clean_env("codex-clean", base, self.tmp, codex_home=home)
         self.assertIsNone(env)
         self.assertIn("skills", why)

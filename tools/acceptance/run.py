@@ -116,6 +116,8 @@ CLAUDE_ALLOWED = [
     "WebFetch",
     "Bash(python3:*)",
     "Bash(python:*)",
+    # skills probe `py -3 --version` on Windows (Python launcher)
+    "Bash(py:*)",
     "Bash(ls:*)",
     "Bash(mkdir:*)",
     "Bash(head:*)",

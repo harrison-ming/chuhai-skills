@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """L2 clean-VM acceptance runner (testing protocol sections 4-8).
 
-    python3 tools/acceptance/vm/run_vm.py --bench <bench id> \
+    python3 tools/acceptance/vm/run_vm.py [--bench <bench id>] \
         --skill-zip <built zip> --acceptance skills/<name>/acceptance.json \
         [--runners script,codex,claude] [--cases a,b] [--out <run dir>]
 
-One round = one skill zip x one client x one test VM x the selected cases:
+There is exactly one test VM (protocol 3.0: one VM, one snapshot, rounds run
+one after another); --bench defaults to the single ACTIVE skill_acceptance
+bench in the ledger. Never start two runners at once.
+
+One round = one skill zip x one client x the selected cases:
   S0 lock -> S1 revert to the client-layer snapshot -> S2 readiness (exec +
   test user's explorer in session 1) -> S3 credentials over stdin + named
   pipe (agent clients only) -> S4 deliver zip + guest scripts over a
@@ -72,6 +76,30 @@ GUEST_DIR = r"C:\skilltest\round"
 # Chinese + space on purpose: buyers' Documents paths look like this.
 DEFAULT_GUEST_ROOT = "%USERPROFILE%\\Documents\\技能验收 runs"
 TASK = "SkilltestAcceptanceRound"
+# Probes run every 120 s; this many failures in a row (~6 min) means the guest
+# is stuck (e.g. PRL_ERR_IO_STOPPED), not that the skill is slow.
+UNRESPONSIVE_PROBES = 3
+# Claude on Windows chains `cd "C:/..." && ...`, cp/cat and env-prefixed python;
+# dontAsk denies any part not listed, and the agent then gives up on the
+# deliverables. Host runs use the OS sandbox instead (Bash unrestricted inside
+# it); here the VM is the boundary. Still no rm / curl / network tools.
+VM_CLAUDE_ALLOW = [
+    "Bash(cd:*)",
+    "Bash(pwd:*)",
+    "Bash(cat:*)",
+    "Bash(cp:*)",
+    "Bash(mv:*)",
+    "Bash(echo:*)",
+    "Bash(wc:*)",
+    "Bash(sort:*)",
+    "Bash(find:*)",
+    "Bash(grep:*)",
+    "Bash(test:*)",
+    "Bash(PYTHONIOENCODING=utf-8 python:*)",
+    "Bash(PYTHONUTF8=1 python:*)",
+    "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python:*)",
+    "Bash(PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python:*)",
+]
 CLIENTS = {
     "script": "script",
     "codex": "codex-cli",
@@ -100,9 +128,23 @@ def sha256_file(path):
 # ---------------------------------------------------------------------------
 
 
-def load_bench(bench_json, bench_id):
+def load_bench(bench_json, bench_id=None):
+    """bench_id None = the single ACTIVE skill_acceptance bench (protocol 3.0)."""
     with open(bench_json, encoding="utf-8") as fh:
         inv = json.load(fh)
+    if not bench_id:
+        active = [
+            b
+            for b in inv.get("benches") or []
+            if b.get("status") == "ACTIVE"
+            and "skill_acceptance" in (b.get("role") or [])
+        ]
+        if len(active) != 1:
+            raise SystemExit(
+                "expected exactly one ACTIVE skill_acceptance bench in %s, found %s"
+                % (bench_json, [b.get("id") for b in active])
+            )
+        return bench_from_ledger(active[0])
     for b in inv.get("benches") or []:
         if b.get("id") == bench_id:
             return bench_from_ledger(b)
@@ -166,13 +208,32 @@ def zip_identity(path):
     return name, (m.group("ver") if m else None)
 
 
+def claude_vm_allow(args):
+    """Extra --allowedTools for claude-cli in the guest.
+
+    vm-open (default, protocol standard): any Bash command,
+    like a buyer who clicks "allow" on every prompt; the reverted VM is the
+    boundary (protocol: Windows has no Claude Code OS sandbox). allowlist:
+    prefix rules only (VM_CLAUDE_ALLOW), kept for diagnosis. Neither mode
+    passes a permission-bypass flag.
+    """
+    extra = list(getattr(args, "claude_allow", None) or [])
+    if getattr(args, "claude_bash", "vm-open") == "vm-open":
+        return ["Bash"] + extra
+    return VM_CLAUDE_ALLOW + extra
+
+
+def codex_vm_open(args):
+    return getattr(args, "codex_sandbox", "vm-open") == "vm-open"
+
+
 def agent_argv(client, case, args):
     """argv for the client (without the executable), reusing run.py's choices."""
     import run as host_run  # tools/acceptance/run.py
 
     ns = types.SimpleNamespace(
         claude_mode="allowlist",  # no Claude Code OS sandbox on Windows; the VM is the boundary
-        claude_allow=args.claude_allow,
+        claude_allow=claude_vm_allow(args),
         claude_model=args.claude_model,
         codex_model=args.codex_model,
     )
@@ -183,6 +244,12 @@ def agent_argv(client, case, args):
             ns.codex_model = host_run.codex_model()
         runner = "codex-net" if case.get("needs_network", True) else "codex-nonet"
         cmd = host_run.build_agent_cmd(runner, case, ns, {})
+        if codex_vm_open(args):
+            # Codex has no Windows sandbox: under workspace-write + approval
+            # never it rejects every command ("blocked by policy"). Same rule
+            # as claude vm-open: the reverted VM is the boundary.
+            i = cmd.index("--sandbox")
+            cmd[i + 1] = "danger-full-access"
     for bad in (
         "--dangerously-skip-permissions",
         "--yolo",
@@ -194,8 +261,46 @@ def agent_argv(client, case, args):
     return cmd[1:]
 
 
+FIXTURES_REL = "tests/fixtures"
+FIXTURES_ZIP = "fixtures.zip"
+
+
+def build_fixtures_zip(acceptance_path, client, cases, dest):
+    """Pack <skill src>/tests/fixtures when an agent case prompt points there.
+
+    L1 runs the skill from the source tree, which has tests/; the release zip
+    does not. The guest unpacks this next to the installed skill so a prompt
+    like "files are in tests/fixtures/F3-paste/" sees the same files. The
+    release package itself is unchanged. Returns {"name","sha256"} or None.
+    """
+    if client == "script":
+        return None
+    if not any(FIXTURES_REL + "/" in (c.get("prompt") or "") for c in cases):
+        return None
+    src = os.path.join(os.path.dirname(os.path.abspath(acceptance_path)), FIXTURES_REL)
+    if not os.path.isdir(src):
+        return None
+    out = os.path.join(dest, FIXTURES_ZIP)
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, _dirs, files in os.walk(src):
+            for f in sorted(files):
+                full = os.path.join(root, f)
+                rel = os.path.relpath(full, os.path.dirname(os.path.dirname(src)))
+                zf.write(full, rel.replace(os.sep, "/"))
+    return {"name": FIXTURES_ZIP, "sha256": sha256_file(out)}
+
+
 def build_plan(
-    round_id, skill, zip_info, client, cases, acc, args, put_base, secret_pipe
+    round_id,
+    skill,
+    zip_info,
+    client,
+    cases,
+    acc,
+    args,
+    put_base,
+    secret_pipe,
+    fixtures=None,
 ):
     plan_cases = []
     for c in cases:
@@ -218,6 +323,7 @@ def build_plan(
         "guest_root": args.guest_root_resolved,
         "put_base": put_base,
         "secret_pipe": secret_pipe,
+        "fixtures": fixtures,
         "cases": plan_cases,
     }
 
@@ -304,6 +410,57 @@ def start_secret_pipe(vm, pipe_name, user, payload_obj):
     return proc
 
 
+PIPE_START_TRIES = 3
+PIPE_READY_TIMEOUT = 45
+
+
+def _text_tail(b, n=200):
+    return (b or b"").decode("utf-8", "replace").strip()[-n:]
+
+
+def pipe_listening(vm, pipe_name):
+    obj = vm.ps_json(
+        "@{ok=$true; up=[bool]([IO.Directory]::GetFiles('\\\\.\\pipe\\') "
+        "-contains ('\\\\.\\pipe\\' + %s))} | ConvertTo-Json -Compress"
+        % prl.ps_quote(pipe_name),
+        timeout=60,
+    )
+    return bool(obj.get("up"))
+
+
+def start_secret_pipe_checked(vm, pipe_name, user, payload_obj):
+    """start_secret_pipe, then confirm the guest really listens on the pipe.
+
+    `prlctl exec` now and then never starts the SYSTEM-side server; the round
+    task then times out on Connect after 120 s and the whole round is lost.
+    Restart the server (same name, it is already in plan.json) instead.
+    """
+    last = ""
+    for attempt in range(1, PIPE_START_TRIES + 1):
+        proc = start_secret_pipe(vm, pipe_name, user, payload_obj)
+        deadline = time.time() + PIPE_READY_TIMEOUT
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                last = "server exited rc=%s: %s" % (
+                    proc.returncode,
+                    _text_tail(proc.stdout.read() + proc.stderr.read()),
+                )
+                break
+            try:
+                if pipe_listening(vm, pipe_name):
+                    return proc
+            except prl.TransportError as e:
+                last = "probe: %s" % e
+            time.sleep(3)
+        else:
+            last = last or "pipe not listening after %ss" % PIPE_READY_TIMEOUT
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait()
+        log("secret pipe start %d/%d failed: %s" % (attempt, PIPE_START_TRIES, last))
+    raise RoundError("secret pipe server did not start: %s" % last)
+
+
 def run_round(ctx, client, cases, secret=None):
     """Returns list of per-case rows (result dicts) or raises RoundError."""
     args, bench, acc = ctx["args"], ctx["bench"], ctx["acc"]
@@ -322,6 +479,9 @@ def run_round(ctx, client, cases, secret=None):
     extras = [os.path.basename(x) for x in args.extra or []]
     for x in args.extra or []:
         shutil.copy(x, os.path.join(serve, os.path.basename(x)))
+    fixtures = build_fixtures_zip(args.acceptance, client, cases, serve)
+    if fixtures:
+        extras.append(fixtures["name"])
 
     log("[%s] S1 revert %s -> %s" % (client, bench["vm"], bench["baseline_id"]))
     vm.snapshot_switch(bench["snapshot_id"])
@@ -347,6 +507,7 @@ def run_round(ctx, client, cases, secret=None):
             args,
             srv.put_base,
             pipe_name,
+            fixtures,
         )
         with open(os.path.join(serve, "plan.json"), "w", encoding="utf-8") as fh:
             json.dump(plan, fh, ensure_ascii=False, indent=1)
@@ -370,7 +531,7 @@ def run_round(ctx, client, cases, secret=None):
 
         if secret:
             log("[%s] S3 credentials via stdin -> named pipe" % client)
-            pipe_proc = start_secret_pipe(vm, pipe_name, bench["user"], secret)
+            pipe_proc = start_secret_pipe_checked(vm, pipe_name, bench["user"], secret)
 
         log("[%s] S5/S6 run %d case(s) as %s" % (client, len(cases), bench["user"]))
         started = time.time()
@@ -386,6 +547,7 @@ def run_round(ctx, client, cases, secret=None):
             os.remove(done)
         budget = args.timeout * len(cases) + 900
         last_check = 0
+        probe_failures = 0
         while not os.path.exists(done):
             if time.time() - started > budget:
                 raise RoundError(
@@ -406,8 +568,21 @@ def run_round(ctx, client, cases, secret=None):
                                 "guest task ended without _round_done.json (last=%s)"
                                 % st.get("last")
                             )
+                    probe_failures = 0
                 except prl.TransportError as e:
-                    log("task state probe failed: %s" % e)
+                    probe_failures += 1
+                    log(
+                        "task state probe failed (%d/%d): %s"
+                        % (probe_failures, UNRESPONSIVE_PROBES, e)
+                    )
+                    if probe_failures >= UNRESPONSIVE_PROBES:
+                        capture_screen(
+                            bench, os.path.join(round_dir, "unresponsive.png")
+                        )
+                        raise RoundError(
+                            "vm_unresponsive: %d task state probes in a row failed (%s)"
+                            % (probe_failures, e)
+                        )
                 ctx["lock"].update(round_id=round_id)
             time.sleep(5)
         with open(done, encoding="utf-8-sig") as fh:
@@ -418,6 +593,7 @@ def run_round(ctx, client, cases, secret=None):
             if os.path.exists(p):
                 os.replace(p, os.path.join(round_dir, extra))
         if pipe_proc:
+            out = b""
             try:
                 out, _err = pipe_proc.communicate(timeout=60)
                 ok = b'"ok":true' in out
@@ -425,7 +601,8 @@ def run_round(ctx, client, cases, secret=None):
                 pipe_proc.kill()
                 ok = False
             if not ok:
-                log("secret pipe did not report ok")
+                # the server prints only {"ok":..,"err":<exception type>}
+                log("secret pipe did not report ok: %s" % (_text_tail(out) or "-"))
         if client == "codex-cli":
             codex_auth_state = collect_codex_auth(vm)
             log("[%s] S8 codex auth: %s" % (client, codex_auth_state))
@@ -531,6 +708,8 @@ def judge_case(ctx, client, case, env, ready, round_res, exact):
         status = judged.get("status")
         triggered = parsed.get("triggered")
         client_version = (env.get("clients") or {}).get(client)
+        # the guest may have produced nothing for this case (round died early)
+        os.makedirs(cdir, exist_ok=True)
         with open(os.path.join(cdir, "judge.json"), "w", encoding="utf-8") as fh:
             json.dump(
                 {
@@ -581,8 +760,16 @@ def judge_case(ctx, client, case, env, ready, round_res, exact):
         "deliverables": results.deliverable_list(deliv_root),
         "permission_mode": {
             "script": "n/a",
-            "codex-cli": "workspace-write",
-            "claude-cli": "allowlist",
+            "codex-cli": (
+                "vm-open-full-access"
+                if codex_vm_open(ctx["args"])
+                else "workspace-write"
+            ),
+            "claude-cli": (
+                "vm-open-bash"
+                if getattr(ctx["args"], "claude_bash", "vm-open") == "vm-open"
+                else "allowlist"
+            ),
         }[client],
         "driver": "headless",
         "duration_s": round(dur, 1),
@@ -642,7 +829,9 @@ def secret_for(client):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="L2 clean-VM acceptance runner")
-    ap.add_argument("--bench", required=True)
+    ap.add_argument(
+        "--bench", help="bench id; default: the single ACTIVE skill_acceptance bench"
+    )
     ap.add_argument("--skill-zip", required=True)
     ap.add_argument("--acceptance", required=True)
     ap.add_argument("--runners", default="script")
@@ -658,6 +847,23 @@ def main(argv=None):
     ap.add_argument("--codex-model")
     ap.add_argument("--claude-model")
     ap.add_argument("--claude-allow", action="append")
+    ap.add_argument(
+        "--codex-sandbox",
+        choices=("workspace-write", "vm-open"),
+        default="vm-open",
+        help="codex-cli sandbox in the guest. vm-open (protocol standard, user "
+        "decision 2026-10-28): --sandbox danger-full-access, recorded as "
+        "permission_mode vm-open-full-access; workspace-write rejects every "
+        "command on Windows (diagnostic only)",
+    )
+    ap.add_argument(
+        "--claude-bash",
+        choices=("allowlist", "vm-open"),
+        default="vm-open",
+        help="claude-cli Bash rules in the guest. vm-open (protocol standard, "
+        "user decision 2026-10-28): any Bash command, recorded as permission_mode "
+        "vm-open-bash; allowlist: prefix rules only (diagnostic)",
+    )
     ap.add_argument(
         "--extra",
         action="append",
@@ -680,6 +886,7 @@ def main(argv=None):
         ap.error("--extra file names must be unique and not clash with round files")
 
     bench = load_bench(args.bench_json, args.bench)
+    args.bench = bench["id"]
     args.guest_root_resolved = guest_root(bench["user"], args.guest_root)
     zip_path = os.path.abspath(args.skill_zip)
     skill, version = zip_identity(zip_path)
@@ -838,6 +1045,18 @@ def main(argv=None):
     if any(r["verdict"] != "pass" for r in rows):
         exit_code = 1
     return exit_code
+
+
+def capture_screen(bench, path):
+    """Best-effort screenshot of a stuck guest, kept as evidence (protocol 4.1 S6)."""
+    try:
+        subprocess.run(
+            ["prlctl", "capture", bench["vm"], "--file", path],
+            capture_output=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 def inconclusive_row(ctx, client, case, why):
