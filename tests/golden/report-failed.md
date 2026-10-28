@@ -1,6 +1,6 @@
 # no-such-store.example 对标拆解报告
 
-<sub>no-such-store.example · 分析日期 2026-10-27</sub>
+<sub>no-such-store.example · 分析日期 2026-09-01</sub>
 
 ## 一页看懂
 

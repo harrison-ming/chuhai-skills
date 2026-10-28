@@ -75,6 +75,20 @@ def sample_reports(fixture=None):
     return out
 
 
+def todays():
+    """Local and UTC dates of this run. They differ for part of every day
+    (e.g. evenings west of UTC): collect.py stamps UTC times, deliver.py and
+    the run folder use the local date, so both must normalize to <TODAY>.
+    Fixtures therefore must never contain a date that can be "today"."""
+    local = datetime.date.today().isoformat()
+    utc = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    return (local,) if utc == local else (local, utc)
+
+
+def dates_of(today):
+    return (today,) if isinstance(today, str) else tuple(today)
+
+
 def normalize(data, run_dir, today, port=None):
     text = data.decode("utf-8", errors="surrogateescape")
     if port:
@@ -82,7 +96,8 @@ def normalize(data, run_dir, today, port=None):
     text = ELAPSED_RE.sub('"elapsed_ms": 0', text)
     for path in (run_dir, os.path.realpath(run_dir)):
         text = text.replace(path, "<RUN>")
-    text = text.replace(today, "<TODAY>")
+    for day in dates_of(today):
+        text = text.replace(day, "<TODAY>")
     text = TS_RE.sub(r"\1<TS>\2", text)
     text = NOW_RE.sub("<NOW>", text)
     return text.replace("\r\n", "\n").encode("utf-8", errors="surrogateescape")
@@ -146,7 +161,10 @@ def collect_case(tmp, today, dump_dir):
         server.server_close()
     entry = {"collect": [rc, digest(normalize(out + err, root, today, port))]}
     run_dir = os.path.join(root, os.listdir(root)[0])
-    entry["run_dir_name"] = os.path.basename(run_dir).replace(today, "<TODAY>")
+    name = os.path.basename(run_dir)
+    for day in dates_of(today):
+        name = name.replace(day, "<TODAY>")
+    entry["run_dir_name"] = name
     with open(
         os.path.join(run_dir, RAW_DIRNAME, "report.md"), "w", encoding="utf-8"
     ) as fh:
@@ -163,7 +181,7 @@ def collect_case(tmp, today, dump_dir):
 
 
 def build_manifest(dump_dir=None):
-    today = datetime.date.today().isoformat()
+    today = todays()
     tmp = tempfile.mkdtemp(prefix="golden-teardown-")
     manifest = {}
     try:
