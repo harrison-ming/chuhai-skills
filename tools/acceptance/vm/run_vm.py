@@ -319,6 +319,9 @@ def run_round(ctx, client, cases, secret=None):
     shutil.copy(ctx["zip"], os.path.join(serve, ctx["zip_info"]["name"]))
     for f in ("round.ps1", "secret-pipe.ps1"):
         shutil.copy(os.path.join(HERE, "guest", f), os.path.join(serve, f))
+    extras = [os.path.basename(x) for x in args.extra or []]
+    for x in args.extra or []:
+        shutil.copy(x, os.path.join(serve, os.path.basename(x)))
 
     log("[%s] S1 revert %s -> %s" % (client, bench["vm"], bench["baseline_id"]))
     vm.snapshot_switch(bench["snapshot_id"])
@@ -353,7 +356,7 @@ def run_round(ctx, client, cases, secret=None):
             "round.ps1",
             "secret-pipe.ps1",
             "plan.json",
-        ):
+        ) + tuple(extras):
             p = os.path.join(serve, name)
             files.append(
                 {"name": name, "size": os.path.getsize(p), "sha256": sha256_file(p)}
@@ -656,9 +659,25 @@ def main(argv=None):
     ap.add_argument("--claude-model")
     ap.add_argument("--claude-allow", action="append")
     ap.add_argument(
+        "--extra",
+        action="append",
+        help="extra file delivered next to round.ps1 (script steps see it "
+        "as {round_dir}\\<name>); repeatable",
+    )
+    ap.add_argument(
         "--dry-run", action="store_true", help="print the plan, touch nothing"
     )
     args = ap.parse_args(argv)
+    for x in args.extra or []:
+        if not os.path.isfile(x):
+            ap.error("--extra %s: not a file" % x)
+    names = [os.path.basename(x) for x in args.extra or []]
+    if len(set(names)) != len(names) or set(names) & {
+        "round.ps1",
+        "secret-pipe.ps1",
+        "plan.json",
+    }:
+        ap.error("--extra file names must be unique and not clash with round files")
 
     bench = load_bench(args.bench_json, args.bench)
     args.guest_root_resolved = guest_root(bench["user"], args.guest_root)

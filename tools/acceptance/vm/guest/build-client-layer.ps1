@@ -7,6 +7,13 @@
 # every file is checked against the SHA256 in <Base>/manifest.json before use.
 # No credentials are installed: the last step fails the build if any client
 # login state or token-looking environment variable exists.
+# Python: with a `python_exe` file in the manifest the python.org installer is
+# used (per-user, "Add python.exe to PATH" ticked, py launcher included) and the
+# install manager plus its runtimes are removed first, so `python` and `py -3`
+# both resolve to that one version; otherwise the install manager installs
+# `python_version` (or its current default when unset).
+# manifest.steps (optional) limits the run to those steps, e.g. a Python-only
+# variant on top of an existing client layer: ["python","verify","zero-credentials"].
 # Result: <Out>\result.json (the only thing the host trusts). ASCII-only file:
 # Windows PowerShell 5.1 reads BOM-less scripts in the ANSI code page.
 param(
@@ -33,6 +40,7 @@ function Log([string]$m) {
 }
 
 function Step([string]$name, [scriptblock]$body) {
+    if ($script:only -and ($script:only -notcontains $name)) { Log "skip $name"; return }
     Log "step $name"
     $t = Get-Date
     & $body
@@ -78,7 +86,29 @@ try {
         }
     }
 
-    Step 'python-install-manager' {
+    $script:only = @($manifest.steps | Where-Object { $_ })
+    $pyExpect = [string]$manifest.python_version
+    if ($files.ContainsKey('python_exe')) {
+        Step 'python' {
+            # A buyer who installed Python from python.org: drop the install
+            # manager (its py.exe alias would shadow the classic launcher).
+            $pyMgr = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\py.exe'
+            if (Test-Path $pyMgr) {
+                foreach ($tag in @($manifest.python_uninstall)) {
+                    if ($tag) { try { Run-Exe $pyMgr "uninstall --yes $tag" 600 } catch { Log "uninstall $tag : $($_.Exception.Message)" } }
+                }
+            }
+            Get-AppxPackage -Name 'PythonSoftwareFoundation.PythonManager*' | Remove-AppxPackage
+            $lp = Join-Path $env:LOCALAPPDATA 'Python'
+            if (Test-Path $lp) { Remove-Item -Recurse -Force $lp }
+            $up = [Environment]::GetEnvironmentVariable('Path', 'User')
+            $keep = @($up -split ';' | Where-Object { $_ -and $_ -notmatch '\\Python\\(bin|pythoncore)' })
+            [Environment]::SetEnvironmentVariable('Path', ($keep -join ';'), 'User')
+            Run-Exe $files['python_exe'] '/quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1 InstallLauncherAllUsers=0 Include_test=0 Shortcuts=1' 1800
+            Refresh-Path
+        }
+    } else {
+    Step 'python' {
         Add-AppxPackage -Path $files['python_manager']
         Refresh-Path
         $py = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\py.exe'
@@ -88,11 +118,13 @@ try {
         # manager, then its first-run configuration, which installs the current
         # default CPython and adds the global shortcuts dir to the user PATH.
         Run-Exe $py "install --configure --yes" 1800
+        if ($pyExpect) { Run-Exe $py "install --yes $pyExpect" 1800 }
         # Runtimes left behind by an earlier (re)build attempt, if any.
         foreach ($tag in @($manifest.python_uninstall)) {
             if ($tag) { try { Run-Exe $py "uninstall --yes $tag" 600 } catch { Log "uninstall $tag : $($_.Exception.Message)" } }
         }
         Refresh-Path
+    }
     }
 
     Step 'node' {
@@ -146,6 +178,14 @@ try {
         # skills fall back to `py -3`, so require that one and record the rest.
         foreach ($k in 'py3', 'node', 'git', 'codex', 'claude') {
             if (-not $res.versions[$k] -or $res.versions[$k] -notmatch '\d+\.\d+') { throw "client check failed: $k -> '$($res.versions[$k])'" }
+        }
+        $res.versions['ansi_codepage'] = [string](Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Nls\CodePage').ACP
+        $res.versions['pythonutf8'] = [string]([Environment]::GetEnvironmentVariable('PYTHONUTF8', 'User') + [Environment]::GetEnvironmentVariable('PYTHONUTF8', 'Machine'))
+        if ($pyExpect) {
+            # The pinned version must be what both entry points resolve to.
+            $want = 'Python ' + $pyExpect
+            if ($res.versions['py3'] -ne $want -and -not $res.versions['py3'].StartsWith($want + '.')) { throw "py -3 is '$($res.versions['py3'])', want $want" }
+            if ($files.ContainsKey('python_exe') -and $res.versions['python'] -ne $want -and -not $res.versions['python'].StartsWith($want + '.')) { throw "python is '$($res.versions['python'])', want $want" }
         }
     }
 

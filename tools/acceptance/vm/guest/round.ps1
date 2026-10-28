@@ -226,7 +226,7 @@ try {
                     $newest = Get-ChildItem -LiteralPath $deliv -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
                     $resolved = @()
                     foreach ($a in $argv) {
-                        $a = $a.Replace('{skill_dir}', $skillDir).Replace('{out_root}', $deliv).Replace('{work_dir}', $work)
+                        $a = $a.Replace('{skill_dir}', $skillDir).Replace('{out_root}', $deliv).Replace('{work_dir}', $work).Replace('{round_dir}', $Dir)
                         if ($a.Contains('{first_out_subdir}')) {
                             if (-not $newest) { throw "step $i needs {first_out_subdir} but $deliv is empty" }
                             $a = $a.Replace('{first_out_subdir}', $newest.FullName)

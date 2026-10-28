@@ -11,6 +11,16 @@
                {"role": "node_msi", "name": "node-v24.22.1-arm64.msi"},
                {"role": "git_exe", "name": "Git-2.56.0.4-arm64.exe"},
                {"role": "claude_exe", "name": "claude-2.1.312-win32-arm64.exe"}]}
+Python is parametrized by version:
+  - "python_version": "3.12.10" pins the version both `python` and `py -3`
+    must report (with the install manager: `py install <ver>` after the
+    first-run configuration);
+  - a file with role "python_exe" (python.org installer, e.g.
+    python-3.12.10-arm64.exe) switches to the classic per-user install
+    (PATH ticked, py launcher) and removes the install manager first;
+  - "steps": ["python", "verify", "zero-credentials"] runs only those steps,
+    i.e. swaps Python on a clone of an existing client layer.
+--python-version / --steps override the layer.json values.
 SHA256 and sizes are computed here and checked again inside the guest.
 Runs guest/build-client-layer.ps1 as the interactive user; trusts only the
 result.json it writes. Never touches protected VMs (prl.PROTECTED).
@@ -42,9 +52,26 @@ def sha256_file(path):
     return h.hexdigest()
 
 
-def manifest(installers):
+STEPS = ("python", "node", "git", "codex", "claude", "verify", "zero-credentials")
+
+
+def manifest(installers, python_version=None, steps=None):
     with open(os.path.join(installers, "layer.json"), encoding="utf-8") as fh:
         spec = json.load(fh)
+    if python_version:
+        spec["python_version"] = python_version
+    if steps:
+        spec["steps"] = steps
+    bad = [s for s in spec.get("steps") or [] if s not in STEPS]
+    if bad:
+        raise SystemExit("unknown layer steps: %s (known: %s)" % (bad, STEPS))
+    exe = [f for f in spec["files"] if f["role"] == "python_exe"]
+    if exe and spec.get("python_version"):
+        if spec["python_version"] not in exe[0]["name"]:
+            raise SystemExit(
+                "python_exe %s does not match python_version %s"
+                % (exe[0]["name"], spec["python_version"])
+            )
     for f in spec["files"]:
         p = os.path.join(installers, f["name"])
         f["sha256"] = sha256_file(p)
@@ -59,11 +86,21 @@ def main(argv=None):
     ap.add_argument("--user", default="ming")
     ap.add_argument("--snapshot", help="take this snapshot after a good build")
     ap.add_argument("--timeout", type=int, default=3600)
+    ap.add_argument(
+        "--python-version", help="pin the Python version (overrides layer.json)"
+    )
+    ap.add_argument(
+        "--steps", help="comma list, subset of %s (default: all)" % ",".join(STEPS)
+    )
     args = ap.parse_args(argv)
 
     vm = prl.VM(args.vm)
     vm._mutable()
-    spec = manifest(args.installers)
+    spec = manifest(
+        args.installers,
+        python_version=args.python_version,
+        steps=[s.strip() for s in (args.steps or "").split(",") if s.strip()],
+    )
     serve = os.path.join(args.installers, "_serve")
     shutil.rmtree(serve, ignore_errors=True)
     os.makedirs(serve)

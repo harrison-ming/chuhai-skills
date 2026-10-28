@@ -12,7 +12,8 @@ Source of steps, per skill:
 Placeholders, substituted inside the guest: {python} (argv[0] only; expands
 to the interpreter the skill's step 0 would pick: python, else py -3),
 {skill_dir}, {out_root}, {work_dir} (the case's working dir, parent of
-{out_root}), {domain}, {first_out_subdir} (newest folder under
+{out_root}), {round_dir} (the guest round folder holding run_vm.py
+--extra files), {domain}, {first_out_subdir} (newest folder under
 {out_root} at step time). "when": domain | no_domain | lang:<x> | case:<id>.
 """
 
@@ -23,6 +24,7 @@ SHELL_SYNTAX = re.compile(r"\$\(|`|\|\||&&|[|;<>]|(^|\s)\[\s|\bif\b|\bthen\b|\bf
 PLACEHOLDERS = (
     "{python}",
     "{work_dir}",
+    "{round_dir}",
     "{skill_dir}",
     "{out_root}",
     "{domain}",
