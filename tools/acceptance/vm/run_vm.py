@@ -265,19 +265,22 @@ FIXTURES_REL = "tests/fixtures"
 FIXTURES_ZIP = "fixtures.zip"
 
 
-def build_fixtures_zip(acceptance_path, client, cases, dest):
+def build_fixtures_zip(acceptance_path, client, cases, dest, fixtures_dir=None):
     """Pack <skill src>/tests/fixtures when an agent case prompt points there.
 
     L1 runs the skill from the source tree, which has tests/; the release zip
     does not. The guest unpacks this next to the installed skill so a prompt
     like "files are in tests/fixtures/F3-paste/" sees the same files. The
     release package itself is unchanged. Returns {"name","sha256"} or None.
+    fixtures_dir: acceptance.json "fixtures_dir", relative to that file, for
+    skills whose fixtures live elsewhere (Pro: <repo>/tests/fixtures).
     """
     if client == "script":
         return None
     if not any(FIXTURES_REL + "/" in (c.get("prompt") or "") for c in cases):
         return None
-    src = os.path.join(os.path.dirname(os.path.abspath(acceptance_path)), FIXTURES_REL)
+    base = os.path.dirname(os.path.abspath(acceptance_path))
+    src = os.path.normpath(os.path.join(base, fixtures_dir or FIXTURES_REL))
     if not os.path.isdir(src):
         return None
     out = os.path.join(dest, FIXTURES_ZIP)
@@ -285,8 +288,8 @@ def build_fixtures_zip(acceptance_path, client, cases, dest):
         for root, _dirs, files in os.walk(src):
             for f in sorted(files):
                 full = os.path.join(root, f)
-                rel = os.path.relpath(full, os.path.dirname(os.path.dirname(src)))
-                zf.write(full, rel.replace(os.sep, "/"))
+                rel = os.path.relpath(full, src).replace(os.sep, "/")
+                zf.write(full, FIXTURES_REL + "/" + rel)
     return {"name": FIXTURES_ZIP, "sha256": sha256_file(out)}
 
 
@@ -479,7 +482,9 @@ def run_round(ctx, client, cases, secret=None):
     extras = [os.path.basename(x) for x in args.extra or []]
     for x in args.extra or []:
         shutil.copy(x, os.path.join(serve, os.path.basename(x)))
-    fixtures = build_fixtures_zip(args.acceptance, client, cases, serve)
+    fixtures = build_fixtures_zip(
+        args.acceptance, client, cases, serve, acc.get("fixtures_dir")
+    )
     if fixtures:
         extras.append(fixtures["name"])
 

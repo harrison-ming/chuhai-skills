@@ -659,6 +659,25 @@ class RunVmTest(Tmp):
         self.assertTrue(all(n.startswith("tests/fixtures/") for n in names))
         self.assertTrue(any(n.startswith("tests/fixtures/F3-paste/") for n in names))
         self.assertIsNone(run_vm.build_fixtures_zip(accp, "script", cases, self.tmp))
+        # fixtures kept elsewhere (Pro repo layout): fixtures_dir is relative
+        # to acceptance.json and still unpacks as tests/fixtures/...
+        alt = os.path.join(self.tmp, "repo", "tests", "fixtures", "x")
+        os.makedirs(alt)
+        with open(os.path.join(alt, "a.csv"), "w") as fh:
+            fh.write("1")
+        pro_dir = os.path.join(self.tmp, "repo", "pro", "s")
+        os.makedirs(pro_dir)
+        out = os.path.join(self.tmp, "out")
+        os.makedirs(out)
+        run_vm.build_fixtures_zip(
+            os.path.join(pro_dir, "acceptance.json"),
+            "codex-cli",
+            [{"prompt": "see tests/fixtures/x/"}],
+            out,
+            "../../tests/fixtures",
+        )
+        with zipfile.ZipFile(os.path.join(out, "fixtures.zip")) as zf:
+            self.assertEqual(zf.namelist(), ["tests/fixtures/x/a.csv"])
         other = [
             c for c in acc["cases"] if "tests/fixtures/" not in c.get("prompt", "")
         ]
