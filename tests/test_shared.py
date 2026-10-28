@@ -183,6 +183,44 @@ class TestRender(TmpCase):
         self.assertTrue(path.endswith("Audit.html"))
         self.assertIn("no Chrome / Edge", why)
 
+    def publish_exit0(self, lang, elevated):
+        html_path = os.path.join(self.tmp, "report.html")
+        with open(html_path, "w", encoding="utf-8") as fh:
+            fh.write("<html></html>")
+
+        def printer(browser, src, pdf):  # no lang: note comes back in zh
+            return False, "%s 0" % render.BROWSER_EXIT_NOTE
+
+        return render.publish(
+            html_path,
+            self.tmp,
+            self.tmp,
+            "R",
+            find_browser=lambda: "/fake/edge",
+            printer=printer,
+            lang=lang,
+            log=lambda _m: None,
+            elevated=elevated,
+        )
+
+    def test_publish_exit_reason_admin_and_service(self):
+        _p, kind, why = self.publish_exit0("zh", True)
+        self.assertEqual(kind, "HTML")
+        self.assertIn("以管理员身份运行", why)
+        self.assertNotIn("后台服务", why)
+        _p, _k, why = self.publish_exit0("zh", False)
+        self.assertIn("后台服务", why)
+        _p, _k, why = self.publish_exit0("en", True)
+        self.assertIn("run as administrator", why)
+        self.assertIn("browser exit code 0", why)
+        _p, _k, why = self.publish_exit0("en", False)
+        self.assertIn("background services, browser exit code 0", why)
+        self.assertNotIn(render.BROWSER_EXIT_NOTE, why)
+
+    def test_is_elevated_false_off_windows(self):
+        if os.name != "nt":
+            self.assertFalse(render.is_elevated())
+
     def test_publish_pdf(self):
         html_path = os.path.join(self.tmp, "report.html")
         open(html_path, "w").close()

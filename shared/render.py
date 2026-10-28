@@ -51,6 +51,7 @@ MESSAGES = {
         "why_html_only": "按要求只生成网页版",
         "why_no_browser": "这台电脑上没找到 Chrome / Edge 浏览器",
         "why_exit": "浏览器在当前运行方式下没法打印 PDF (常见于后台服务, %s)",
+        "why_admin": "以管理员身份运行时浏览器无法打印 PDF (%s)",
         "why_failed": "浏览器没能生成 PDF (%s)",
     },
     "en": {
@@ -70,6 +71,7 @@ MESSAGES = {
             "the browser cannot print PDFs when run this way "
             "(common for background services, %s)"
         ),
+        "why_admin": "the browser cannot print PDFs when run as administrator (%s)",
         "why_failed": "the browser did not produce a PDF (%s)",
     },
 }
@@ -78,6 +80,29 @@ BROWSER_EXIT_NOTE = MESSAGES["zh"]["exit_note"]
 
 def exit_note(lang=None):
     return MESSAGES[i18n.norm_lang(lang)]["exit_note"]
+
+
+def is_elevated():
+    """True when this process runs elevated on Windows (administrator or
+    SYSTEM). Headless Edge / Chrome then exit 0 without writing the PDF.
+    Always False elsewhere and whenever the check itself fails."""
+    if os.name != "nt":
+        return False
+    try:
+        import ctypes
+
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:  # noqa: BLE001  (no ctypes / no shell32: assume not)
+        return False
+
+
+def _localize_exit(note, lang):
+    """A printer may report the exit code in another language; re-prefix it
+    with this language's note so the reason reads in one language."""
+    for other in MESSAGES.values():
+        if note.startswith(other["exit_note"]):
+            return exit_note(lang) + note[len(other["exit_note"]) :], True
+    return note, False
 
 
 def badge_regex(lang=None, keys=None):
@@ -788,6 +813,7 @@ def publish(
     printer=None,
     lang=None,
     log=print,
+    elevated=None,
 ):
     """Place the report at ``<run_dir>/<base>.pdf``, else ``<base>.html``.
 
@@ -795,6 +821,7 @@ def publish(
     ``(report_path, kind, why)`` where kind is "PDF" or "HTML" and ``why`` is
     the plain-language reason for an HTML fallback. A stale PDF / HTML from
     an earlier run is removed so the folder never shows both.
+    ``elevated`` overrides the Windows administrator check (tests).
     """
     msg = MESSAGES[i18n.norm_lang(lang)]
     find_browser = find_browser or output.find_browser
@@ -817,10 +844,14 @@ def publish(
                 report_path, kind = pdf_final, "PDF"
                 if os.path.exists(html_final):
                     os.remove(html_final)
-            elif note.startswith(exit_note(lang)):
-                why = msg["why_exit"] % note
             else:
-                why = msg["why_failed"] % note
+                note, exited = _localize_exit(note, lang)
+                if exited and (is_elevated() if elevated is None else elevated):
+                    why = msg["why_admin"] % note
+                elif exited:
+                    why = msg["why_exit"] % note
+                else:
+                    why = msg["why_failed"] % note
     if report_path is None:
         shutil.copyfile(html_path, html_final)
         report_path, kind = html_final, "HTML"
