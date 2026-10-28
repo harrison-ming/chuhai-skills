@@ -3,7 +3,8 @@
 
 Usage:
     python3 tools/acceptance/run.py --skill-dir skills/<name> \
-        [--runners claude,codex-net,codex-nonet,script] [--cases normal,l0] \
+        [--runners claude,codex-net,codex-nonet,script,codex-clean,claude-clean] \
+        [--cases normal,l0] \
         [--out <run dir>] [--parallel 3] [--timeout 1500] [--dry-run]
 
 Reads <skill-dir>/acceptance.json:
@@ -35,9 +36,9 @@ the workdir, network only to the case domain + "network_domains"), with
 approval_policy=never, user config.toml and exec-policy rules ignored (so the
 user's extra writable_roots / MCP servers do not apply).
 
-TODO (out of scope for now): a Windows VM runner (Parallels Win11-zhCN-demo
-via prlctl exec) that copies the skill into the guest, runs the script cmds
-with the guest Python, and pulls deliverables back for the same judge.
+Clean runners (codex-clean, claude-clean): throwaway HOME per run, dedicated
+subscription credentials (see clean_env); pending until those exist.
+Windows VM runs (L2): tools/acceptance/vm/run_vm.py.
 
 Python 3.8+, stdlib only.
 """
@@ -59,13 +60,51 @@ sys.path.insert(0, HERE)
 
 import judge  # noqa: E402
 
+sys.path.insert(0, os.path.join(HERE, "vm"))
+import creds  # noqa: E402
+import locks  # noqa: E402
+
 DEFAULT_OUT_BASE = os.path.join(
     os.path.expanduser("~"), "STELLAR_OUTPUT", "_tmp", "acceptance"
 )
 PY38 = (
     "/Users/ming/.local/share/uv/python/cpython-3.8.20-macos-aarch64-none/bin/python3.8"
 )
-ALL_RUNNERS = ("claude", "codex-net", "codex-nonet", "script")
+ALL_RUNNERS = (
+    "claude",
+    "codex-net",
+    "codex-nonet",
+    "script",
+    "codex-clean",
+    "claude-clean",
+)
+# Clean L1 runners (testing protocol 2.1): a throwaway HOME per run so the
+# owner's ~/.codex, ~/.claude, ~/.agents (AGENTS.md, memories, skills) are
+# invisible; subscription credentials only (never an API key):
+#   codex-clean  CODEX_HOME=~/.codex-acceptance (dedicated ChatGPT login),
+#                serialized through the codex-acceptance-auth lock
+#   claude-clean CLAUDE_CODE_OAUTH_TOKEN from the acceptance token
+CLEAN_RUNNERS = ("codex-clean", "claude-clean")
+
+
+def is_claude(runner):
+    return runner in ("claude", "claude-clean")
+
+
+def judge_runner_key(runner, case):
+    """Runner name used for acceptance.json per-runner overrides.
+
+    The clean runners behave like claude / codex-net unless a case names them.
+    """
+    expect = case.get("expect") or {}
+    named = set(expect.get("status_by_runner") or {}) | set(
+        expect.get("expect_by_runner") or {}
+    )
+    if runner in named:
+        return runner
+    return {"codex-clean": "codex-net", "claude-clean": "claude"}.get(runner, runner)
+
+
 CLAUDE_TOOLS = ["Skill", "Read", "Write", "Edit", "Glob", "Grep", "WebFetch", "Bash"]
 CLAUDE_ALLOWED = [
     "Skill",
@@ -255,7 +294,7 @@ def claude_sandbox_settings(case, acceptance):
 
 def build_agent_cmd(runner, case, args, acceptance=None):
     prompt = case["prompt"]
-    if runner == "claude":
+    if is_claude(runner):
         cmd = [
             "claude",
             "-p",
@@ -282,7 +321,7 @@ def build_agent_cmd(runner, case, args, acceptance=None):
         if args.claude_model:
             cmd += ["--model", args.claude_model]
         return cmd
-    net = "true" if runner == "codex-net" else "false"
+    net = "true" if runner in ("codex-net", "codex-clean") else "false"
     cmd = [
         "codex",
         "exec",
@@ -304,7 +343,7 @@ def build_agent_cmd(runner, case, args, acceptance=None):
 
 
 def install_skill(runner, skill_dir, name, workdir):
-    rel = ".claude/skills" if runner == "claude" else ".agents/skills"
+    rel = ".claude/skills" if is_claude(runner) else ".agents/skills"
     dest = os.path.join(workdir, rel, name)
     shutil.copytree(
         skill_dir,
@@ -320,7 +359,7 @@ def evaluate_agent(
     """Parse the transcript in `workdir` and judge it (also used by --rejudge)."""
     transcript = os.path.join(workdir, "transcript.jsonl")
     events = judge.read_jsonl(transcript)
-    parse = judge.parse_claude if runner == "claude" else judge.parse_codex
+    parse = judge.parse_claude if is_claude(runner) else judge.parse_codex
     parsed = parse(events, acc["skill"])
     verdict = judge.judge_agent_run(
         case,
@@ -329,7 +368,7 @@ def evaluate_agent(
         installed,
         acc,
         python=sys.executable,
-        runner=runner,
+        runner=judge_runner_key(runner, case),
     )
     expected = (case.get("expect") or {}).get("deliverables") or []
     if expected and any(
@@ -368,7 +407,7 @@ def rejudge(run_dir, acc):
     for r in data["results"]:
         if r["runner"].startswith("script") or "workdir" not in r:
             continue
-        sub = ".claude/skills" if r["runner"] == "claude" else ".agents/skills"
+        sub = ".claude/skills" if is_claude(r["runner"]) else ".agents/skills"
         installed = os.path.join(r["workdir"], sub, acc["skill"])
         row = evaluate_agent(
             r["runner"],
@@ -393,6 +432,44 @@ def rejudge(run_dir, acc):
     return data
 
 
+def clean_env(runner, env, workdir, codex_home=None, token_lookup=None):
+    """Environment for a clean runner, or (None, pending reason).
+
+    HOME becomes <workdir>/_home (empty), so the owner's ~/.codex, ~/.claude
+    and ~/.agents are never read. Credentials: codex-clean points CODEX_HOME
+    at the dedicated ~/.codex-acceptance login (no copy: a copied refresh
+    token would be reused twice); claude-clean gets CLAUDE_CODE_OAUTH_TOKEN
+    in this child environment only. OPENAI_API_KEY / ANTHROPIC_API_KEY are
+    removed so neither client can fall back to an API key.
+    """
+    home = os.path.join(workdir, "_home")
+    os.makedirs(home, exist_ok=True)
+    env = dict(env)
+    env["HOME"] = home
+    for k in (
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        "CODEX_HOME",
+    ):
+        env.pop(k, None)
+    if runner == "codex-clean":
+        codex_home = codex_home or creds.CODEX_HOME
+        raw, why = creds.codex_auth(codex_home)
+        if raw is None:
+            return None, why
+        bad = creds.codex_home_clean(codex_home)
+        if bad:
+            return None, "%s is not clean: %s" % (codex_home, ", ".join(bad))
+        env["CODEX_HOME"] = codex_home
+    elif runner == "claude-clean":
+        token, why = (token_lookup or creds.claude_token)()
+        if not token:
+            return None, why
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = token
+    return env, None
+
+
 def run_agent(runner, case, ctx):
     args, acc = ctx["args"], ctx["acceptance"]
     name = acc["skill"]
@@ -400,6 +477,20 @@ def run_agent(runner, case, ctx):
     os.makedirs(os.path.join(workdir, "deliverables"), exist_ok=True)
     installed = install_skill(runner, ctx["skill_dir"], name, workdir)
     env = base_env(workdir, ctx["shim_dir"])
+    if runner in CLEAN_RUNNERS:
+        env, pending = clean_env(runner, env, workdir)
+        if env is None:
+            log("pending %s/%s: %s" % (runner, case["id"], pending))
+            return {
+                "runner": runner,
+                "case": case["id"],
+                "pending": True,
+                "verdict": {
+                    "passed": False,
+                    "reasons": ["pending: %s" % pending],
+                    "notes": [],
+                },
+            }
     cmd = build_agent_cmd(runner, case, args, acc)
     with open(os.path.join(workdir, "command.json"), "w", encoding="utf-8") as fh:
         json.dump({"cmd": cmd, "cwd": workdir}, fh, ensure_ascii=False, indent=2)
@@ -416,9 +507,24 @@ def run_agent(runner, case, ctx):
     watched = leak_dirs(ctx["skill_dir"])
     before = snapshot(watched)
     log("start %s/%s" % (runner, case["id"]))
-    code, secs, timed_out = run_proc(
-        cmd, workdir, env, args.timeout, transcript, stderr_path
-    )
+    lock = None
+    if runner == "codex-clean":
+        # one holder of the dedicated login at a time (host or any VM)
+        lock = locks.Lock(
+            locks.CODEX_AUTH_LOCK,
+            ttl=args.timeout + 600,
+            location="host",
+            run_id=os.path.basename(ctx["run_dir"]),
+            skill=name,
+            client=runner,
+        ).acquire(wait=args.timeout * 4)
+    try:
+        code, secs, timed_out = run_proc(
+            cmd, workdir, env, args.timeout, transcript, stderr_path
+        )
+    finally:
+        if lock:
+            lock.release()
     leaks = leaked(before, snapshot(watched))
     row = evaluate_agent(
         runner, case, acc, workdir, installed, code, timed_out, leaks, args.timeout
@@ -601,7 +707,9 @@ def render_md(meta, results):
             % (
                 r["runner"],
                 r["case"],
-                "PASS" if v.get("passed") else "FAIL",
+                "PENDING"
+                if r.get("pending")
+                else ("PASS" if v.get("passed") else "FAIL"),
                 v.get("status") or (r.get("summary") or {}).get("identity") or "-",
                 {True: "yes", False: "no"}.get(r.get("triggered"), "-"),
                 r.get("duration_s", "-"),
@@ -639,7 +747,7 @@ def main(argv=None):
         description="Cross-agent acceptance harness for a skill."
     )
     ap.add_argument("--skill-dir", required=True)
-    ap.add_argument("--runners", default=",".join(ALL_RUNNERS))
+    ap.add_argument("--runners", default="claude,codex-net,codex-nonet,script")
     ap.add_argument("--cases", default="", help="comma list of case ids (default all)")
     ap.add_argument(
         "--out", help="run dir (default ~/STELLAR_OUTPUT/_tmp/acceptance/<skill>-<ts>)"

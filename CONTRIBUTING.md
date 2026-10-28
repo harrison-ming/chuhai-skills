@@ -97,7 +97,7 @@
              "must_not_contain": ["products.json"], "must_contain_any": ["[已核实]"], "fixed_ending": true}}]}
 ```
 
-可选键 (验收框架用, 其他分支同名): 顶层 `script_cmds`, `network_domains`, `fixed_ending_text` (字符串或 `{"zh": ..., "en": ...}`, 默认取 check_report 的 `FIXED_ENDING` / 公共库的中英固定结尾); `expect` 里 `status_by_runner` (例 `{"codex-nonet": ["partial", "failed"]}`, 断网环境优雅降级也算通过) 和 `expect_by_runner` (按 runner 覆盖其他判定项). 框架给每个 runner 设 `CHUHAI_NO_OPEN=1`, `deliver.py` 不弹文件夹窗口; 越界写入会检查所有已知交付根目录 (含 skill_config 里声明的 `ROOT_NAME`).
+可选键 (验收框架用, 其他分支同名): 顶层 `script_cmds` (宿主上经 `/bin/sh` 跑), `script_steps` (无 shell 的 argv 列表, Windows VM 的 script runner 用它; 命令不含 shell 语法时可省, 由 `script_cmds` 推出; 占位符与 `when` 条件见 `tools/acceptance/vm/steps.py`), `network_domains`, `fixed_ending_text` (字符串或 `{"zh": ..., "en": ...}`, 默认取 check_report 的 `FIXED_ENDING` / 公共库的中英固定结尾); `expect` 里 `status_by_runner` (例 `{"codex-nonet": ["partial", "failed"]}`, 断网环境优雅降级也算通过) 和 `expect_by_runner` (按 runner 覆盖其他判定项). 框架给每个 runner 设 `CHUHAI_NO_OPEN=1`, `deliver.py` 不弹文件夹窗口; 越界写入会检查所有已知交付根目录 (含 skill_config 里声明的 `ROOT_NAME`).
 
 **代码与文档**: 只用标准库, 3.8 语法; 代码和注释用英文, 文档用中文; 所有文件用英文半角标点 (测试会扫描). commit message 用中文; pre-commit 跑 gitleaks + ruff, 不许 `--no-verify`.
 

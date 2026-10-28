@@ -53,5 +53,63 @@
         "fixed_ending": true
       }
     }
+  ],
+  "script_steps": [
+    {
+      "argv": [
+        "{python}",
+        "-c",
+        "import ast, glob, sys; [ast.parse(open(p, encoding='utf-8').read(), p) for p in sorted(glob.glob(sys.argv[1] + '/scripts/*.py'))]",
+        "{skill_dir}"
+      ]
+    },
+    {
+      "argv": [
+        "{python}",
+        "-c",
+        "import sys; open(sys.argv[1], 'w', encoding='utf-8', newline='').write(sys.argv[2])",
+        "{work_dir}/inputs.zh.csv",
+        "商品,项目,基准,保守,乐观,单位,来源说明\n全店,销售市场,US,,,,\n全店,汇率,7.20,,,CNY,用户给的\n全店,收款方式,Shopify Payments,,,,\n全店,收款费率,2.9,,,%,\n全店,收款每笔固定费,0.30,,,USD,\n全店,Shopify 套餐,Basic,,,,\n全店,套餐月费,39,,,USD,\n宠物梳,售价,39.99,,,USD,\n宠物梳,采购单价,45,,,CNY,\n宠物梳,包装,3,,,CNY,\n宠物梳,头程,12,,,CNY,\n宠物梳,关税合计税率,25,,,%,\n宠物梳,关税计税基数,按货值,,,,\n宠物梳,尾程运费,5.5,,,USD,\n宠物梳,退货率,8,,,%,\n宠物梳,获客成本,10,,,USD,\n"
+      ],
+      "when": "lang:zh"
+    },
+    {
+      "argv": [
+        "{python}",
+        "{skill_dir}/scripts/profit.py",
+        "run",
+        "{work_dir}/inputs.zh.csv",
+        "--out-root",
+        "{out_root}",
+        "--no-fx-fetch",
+        "--no-open"
+      ],
+      "when": "lang:zh"
+    },
+    {
+      "argv": [
+        "{python}",
+        "-c",
+        "import sys; open(sys.argv[1], 'w', encoding='utf-8', newline='').write(sys.argv[2])",
+        "{work_dir}/inputs.en.csv",
+        "product,item,base,conservative,optimistic,unit,note\nStore,Market,US,,,,\nStore,Exchange rate (CNY per unit),7.20,,,CNY,user\nStore,Payment provider,Shopify Payments,,,,\nStore,Payment fee %,2.9,,,%,\nStore,Payment fixed fee,0.30,,,USD,\nStore,Shopify plan,Basic,,,,\nStore,Plan fee per month,39,,,USD,\nStore,Apps per month,30,,,USD,\nPet comb,Price,39.99,,,USD,\nPet comb,Product cost,45,,,CNY,\nPet comb,Packaging,3,,,CNY,\nPet comb,First mile per unit,12,,,CNY,\nPet comb,Duty rate %,25,,,%,\nPet comb,Pick and pack per order,3,,,USD,\nPet comb,Last mile per order,5.5,,,USD,\nPet comb,Return rate %,8,,,%,\nPet comb,Return shipping per return,6,,,USD,\nPet comb,Resellable share of returns %,50,,,%,\nPet comb,CPA,10,,,USD,\n"
+      ],
+      "when": "lang:en"
+    },
+    {
+      "argv": [
+        "{python}",
+        "{skill_dir}/scripts/profit.py",
+        "run",
+        "{work_dir}/inputs.en.csv",
+        "--lang",
+        "en",
+        "--out-root",
+        "{out_root}",
+        "--no-fx-fetch",
+        "--no-open"
+      ],
+      "when": "lang:en"
+    }
   ]
 }

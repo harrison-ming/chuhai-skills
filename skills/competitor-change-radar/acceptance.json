@@ -133,5 +133,36 @@
   "fixed_ending_text": {
     "zh": "本报告没有覆盖的",
     "en": "What this report does not cover"
-  }
+  },
+  "script_steps": [
+    {
+      "argv": [
+        "{python}",
+        "-c",
+        "import ast, glob, sys; [ast.parse(open(p, encoding='utf-8').read(), p) for p in sorted(glob.glob(sys.argv[1] + '/scripts/*.py'))]",
+        "{skill_dir}"
+      ]
+    },
+    {
+      "argv": [
+        "{python}",
+        "{skill_dir}/scripts/radar.py",
+        "demo",
+        "--out-root",
+        "{out_root}",
+        "--quiet"
+      ]
+    },
+    {
+      "argv": [
+        "{python}",
+        "{skill_dir}/scripts/radar.py",
+        "run",
+        "{domain}",
+        "--out-root",
+        "{out_root}"
+      ],
+      "when": "domain"
+    }
+  ]
 }

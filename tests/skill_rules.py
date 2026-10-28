@@ -29,7 +29,12 @@ TOOL_NAME_RE = re.compile(
 )
 CASE_KEYS = {"id", "prompt", "lang", "needs_network", "expect"}
 # Optional harness hints (tools/acceptance); other branches use the same names.
-OPTIONAL_TOP_KEYS = {"script_cmds", "network_domains", "fixed_ending_text"}
+OPTIONAL_TOP_KEYS = {
+    "script_cmds",
+    "script_steps",
+    "network_domains",
+    "fixed_ending_text",
+}
 OPTIONAL_EXPECT_KEYS = {"status_by_runner", "expect_by_runner"}
 EXPECT_KEYS = {
     "deliverables",
@@ -122,7 +127,7 @@ def check_acceptance(skill_dir):
     except (OSError, ValueError) as e:
         return ["acceptance.json unreadable: %s" % e]
     problems = []
-    # script_cmds / network_domains are optional harness hints (tools/acceptance)
+    # script_cmds / script_steps / network_domains are optional harness hints (tools/acceptance)
     extra = set(data) - {"skill", "cases"} - OPTIONAL_TOP_KEYS
     if not {"skill", "cases"} <= set(data) or extra:
         problems.append(

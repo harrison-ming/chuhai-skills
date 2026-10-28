@@ -134,5 +134,52 @@
   },
   "script_cmds": [
     "if [ -n \"{domain}\" ]; then {python} {skill_dir}/scripts/collect.py {domain} --out-root {out_root}; else {python} {skill_dir}/scripts/collect.py --offline quote --out-root {out_root} && {python} {skill_dir}/scripts/questionnaire.py \"$(ls -d {out_root}/*/ | head -1)\" --set entity_country=CN --set shopify_plan=basic --set aov=45 --set monthly_orders=300 --set withdrawals_per_month=1 --set payout_account=cn_bank --gateway paypal:40 --gateway card_other:60:3.5+0.30; fi"
+  ],
+  "script_steps": [
+    {
+      "argv": [
+        "{python}",
+        "{skill_dir}/scripts/collect.py",
+        "{domain}",
+        "--out-root",
+        "{out_root}"
+      ],
+      "when": "domain"
+    },
+    {
+      "argv": [
+        "{python}",
+        "{skill_dir}/scripts/collect.py",
+        "--offline",
+        "quote",
+        "--out-root",
+        "{out_root}"
+      ],
+      "when": "no_domain"
+    },
+    {
+      "argv": [
+        "{python}",
+        "{skill_dir}/scripts/questionnaire.py",
+        "{first_out_subdir}",
+        "--set",
+        "entity_country=CN",
+        "--set",
+        "shopify_plan=basic",
+        "--set",
+        "aov=45",
+        "--set",
+        "monthly_orders=300",
+        "--set",
+        "withdrawals_per_month=1",
+        "--set",
+        "payout_account=cn_bank",
+        "--gateway",
+        "paypal:40",
+        "--gateway",
+        "card_other:60:3.5+0.30"
+      ],
+      "when": "no_domain"
+    }
   ]
 }

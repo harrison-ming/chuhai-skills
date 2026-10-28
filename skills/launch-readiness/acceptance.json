@@ -108,5 +108,27 @@
   },
   "network_domains": [
     "www.allbirds.com"
+  ],
+  "script_steps": [
+    {
+      "argv": [
+        "{python}",
+        "-c",
+        "import ast, glob, sys; [ast.parse(open(p, encoding='utf-8').read(), p) for p in sorted(glob.glob(sys.argv[1] + '/scripts/*.py'))]",
+        "{skill_dir}"
+      ]
+    },
+    {
+      "argv": [
+        "{python}",
+        "{skill_dir}/scripts/audit_collect.py",
+        "{domain}",
+        "--markets",
+        "US,UK",
+        "--out-root",
+        "{out_root}"
+      ],
+      "when": "domain"
+    }
   ]
 }
