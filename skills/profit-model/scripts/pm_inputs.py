@@ -97,18 +97,37 @@ def _col_index(header):
     return idx
 
 
-def read_rows(path):
-    """[{product, item, base, cons, opt, unit, note, line}] from a CSV file."""
-    with open(path, "rb") as fh:
-        data = fh.read()
+def decode_csv(data):
+    """(text, encoding): UTF-8 (with or without BOM) first, then GB18030
+    (Excel "CSV" on Chinese Windows saves in the ANSI code page 936)."""
     for enc in ("utf-8-sig", "gb18030"):
         try:
-            text = data.decode(enc)
-            break
+            return data.decode(enc), enc
         except UnicodeDecodeError:
             continue
-    else:
-        text = data.decode("utf-8", errors="replace")
+    return data.decode("utf-8", errors="replace"), "utf-8"
+
+
+def read_text(path):
+    with open(path, "rb") as fh:
+        return decode_csv(fh.read())[0]
+
+
+def ensure_utf8(path):
+    """Rewrite a non-UTF-8 inputs CSV as UTF-8 with BOM (Excel still opens it)
+    so every later reader can rely on UTF-8. Returns the source encoding."""
+    with open(path, "rb") as fh:
+        data = fh.read()
+    text, enc = decode_csv(data)
+    if enc != "utf-8-sig":
+        with open(path, "w", encoding="utf-8-sig", newline="") as fh:
+            fh.write(text)
+    return enc
+
+
+def read_rows(path):
+    """[{product, item, base, cons, opt, unit, note, line}] from a CSV file."""
+    text = read_text(path)
     sample = text[:2000]
     delim = "\t" if sample.count("\t") > sample.count(",") else ","
     reader = csv.reader(io.StringIO(text), delimiter=delim)

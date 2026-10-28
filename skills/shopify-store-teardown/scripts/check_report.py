@@ -37,7 +37,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _shared import checks, evidence  # noqa: E402
+from _shared import checks, evidence, output  # noqa: E402
 from _shared.checks import (  # noqa: E402,F401  (re-exported API)
     FULLWIDTH_RE,
     LIST_RE,
@@ -147,8 +147,7 @@ def main(argv=None):
     if not md_path:
         print("错误: 找不到 report.md (在 %s 下)" % args.path, file=sys.stderr)
         return 2
-    with open(md_path, encoding="utf-8-sig") as fh:
-        result = check_text(fh.read())
+    result = check_text(output.read_text(md_path))
     if args.json:
         data = checks.result_dict(result)
         print(json.dumps(data, ensure_ascii=False, indent=2))

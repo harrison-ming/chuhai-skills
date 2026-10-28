@@ -497,5 +497,51 @@ class CheckRules(TmpMixin, unittest.TestCase):
         self.assertEqual(rc, 0)
 
 
+class LegacyEncoding(TmpMixin, unittest.TestCase):
+    """Chinese Windows: Excel "CSV" saves in code page 936, Python 3.12 opens
+    files in cp936 by default (no UTF-8 mode). 2026-10-27 VM finding: a GBK
+    inputs CSV crashed the report check with UnicodeDecodeError."""
+
+    def gbk_copy(self, name="Excel 另存.csv"):
+        with open(fixture("healthy"), encoding="utf-8-sig") as fh:
+            text = fh.read()
+        path = os.path.join(self.tmp, name)
+        with open(path, "w", encoding="gbk", newline="\r\n") as fh:
+            fh.write(text)
+        return path
+
+    def test_gbk_csv_runs_and_is_stored_as_utf8(self):
+        run, raw, md, result = self.run_pipeline(self.gbk_copy())
+        self.assertIn("测试梳", md)
+        self.assertEqual(result["status"], "complete")
+        with open(os.path.join(raw, "inputs.csv"), "rb") as fh:
+            data = fh.read()
+        self.assertTrue(data.startswith(b"\xef\xbb\xbf"))
+        self.assertIn("测试梳", data.decode("utf-8-sig"))
+        rc, out = quiet(check_report.main, [run])
+        self.assertEqual(rc, 0, out)
+
+    def test_gbk_csv_in_run_folder(self):
+        # the user overwrote <run>/原始数据/inputs.csv from Excel
+        run, raw, _md, _r = self.run_pipeline(fixture("healthy"))
+        shutil.copyfile(self.gbk_copy(), os.path.join(raw, "inputs.csv"))
+        rc, out = quiet(
+            profit.main, ["run", run, "--no-open", "--html-only", "--no-fx-fetch"]
+        )
+        self.assertEqual(rc, 0, out)
+
+    def test_detect_lang_gbk(self):
+        self.assertEqual(profit.detect_lang(self.gbk_copy()), "zh")
+
+    def test_decode_csv(self):
+        self.assertEqual(
+            pm_inputs.decode_csv("项目".encode("gbk")), ("项目", "gb18030")
+        )
+        self.assertEqual(
+            pm_inputs.decode_csv(b"\xef\xbb\xbf" + "项目".encode("utf-8")),
+            ("项目", "utf-8-sig"),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

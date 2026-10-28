@@ -14,6 +14,7 @@ Python 3.8+, standard library only.
 """
 
 import datetime
+import locale
 import os
 import shutil
 import subprocess
@@ -233,6 +234,38 @@ def open_folder(path):
         return True
     except (OSError, AttributeError):
         return False
+
+
+def decode_text(data):
+    """Decode a text file someone else wrote (the agent's report.md, a pasted
+    page, a user's CSV): BOM first (UTF-8, or UTF-16 from Windows PowerShell
+    5.1 ``Out-File``), then UTF-8, then the machine's ANSI code page
+    (``Set-Content`` / Notepad "ANSI" / Excel CSV, cp936 on Chinese Windows),
+    then GB18030; never raises."""
+    if data.startswith(b"\xef\xbb\xbf"):
+        return data[3:].decode("utf-8", errors="replace")
+    if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return data.decode("utf-16", errors="replace")
+    encs = ["utf-8"]
+    try:
+        ansi = locale.getpreferredencoding(False)
+    except Exception:  # noqa: BLE001 - any locale trouble: skip that guess
+        ansi = None
+    if ansi and ansi.lower().replace("-", "") not in ("utf8", "ascii"):
+        encs.append(ansi)
+    encs.append("gb18030")
+    for enc in encs:
+        try:
+            return data.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return data.decode("utf-8", errors="replace")
+
+
+def read_text(path):
+    """Text of ``path`` via ``decode_text`` (raises OSError like open())."""
+    with open(path, "rb") as fh:
+        return decode_text(fh.read())
 
 
 def safe_console():

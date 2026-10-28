@@ -237,7 +237,10 @@ def known_numbers(raw_dir):
     texts = []
     for name in names:
         try:
-            with open(os.path.join(raw_dir, name), encoding="utf-8-sig") as fh:
+            # numbers are ASCII; never let an odd byte stop the report check
+            with open(
+                os.path.join(raw_dir, name), encoding="utf-8-sig", errors="replace"
+            ) as fh:
                 texts.append(fh.read())
         except OSError:
             continue

@@ -133,16 +133,14 @@ def detect_lang(path):
             return "en"
         return "zh"
     try:
-        with open(path, encoding="utf-8-sig", errors="replace") as fh:
-            for line in fh:
-                if line.strip():
-                    return (
-                        "zh"
-                        if "项目" in line
-                        else ("en" if "item" in line.lower() else "zh")
-                    )
+        text = pm_inputs.read_text(path)
     except OSError:
-        pass
+        return "zh"
+    for line in text.splitlines():
+        if line.strip():
+            return (
+                "zh" if "项目" in line else ("en" if "item" in line.lower() else "zh")
+            )
     return "zh"
 
 
@@ -160,6 +158,7 @@ def cmd_run(args):
     if not os.path.isfile(csv_path):
         print("error: %s not found" % csv_path, file=sys.stderr)
         return 1
+    pm_inputs.ensure_utf8(csv_path)
     shutil.copyfile(
         pm_inputs.pm_fees.TABLE_PATH, os.path.join(raw, "fee_tables.snapshot.json")
     )

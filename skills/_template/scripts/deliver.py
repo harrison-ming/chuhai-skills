@@ -89,8 +89,7 @@ def main(argv=None):
     if not os.path.isfile(md_path):
         print(msg["no_report"] % md_path, file=sys.stderr)
         return 1
-    with open(md_path, encoding="utf-8-sig") as fh:
-        md_text = fh.read()
+    md_text = output.read_text(md_path)
     profile = cfg.profile(lang)
     result = checks.check_text(md_text, profile)
     if result.errors or result.warnings:

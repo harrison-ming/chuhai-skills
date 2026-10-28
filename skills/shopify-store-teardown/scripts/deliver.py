@@ -213,9 +213,8 @@ def main(argv=None):
     today = datetime.date.today().isoformat()
 
     try:
-        with open(md_path, encoding="utf-8-sig") as fh:
-            md_text = fh.read()
-    except (OSError, UnicodeDecodeError) as e:
+        md_text = output.read_text(md_path)
+    except OSError as e:
         print("错误: 读取 report.md 失败: %s" % e, file=sys.stderr)
         return 1
     check = check_report.check_text(md_text)

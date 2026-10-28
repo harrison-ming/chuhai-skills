@@ -179,6 +179,42 @@ class E2E(unittest.TestCase):
         self.assertEqual(f["GMC-01"]["result"], "unknown")  # on-page check
         self.assertEqual(f["POL-03"]["result"], "manual")  # absent from text given
 
+    def test_f3_paste_saved_by_excel_and_notepad_ansi(self):
+        # Chinese Windows: Excel re-saves the export and Notepad "ANSI" saves
+        # the texts in code page 936. 2026-10-27 VM finding: names were read
+        # with errors="replace" and came out as U+FFFD.
+        src = os.path.join(self.tmp, "粘贴 GBK")
+        os.makedirs(src)
+        for name in os.listdir(PASTE):
+            with open(os.path.join(PASTE, name), encoding="utf-8") as fh:
+                text = fh.read()
+            with open(
+                os.path.join(src, name), "w", encoding="gbk", newline="\r\n"
+            ) as fh:
+                fh.write(text)
+        data = os.path.join(self.tmp, "paste-gbk", "原始数据")
+        rc, out = quiet(
+            paste_ingest.main,
+            [
+                src,
+                "--name",
+                "sunrise-home.example",
+                "--markets",
+                "EU,AU",
+                "--out",
+                data,
+            ],
+        )
+        self.assertEqual(rc, 0, out)
+        with open(os.path.join(data, "raw", "products.json"), encoding="utf-8") as fh:
+            products = fh.read()
+        self.assertIn("纯亚麻", products)
+        self.assertNotIn("\ufffd", products)
+        with open(os.path.join(data, "audit.json"), encoding="utf-8") as fh:
+            f = dict((x["id"], x) for x in json.load(fh)["findings"])
+        self.assertEqual(f["CNS-01"]["result"], "fail")
+        self.assertEqual(f["AU-01"]["result"], "fail")
+
     def test_f4_non_shopify(self):
         _r, _d, doc, f, paths = self.run_site("F4")
         self.assertEqual(doc["platform"], "other")

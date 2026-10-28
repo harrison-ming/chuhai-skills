@@ -37,7 +37,7 @@ import os
 import re
 import sys
 
-from . import evidence, i18n
+from . import evidence, i18n, output
 
 # ---------------------------------------------------------------------------
 # default word lists (a skill may extend or replace them)
@@ -790,8 +790,7 @@ def main(argv, profile):
     if not md_path:
         print(profile.msg["not_found"] % args.path, file=sys.stderr)
         return 2
-    with open(md_path, encoding="utf-8-sig") as fh:
-        result = check_text(fh.read(), profile)
+    result = check_text(output.read_text(md_path), profile)
     if args.json:
         data = result_dict(result, with_status=True, lang=profile.lang)
         print(json.dumps(data, ensure_ascii=False, indent=2))

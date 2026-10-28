@@ -85,8 +85,7 @@ def classify(name, text):
 
 def is_product_csv(path):
     try:
-        with open(path, encoding="utf-8-sig", errors="replace") as fh:
-            head = fh.readline()
+        head = (output.read_text(path).splitlines() or [""])[0]
     except OSError:
         return False
     return "Handle" in head and "Title" in head
@@ -94,8 +93,9 @@ def is_product_csv(path):
 
 def read_export(path):
     """Shopify product export CSV -> products.json-like list."""
-    with open(path, encoding="utf-8-sig", errors="replace") as fh:
-        rows = list(csv.DictReader(io.StringIO(fh.read())))
+    # Excel re-saves a Shopify export in the ANSI code page (cp936 on Chinese
+    # Windows); output.read_text falls back to it instead of garbling names.
+    rows = list(csv.DictReader(io.StringIO(output.read_text(path))))
     out, by_handle = [], {}
     for row in rows:
         handle = (row.get("Handle") or "").strip()
@@ -167,7 +167,10 @@ def ingest(src, raw):
                 }
             )
             continue
-        text = pages.read_text(path) or ""
+        try:
+            text = output.read_text(path)
+        except OSError:
+            text = ""
         role, handle = classify(name, text)
         if role == "policy" and handle in used:
             role, handle = "page", "other"

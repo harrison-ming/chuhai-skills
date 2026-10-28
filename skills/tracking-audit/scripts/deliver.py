@@ -95,8 +95,7 @@ def main(argv=None):
             return 1
         print(msg["draft"] % draft_path)
         md_path = draft_path
-    with open(md_path, encoding="utf-8-sig") as fh:
-        md_text = fh.read()
+    md_text = output.read_text(md_path)
     profile = cfg.profile(lang)
     result = checks.check_text(md_text, profile)
     if result.errors or result.warnings:
