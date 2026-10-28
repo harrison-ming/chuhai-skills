@@ -21,15 +21,8 @@ jobs:
         run: python tools/gen_marketplace.py --check
       - name: Run all test suites on the oldest supported Python
         run: python tools/run_tests.py -v
-      - name: Build one zip per skill (template excluded)
-        run: |
-          mkdir -p dist
-          for d in skills/*/; do
-            name=$(basename "$d")
-            case "$name" in _*) continue ;; esac
-            (cd skills && zip -r "../dist/${name}-${GITHUB_REF_NAME}.zip" "$name" \
-              -x "*/__pycache__/*" "*.DS_Store" "$name/tests/*" "$name/acceptance.json")
-          done
+      - name: Build one zip per skill (template excluded, UTF-8 name flag set)
+        run: python tools/build_free.py --out dist --suffix "$GITHUB_REF_NAME"
       - name: Extract release notes for this tag
         run: |
           python - <<'PY'

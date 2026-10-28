@@ -34,7 +34,7 @@
 6. **验收矩阵**: 填 `acceptance.json` (结构见第 4 节), 用 `tools/acceptance/` 在前 4 个 agent 环境自动跑, 结果写入 catalog `testedAgents`.
 7. **双语**: 中英两份报告模板 (`report-template.zh.md` / `.en.md`), 脚本都接受 `--lang zh|en`, 英文徽章与 CSV 表头由 `shared/` 提供. SKILL.md 正文用中文, 描述里同时写中英触发说法.
 8. **真实样张**: 用真实网站跑一份, 匿名化后放到商品页约定位置.
-9. **打包**: `python tools/gen_marketplace.py` 更新 marketplace; 版本号只改 SKILL.md 的 `metadata.version`. Pro 版用私有仓库 `build.py --skill <name>` 构建.
+9. **打包**: `python tools/gen_marketplace.py` 更新 marketplace; 版本号只改 SKILL.md 的 `metadata.version`. 免费版 zip 只用 `python tools/build_free.py` 打 (Release 工作流同此), 不要用 `zip -r`: macOS 的 Info-ZIP 不给中文文件名打 UTF-8 标志, Windows 解压会乱码. skill 包内文件名一律用 ASCII (测试强制). Pro 版用私有仓库 `build.py --skill <name>` 构建.
 10. **发布 gates**: `sync_shared.py --check`, `gen_marketplace.py --check`, `run_tests.py` 在 Python 3.8 上全绿 (Release 工作流强制); 打 tag 等对外动作需 Harrison 确认.
 
 ## 3. 质量底线 (9 项, 出货前全部满足)

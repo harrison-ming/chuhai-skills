@@ -33,6 +33,9 @@ from _shared import i18n, output  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEMO_SRC = os.path.join(HERE, "..", "assets", "demo")
+# assets/demo/ ships ASCII names only, so the zip unpacks the same everywhere;
+# the demo is rebuilt in the real snapshot layout (原始数据/).
+DEMO_RAW_DIRNAME = "data"
 GOOD = ("complete",)
 USABLE = ("complete", "partial")
 
@@ -358,7 +361,11 @@ def cmd_demo(args):
     base = snapshot.snap_root(store_dir, args.lang)
     shutil.copytree(os.path.abspath(DEMO_SRC), base)
     for name in sorted(os.listdir(base)):
-        normalize.write_snapshot(os.path.join(base, name))
+        snap_dir = os.path.join(base, name)
+        shipped = os.path.join(snap_dir, DEMO_RAW_DIRNAME)
+        if os.path.isdir(shipped):
+            os.rename(shipped, os.path.join(snap_dir, "原始数据"))
+        normalize.write_snapshot(snap_dir)
     say(args, m["demo"] % store_dir)
     snapshot.write_index(store_dir, args.lang, cfg.DEMO_DOMAIN)
     snaps = snapshot.list_snapshots(store_dir, args.lang)

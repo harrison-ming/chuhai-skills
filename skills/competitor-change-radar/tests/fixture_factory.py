@@ -20,6 +20,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
 DEMO_DIR = os.path.join(SKILL, "assets", "demo")
+DEMO_RAW_DIRNAME = "data"  # ASCII name of 原始数据/ inside assets/demo/
 POLICIES = [
     "refund-policy",
     "shipping-policy",
@@ -550,6 +551,12 @@ def write_demo(dest=DEMO_DIR):
     inner = os.path.join(dest, "demo-outdoors.example")
     for name in os.listdir(inner):
         shutil.move(os.path.join(inner, name), os.path.join(dest, name))
+        # Shipped zips must hold ASCII names only (some unzip tools ignore the
+        # UTF-8 flag); radar.py demo renames data/ back to 原始数据/.
+        os.rename(
+            os.path.join(dest, name, "原始数据"),
+            os.path.join(dest, name, DEMO_RAW_DIRNAME),
+        )
     os.rmdir(inner)
     return dest
 
