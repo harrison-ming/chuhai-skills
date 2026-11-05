@@ -16,11 +16,13 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
-DEMO_DIR = os.path.join(SKILL, "assets", "demo")
-DEMO_RAW_DIRNAME = "data"  # ASCII name of 原始数据/ inside assets/demo/
+DEMO_BUNDLE = os.path.join(SKILL, "assets", "demo.json")
+DEMO_SCHEMA = "radar/demo-bundle/1"
+DEMO_RAW_DIRNAME = "data"  # ASCII name of 原始数据/ inside the bundle.
 POLICIES = [
     "refund-policy",
     "shipping-policy",
@@ -539,26 +541,44 @@ def write_pair(root, name, domain=None):
     return (old.write(root) if old else None), new.write(root)
 
 
-def write_demo(dest=DEMO_DIR):
-    """Bundle the price-drop pair as the offline demo (raw files only)."""
-    if os.path.isdir(dest):
-        shutil.rmtree(dest)
-    os.makedirs(dest)
-    old, new = scenario("price-drop", "demo-outdoors.example")
-    for snap in (old, new):
-        snap.write(dest)
-    # write() nests under <domain>/; the demo keeps snapshots at the top level
-    inner = os.path.join(dest, "demo-outdoors.example")
-    for name in os.listdir(inner):
-        shutil.move(os.path.join(inner, name), os.path.join(dest, name))
-        # Shipped zips must hold ASCII names only (some unzip tools ignore the
-        # UTF-8 flag); radar.py demo renames data/ back to 原始数据/.
-        os.rename(
-            os.path.join(dest, name, "原始数据"),
-            os.path.join(dest, name, DEMO_RAW_DIRNAME),
-        )
-    os.rmdir(inner)
-    return dest
+def write_demo(dest=DEMO_BUNDLE):
+    """Bundle the price-drop pair as one shallow, deterministic JSON asset."""
+    tmp = tempfile.mkdtemp(prefix="radar-demo-bundle-")
+    try:
+        tree = os.path.join(tmp, "demo")
+        os.makedirs(tree)
+        old, new = scenario("price-drop", "demo-outdoors.example")
+        for snap in (old, new):
+            snap.write(tree)
+        inner = os.path.join(tree, "demo-outdoors.example")
+        for name in os.listdir(inner):
+            shutil.move(os.path.join(inner, name), os.path.join(tree, name))
+            os.rename(
+                os.path.join(tree, name, "原始数据"),
+                os.path.join(tree, name, DEMO_RAW_DIRNAME),
+            )
+        os.rmdir(inner)
+        files = {}
+        for base, dirs, names in os.walk(tree):
+            dirs.sort()
+            for name in sorted(names):
+                path = os.path.join(base, name)
+                relative = os.path.relpath(path, tree).replace(os.sep, "/")
+                with open(path, encoding="utf-8", newline="") as fh:
+                    files[relative] = fh.read()
+        os.makedirs(os.path.dirname(os.path.abspath(dest)), exist_ok=True)
+        with open(dest, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(
+                {"schema": DEMO_SCHEMA, "files": files},
+                fh,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            fh.write("\n")
+        return dest
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

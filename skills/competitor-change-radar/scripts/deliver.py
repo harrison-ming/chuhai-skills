@@ -22,6 +22,7 @@ import argparse
 import datetime
 import json
 import os
+import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -37,6 +38,7 @@ MSG = {
         "pdf": "报告 (PDF): %s",
         "html": "报告 (网页版 HTML): %s\n  %s, 所以给的是网页版; 需要 PDF 可在浏览器里 打印 → 另存为 PDF.",
         "csv": "表格 (%d 行, Excel/WPS 可直接打开): %s",
+        "snapshot": "可复用公开快照 (下次比较时重新上传): %s",
         "errors": "注意: 报告自检有 %d 个硬错误没改, 文件照常生成.",
         "opened": "已为你打开这个文件夹.",
     },
@@ -47,6 +49,7 @@ MSG = {
         "pdf": "Report (PDF): %s",
         "html": "Report (HTML): %s\n  %s, so this is the web version; print it to PDF from the browser if needed.",
         "csv": "Table (%d rows, opens in Excel): %s",
+        "snapshot": "Reusable public snapshot (upload it for the next comparison): %s",
         "errors": "Note: %d hard self-check errors remain; files were generated anyway.",
         "opened": "Opened the folder for you.",
     },
@@ -103,7 +106,10 @@ def main(argv=None):
     run = load_json(raw, "run.json")
     tables = load_json(raw, "tables.json")
     subject = run.get("shop_name") or run.get("domain") or os.path.basename(run_dir)
-    base = output.sanitize_filename(cfg.REPORT_NAME[lang] % subject, fallback="report")
+    report_names = (
+        cfg.BASELINE_REPORT_NAME if run.get("kind") == "baseline" else cfg.REPORT_NAME
+    )
+    base = output.sanitize_filename(report_names[lang] % subject, fallback="report")
     today = datetime.date.today().isoformat()
     doc, warnings = render.build_html(
         md_text, raw, base, today, cfg.NAME, lang, cfg.BADGE_KEYS
@@ -118,6 +124,11 @@ def main(argv=None):
         html_path, run_dir, raw, base, args.html_only, lang=lang
     )
     written = render.write_csvs(run_dir, csv_tables(tables, lang))
+    snapshot_path = None
+    snapshot_source = os.path.join(raw, "snapshot.json")
+    if os.path.isfile(snapshot_source):
+        snapshot_path = os.path.join(run_dir, cfg.SNAPSHOT_NAME[lang])
+        shutil.copy2(snapshot_source, snapshot_path)
     record = {
         "skill": cfg.NAME,
         "version": cfg.TOOL_VERSION,
@@ -128,6 +139,9 @@ def main(argv=None):
         "report": os.path.relpath(report_path, run_dir),
         "report_kind": kind,
         "csv": [os.path.relpath(p, run_dir) for p, _n in written],
+        "snapshot": (
+            os.path.relpath(snapshot_path, run_dir) if snapshot_path else None
+        ),
         "check": checks.result_dict(result, with_status=True, lang=lang),
     }
     with open(os.path.join(raw, "delivery.json"), "w", encoding="utf-8") as fh:
@@ -140,6 +154,8 @@ def main(argv=None):
     )
     for path, n in written:
         print(msg["csv"] % (n, path))
+    if snapshot_path:
+        print(msg["snapshot"] % snapshot_path)
     if result.errors:
         print(msg["errors"] % len(result.errors))
     if not args.no_open and output.open_folder(run_dir):

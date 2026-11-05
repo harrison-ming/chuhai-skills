@@ -30,6 +30,8 @@ SCHEDULED_ROOT = os.path.join("~", "出海拆解报告")
 DIFF_DIR = {"zh": "变化报告 %s 至 %s", "en": "Changes %s to %s"}
 BASELINE_DIR = {"zh": "基线报告 %s", "en": "Baseline %s"}
 REPORT_NAME = {"zh": "%s 竞品变化报告", "en": "%s competitor change report"}
+BASELINE_REPORT_NAME = {"zh": "%s 竞品基线报告", "en": "%s competitor baseline report"}
+SNAPSHOT_NAME = {"zh": "本次公开快照.json", "en": "current-public-snapshot.json"}
 DEMO_DOMAIN = "demo-outdoors.example"
 DEMO_NOTE = {"zh": "演示数据, 非真实店铺", "en": "Demo data, not a real store"}
 CADENCE_DAYS = 7
@@ -38,14 +40,17 @@ README_TEXT = {
         "这是生成竞品变化报告用的数据, 普通用户可以不看.\n"
         "报告在上一级文件夹的 PDF (找不到浏览器时是 .html) 里, "
         "表格是上一级文件夹的 .csv 文件, 可以用 Excel 或 WPS 直接打开.\n"
-        "这里的 diff.json, diff.md, report.md 供 AI 助手复核和重新生成报告, "
+        '上一级的 "本次公开快照.json" 可以在下次运行时重新上传用于比较.\n'
+        "这里的 diff.json, diff.md, report.md, snapshot.json 供 AI 助手复核和重新生成报告, "
         "两次快照的原始数据在店铺文件夹的 快照/ 下, 请不要改名或删除.\n"
     ),
     "en": (
         "Data used to build the competitor change report; you do not need to "
         "open it.\nThe report is the PDF (or .html when no browser was found) "
         "one folder up; the .csv tables there open in Excel.\n"
-        "diff.json, diff.md and report.md let the assistant re-check the "
+        "current-public-snapshot.json one folder up can be uploaded again for "
+        "a future comparison. diff.json, diff.md, report.md and snapshot.json "
+        "let the assistant re-check the "
         "report; the raw snapshots live in the store folder under snapshots/. "
         "Keep these files unchanged.\n"
     ),

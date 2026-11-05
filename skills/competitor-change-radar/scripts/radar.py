@@ -32,10 +32,11 @@ import snapshot  # noqa: E402
 from _shared import i18n, output  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEMO_SRC = os.path.join(HERE, "..", "assets", "demo")
-# assets/demo/ ships ASCII names only, so the zip unpacks the same everywhere;
-# the demo is rebuilt in the real snapshot layout (原始数据/).
+DEMO_BUNDLE = os.path.join(HERE, "..", "assets", "demo.json")
+# The bundle is a shallow UTF-8 asset so channel zips stay portable. Demo
+# execution reconstructs the original snapshot tree in the writable output.
 DEMO_RAW_DIRNAME = "data"
+DEMO_SCHEMA = "radar/demo-bundle/1"
 GOOD = ("complete",)
 USABLE = ("complete", "partial")
 
@@ -197,6 +198,9 @@ def write_report(store_dir, lang, a, b, demo=False, thresholds=None, log=print):
     for fname, obj in files.items():
         with open(os.path.join(raw, fname), "w", encoding="utf-8") as fh:
             fh.write(diffmod.dumps(obj))
+    current_snapshot = os.path.join(b[1], "snapshot.json")
+    if os.path.isfile(current_snapshot):
+        shutil.copy2(current_snapshot, os.path.join(raw, "snapshot.json"))
     with open(os.path.join(raw, "diff.md"), "w", encoding="utf-8") as fh:
         fh.write(md)
     output.write_readme(raw, cfg.README_TEXT[lang], lang)
@@ -257,6 +261,8 @@ def cmd_snap(args, store_dir=None, root=None):
         store_dir,
         args.lang,
         max_pages=args.max_pages,
+        max_sitemap_children=args.max_sitemap_children,
+        public_only=args.public_only,
         force=args.force,
         log=log,
     )
@@ -352,6 +358,30 @@ def cmd_status(args):
     return 0
 
 
+def restore_demo_bundle(base):
+    with open(DEMO_BUNDLE, encoding="utf-8") as fh:
+        payload = json.load(fh)
+    if payload.get("schema") != DEMO_SCHEMA or not isinstance(
+        payload.get("files"), dict
+    ):
+        raise ValueError("invalid bundled radar demo")
+    root = os.path.abspath(base)
+    for relative, content in sorted(payload["files"].items()):
+        parts = relative.replace("\\", "/").split("/")
+        if (
+            not parts
+            or any(part in ("", ".", "..") for part in parts)
+            or not isinstance(content, str)
+        ):
+            raise ValueError("unsafe bundled radar demo entry: %s" % relative)
+        target = os.path.abspath(os.path.join(root, *parts))
+        if os.path.commonpath((root, target)) != root:
+            raise ValueError("bundled radar demo entry escapes output: %s" % relative)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "w", encoding="utf-8", newline="") as fh:
+            fh.write(content)
+
+
 def cmd_demo(args):
     m = MSG[args.lang]
     root = output.resolve_output_root(args.out_root, cfg.ROOT_NAME[args.lang])
@@ -359,7 +389,8 @@ def cmd_demo(args):
     if os.path.isdir(store_dir):
         shutil.rmtree(store_dir)  # the only folder this tool ever overwrites
     base = snapshot.snap_root(store_dir, args.lang)
-    shutil.copytree(os.path.abspath(DEMO_SRC), base)
+    os.makedirs(base)
+    restore_demo_bundle(base)
     for name in sorted(os.listdir(base)):
         snap_dir = os.path.join(base, name)
         shipped = os.path.join(snap_dir, DEMO_RAW_DIRNAME)
@@ -423,6 +454,16 @@ def build_parser():
             help="do not import earlier teardown runs",
         )
         p.add_argument("--max-pages", type=int, default=100)
+        p.add_argument(
+            "--max-sitemap-children",
+            type=int,
+            default=snapshot.SITEMAP_CHILD_CAP,
+        )
+        p.add_argument(
+            "--public-only",
+            action="store_true",
+            help="reject private/reserved targets and cross-origin product sitemaps",
+        )
         if name == "run":
             p.add_argument("--from", dest="from_id")
             p.add_argument("--to", dest="to_id")

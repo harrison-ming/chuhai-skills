@@ -11,14 +11,17 @@ deliver. Network code is exercised with fake fetchers only.
 
 import contextlib
 import filecmp
+import gzip
 import io
 import json
 import os
 import re
 import shutil
+import socket
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
@@ -329,6 +332,43 @@ class StorageTest(Tmp):
             log=lambda *a: None,
         )
         self.assertEqual(sid3, sid + "_2")
+
+    def test_public_only_capture_uses_gate_and_skips_offsite(self):
+        _old, new = ff.scenario("price-drop")
+        store = os.path.join(self.tmp, "雷达", new.domain)
+        fetcher = FakeFetcher(new)
+        with mock.patch.object(
+            snapshot.collect, "ensure_public_url", return_value=True
+        ) as gate:
+            _sid, snap, _reused = snapshot.capture_live(
+                new.domain,
+                store,
+                "zh",
+                fetcher=fetcher,
+                max_pages=8,
+                max_sitemap_children=8,
+                public_only=True,
+                log=lambda *a: None,
+            )
+        gate.assert_called_once_with("https://%s/" % new.domain)
+        self.assertEqual(snap["status"], "complete")
+        self.assertFalse(
+            any("rdap" in url or "archive.org" in url for url in fetcher.calls)
+        )
+
+    def test_public_only_connection_rejects_dns_rebinding(self):
+        safe = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))]
+        private = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("169.254.169.254", 443))
+        ]
+        fetcher = snapshot.PinnedPublicOnlyFetcher(delay=0, retries=0, timeout=1)
+        with mock.patch.object(
+            snapshot.collect.socket, "getaddrinfo", side_effect=[safe, private]
+        ):
+            snapshot.collect.ensure_public_url("https://rebind.example/")
+            result = fetcher.get("https://rebind.example/")
+        self.assertIsNone(result["status"])
+        self.assertIn("private, local or reserved", result["note"])
 
     def test_partial_folders_cleaned(self):
         store = os.path.join(self.tmp, "店")
@@ -673,6 +713,31 @@ class EndToEndTest(Tmp):
         self.assertIn("网页历史存档里一个月前的版本", text)
         self.assertIn("完成状态: partial", text)
 
+    def test_baseline_exports_reusable_snapshot(self):
+        _a, b = ff.write_pair(self.tmp, "price-drop")
+        store = os.path.join(self.tmp, "雷达", "alpha-outfitters.example")
+        target = os.path.join(store, "快照", "2026-10-27")
+        shutil.copytree(b, target)
+        normalize.write_snapshot(target)
+        quiet(
+            radar.main,
+            ["diff", "alpha-outfitters.example", "--out-root", self.tmp, "--quiet"],
+        )
+        report = os.path.join(store, snapshot.load_index(store)["reports"][-1])
+        raw = fill(report, "zh")
+        rc, out = quiet(deliver.main, [report, "--no-open", "--html-only", "--strict"])
+        self.assertEqual(rc, 0, out)
+        public_snapshot = os.path.join(report, cfg.SNAPSHOT_NAME["zh"])
+        self.assertTrue(os.path.isfile(public_snapshot))
+        with open(public_snapshot, encoding="utf-8") as fh:
+            exported = json.load(fh)
+        self.assertEqual(exported["domain"], "alpha-outfitters.example")
+        with open(os.path.join(raw, "delivery.json"), encoding="utf-8") as fh:
+            delivery = json.load(fh)
+        self.assertEqual(delivery["kind"], "baseline")
+        self.assertEqual(delivery["snapshot"], cfg.SNAPSHOT_NAME["zh"])
+        self.assertTrue(delivery["report"].endswith("竞品基线报告.html"))
+
     def test_pick_pair_prefers_complete(self):
         mk = lambda sid, st, t: (sid, sid, {"status": st, "captured_at_utc": t})  # noqa: E731
         snaps = [
@@ -727,27 +792,33 @@ class RulesTest(unittest.TestCase):
 
 
 class PackagingTest(unittest.TestCase):
+    def test_compressed_response_output_is_bounded(self):
+        body = gzip.compress(b"x" * 100000)
+        decoded = snapshot._bounded_decode_body(
+            body, {"Content-Encoding": "gzip"}, max_bytes=1024
+        )
+        self.assertEqual(len(decoded), 1025)
+
     def test_demo_assets_match_factory(self):
         tmp = tempfile.mkdtemp(prefix="radar-demo-")
         try:
-            ff.write_demo(os.path.join(tmp, "demo"))
-            cmp = filecmp.dircmp(os.path.join(tmp, "demo"), ff.DEMO_DIR)
-            problems = []
-
-            def walk(c, rel=""):
-                problems.extend(
-                    os.path.join(rel, x)
-                    for x in c.left_only + c.right_only + c.diff_files
-                )
-                for name, sub in c.subdirs.items():
-                    walk(sub, os.path.join(rel, name))
-
-            walk(cmp)
-            self.assertEqual(
-                problems, [], "run: python tests/fixture_factory.py --write-demo"
+            generated = ff.write_demo(os.path.join(tmp, "demo.json"))
+            self.assertTrue(
+                filecmp.cmp(generated, ff.DEMO_BUNDLE, shallow=False),
+                "run: python tests/fixture_factory.py --write-demo",
             )
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_demo_bundle_paths_are_safe_and_shallow(self):
+        with open(ff.DEMO_BUNDLE, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        self.assertEqual(payload["schema"], ff.DEMO_SCHEMA)
+        self.assertTrue(payload["files"])
+        for relative, content in payload["files"].items():
+            self.assertFalse(os.path.isabs(relative))
+            self.assertNotIn("..", relative.split("/"))
+            self.assertIsInstance(content, str)
 
     def test_vendored_teardown_scripts_identical(self):
         teardown = os.path.join(SKILL, "..", "shopify-store-teardown", "scripts")

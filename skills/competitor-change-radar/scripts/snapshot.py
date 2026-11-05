@@ -20,13 +20,20 @@ Python 3.8+, standard library only.
 """
 
 import datetime
+import gzip
+import ipaddress
+import io
 import json
 import os
 import re
 import shutil
+import socket
 import sys
+import threading
 import zipfile
+import zlib
 from urllib.parse import urlsplit
+from urllib.request import HTTPSHandler, ProxyHandler, build_opener
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import collect  # noqa: E402
@@ -40,6 +47,7 @@ INDEX_FILE = "radar.json"
 KEEP_RAW_RECENT = 4
 SITEMAP_CHILD_CAP = 20
 ID_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})(?:_(\d+))?(-archive|-teardown)?$")
+_PUBLIC_DNS_LOCK = threading.RLock()
 
 
 def utc_today(now=None):
@@ -147,14 +155,109 @@ def finish(tmp_dir, final_dir, source):
 # ---------------------------------------------------------------------------
 
 
+def _validated_public_addrinfo(addresses):
+    if not addresses:
+        raise ValueError("host name did not resolve")
+    for item in addresses:
+        raw = item[4][0]
+        ip = ipaddress.ip_address(raw.split("%", 1)[0])
+        if not ip.is_global:
+            raise ValueError(
+                "private, local or reserved network targets are not allowed"
+            )
+    return addresses
+
+
+def _bounded_decode_body(body, headers, max_bytes=fetch.MAX_BYTES):
+    """Decode one response without allowing compressed output above the cap."""
+    enc = ""
+    if hasattr(headers, "get"):
+        enc = (headers.get("Content-Encoding") or "").lower()
+    try:
+        if "gzip" in enc or body[:2] == b"\x1f\x8b":
+            with gzip.GzipFile(fileobj=io.BytesIO(body)) as stream:
+                return stream.read(max_bytes + 1)
+        if "deflate" in enc:
+            try:
+                decoder = zlib.decompressobj()
+                return decoder.decompress(body, max_bytes + 1)
+            except zlib.error:
+                decoder = zlib.decompressobj(-zlib.MAX_WBITS)
+                return decoder.decompress(body, max_bytes + 1)
+    except (OSError, zlib.error, EOFError):
+        return body
+    return body
+
+
+class PinnedPublicOnlyFetcher(collect.PublicOnlyFetcher):
+    """Public-only transport whose validated DNS answers are used to connect."""
+
+    def _build_opener(self):
+        self.ctx = collect.make_ssl_context()
+        # A proxy would resolve the destination outside this process, so
+        # public-only mode uses direct connections and fails closed instead.
+        self.opener = build_opener(
+            ProxyHandler({}),
+            HTTPSHandler(context=self.ctx),
+            collect.PublicOnlyRedirect(),
+        )
+
+    def _try_cert_refresh(self, _url):
+        # PowerShell root refresh performs another unpinned network request.
+        return False
+
+    def get(self, url, accept=fetch.ACCEPT_HTML, headers=None):
+        # urllib resolves inside opener.open(). Wrapping that exact resolver
+        # call closes the preflight/connect DNS-rebinding window while handing
+        # the same validated answers to socket.create_connection.
+        with _PUBLIC_DNS_LOCK:
+            resolver = socket.getaddrinfo
+            decoder = fetch.decode_body
+
+            def public_getaddrinfo(host, port, *args, **kwargs):
+                try:
+                    return _validated_public_addrinfo(
+                        resolver(host, port, *args, **kwargs)
+                    )
+                except ValueError as exc:
+                    raise socket.gaierror(
+                        getattr(socket, "EAI_NONAME", -2), str(exc)
+                    ) from exc
+
+            socket.getaddrinfo = public_getaddrinfo
+            fetch.decode_body = _bounded_decode_body
+            try:
+                return super().get(url, accept=accept, headers=headers)
+            finally:
+                fetch.decode_body = decoder
+                socket.getaddrinfo = resolver
+
+
 class RadarCollector(collect.Collector):
     """Slim teardown run: homepage, meta, all product pages, collections,
     five policy pages; sitemap only when product data is incomplete; site-age
     lookups only on the first snapshot of a store."""
 
-    def __init__(self, target, out_dir, fetcher, max_pages=100, offsite=False):
+    def __init__(
+        self,
+        target,
+        out_dir,
+        fetcher,
+        max_pages=100,
+        max_sitemap_children=SITEMAP_CHILD_CAP,
+        offsite=False,
+        public_only=False,
+    ):
         collect.Collector.__init__(
-            self, target, out_dir, "radar", max_pages, not offsite, fetcher
+            self,
+            target,
+            out_dir,
+            "radar",
+            max_pages,
+            max_sitemap_children,
+            not offsite,
+            fetcher,
+            public_only,
         )
 
     def run(self):
@@ -210,11 +313,16 @@ def capture_live(
     lang,
     fetcher=None,
     max_pages=100,
+    max_sitemap_children=SITEMAP_CHILD_CAP,
+    public_only=False,
     force=False,
     now=None,
     log=print,
 ):
     """Take today's snapshot (or reuse today's complete one). Returns (id, snap, reused)."""
+    if public_only:
+        scheme, host = collect.normalize_input(store)
+        collect.ensure_public_url("%s://%s/" % (scheme, host))
     base = snap_root(store_dir, lang)
     os.makedirs(base, exist_ok=True)
     clean_partials(store_dir, lang)
@@ -236,8 +344,17 @@ def capture_live(
     tmp = os.path.join(base, ".%s.partial" % sid)
     data_dir = os.path.join(tmp, output.raw_dirname(lang))
     os.makedirs(data_dir)
-    fetcher = fetcher or collect.Fetcher(timeout=20.0, delay=0.5, lang=lang)
-    col = RadarCollector(store, data_dir, fetcher, max_pages=max_pages, offsite=first)
+    fetcher_cls = PinnedPublicOnlyFetcher if public_only else collect.Fetcher
+    fetcher = fetcher or fetcher_cls(timeout=20.0, delay=0.5, lang=lang)
+    col = RadarCollector(
+        store,
+        data_dir,
+        fetcher,
+        max_pages=max_pages,
+        max_sitemap_children=max_sitemap_children,
+        offsite=first and not public_only,
+        public_only=public_only,
+    )
     log(("开始抓取 %s" if lang == "zh" else "Capturing %s") % col.base)
     col.run()
     write_meta(

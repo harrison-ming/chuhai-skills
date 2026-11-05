@@ -10,7 +10,8 @@ unless ``--no-summarize`` is given. A failing request never aborts the run.
 
 CLI:
     python collect.py <store_url_or_domain> [--out-root DIR | --out DIR]
-                      [--depth L0|L1] [--max-pages 100] [--skip-offsite]
+                      [--depth L0|L1] [--max-pages 100]
+                      [--max-sitemap-children 50] [--skip-offsite]
                       [--delay 0.5] [--timeout 20] [--no-summarize]
                       [--init-only]
 
@@ -25,12 +26,15 @@ HTTP / certificate handling lives in ``_shared/fetch.py``.
 """
 
 import argparse
+import ipaddress
 import json
 import os
 import re
+import socket
 import subprocess  # noqa: F401  (tests patch collect.subprocess.run)
 import sys
 from urllib.parse import quote, urlsplit
+from urllib.error import URLError
 from urllib.request import HTTPSHandler, build_opener
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -70,6 +74,38 @@ ABOUT_SLUGS = ["about", "about-us", "our-story"]
 NON_PRODUCT_RE = summarize.NON_PRODUCT_RE
 MIN_SAMPLE_PRICE = summarize.MIN_REAL_PRICE
 L1_SAMPLE_ROLES = ("entry", "main", "premium")
+
+
+def ensure_public_url(url):
+    """Reject non-HTTP targets and hosts resolving to non-public addresses."""
+    parts = urlsplit(url)
+    host = parts.hostname
+    if parts.scheme not in ("http", "https") or not host:
+        raise ValueError("only public http(s) URLs are allowed")
+    try:
+        addresses = {item[4][0] for item in socket.getaddrinfo(host, parts.port or 443)}
+    except socket.gaierror as exc:
+        raise ValueError("host name did not resolve") from exc
+    if not addresses:
+        raise ValueError("host name did not resolve")
+    for raw in addresses:
+        ip = ipaddress.ip_address(raw.split("%", 1)[0])
+        if not ip.is_global:
+            raise ValueError(
+                "private, local or reserved network targets are not allowed"
+            )
+    return True
+
+
+class PublicOnlyRedirect(fetch.LimitedRedirect):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        try:
+            ensure_public_url(newurl)
+        except ValueError as exc:
+            raise URLError(str(exc))
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 _Redirect = fetch.LimitedRedirect
 
 
@@ -80,6 +116,12 @@ class Fetcher(fetch.Fetcher):
     def _build_opener(self):
         self.ctx = make_ssl_context()  # verification stays on
         self.opener = build_opener(HTTPSHandler(context=self.ctx), _Redirect())
+
+
+class PublicOnlyFetcher(Fetcher):
+    def _build_opener(self):
+        self.ctx = make_ssl_context()
+        self.opener = build_opener(HTTPSHandler(context=self.ctx), PublicOnlyRedirect())
 
 
 def classify(status, body, kind):
@@ -113,7 +155,17 @@ def classify(status, body, kind):
 
 
 class Collector(object):
-    def __init__(self, target, out_dir, depth, max_pages, skip_offsite, fetcher):
+    def __init__(
+        self,
+        target,
+        out_dir,
+        depth,
+        max_pages,
+        max_sitemap_children,
+        skip_offsite,
+        fetcher,
+        public_only=False,
+    ):
         self.scheme, self.host = normalize_input(target)
         self.input = target
         self.base = "%s://%s" % (self.scheme, self.host)
@@ -122,8 +174,10 @@ class Collector(object):
         self.raw = os.path.join(out_dir, "raw")
         self.depth = depth
         self.max_pages = max_pages
+        self.max_sitemap_children = max_sitemap_children
         self.skip_offsite = skip_offsite
         self.f = fetcher
+        self.public_only = public_only
         self.requests = []
         self.started = utc_now()
         self.products = []
@@ -251,8 +305,25 @@ class Collector(object):
         if not text:
             return
         locs = re.findall(r"<loc>\s*([^<]+?)\s*</loc>", text)
-        children = [summarize.html.unescape(u) for u in locs if "sitemap_products" in u]
-        for i, url in enumerate(children[:SITEMAP_CHILD_CAP], 1):
+        base_host = (urlsplit(self.base).hostname or "").lower()
+        children = []
+        for raw_url in locs:
+            url = summarize.html.unescape(raw_url)
+            parts = urlsplit(url)
+            if "sitemap_products" not in url:
+                continue
+            if (
+                parts.scheme not in ("http", "https")
+                or (parts.hostname or "").lower() != base_host
+            ):
+                continue
+            if self.public_only:
+                try:
+                    ensure_public_url(url)
+                except ValueError:
+                    continue
+            children.append(url)
+        for i, url in enumerate(children[: self.max_sitemap_children], 1):
             self.fetch("sitemap_products", url, "sitemap-products-%d.xml" % i, "xml")
 
     def collect_l1_pages(self):
@@ -450,7 +521,18 @@ def main(argv=None):
     )
     ap.add_argument("--depth", choices=["L0", "L1"], default="L0")
     ap.add_argument("--max-pages", type=int, default=100)
+    ap.add_argument(
+        "--max-sitemap-children",
+        type=int,
+        default=SITEMAP_CHILD_CAP,
+        help="maximum product sitemap files to fetch (0-%d)" % SITEMAP_CHILD_CAP,
+    )
     ap.add_argument("--skip-offsite", action="store_true", help="skip RDAP and Wayback")
+    ap.add_argument(
+        "--public-only",
+        action="store_true",
+        help="reject private/reserved targets and cross-origin product sitemaps",
+    )
     ap.add_argument("--delay", type=float, default=0.5, help="seconds between requests")
     ap.add_argument("--timeout", type=float, default=20.0)
     ap.add_argument("--no-summarize", action="store_true")
@@ -486,9 +568,24 @@ def main(argv=None):
         print("原始文件请存到: %s" % os.path.join(out, "raw"))
         print('存好后运行: python summarize.py "%s"' % run_dir)
         return 0
-    fetcher = Fetcher(timeout=args.timeout, delay=max(args.delay, 0.0))
+    if args.public_only:
+        try:
+            scheme, host = normalize_input(args.store)
+            ensure_public_url("%s://%s/" % (scheme, host))
+        except ValueError as exc:
+            print("错误: 只允许访问公网 HTTP(S) 店铺: %s" % exc, file=sys.stderr)
+            return 2
+    fetcher_cls = PublicOnlyFetcher if args.public_only else Fetcher
+    fetcher = fetcher_cls(timeout=args.timeout, delay=max(args.delay, 0.0))
     col = Collector(
-        args.store, out, args.depth, max(args.max_pages, 1), args.skip_offsite, fetcher
+        args.store,
+        out,
+        args.depth,
+        max(args.max_pages, 1),
+        min(max(args.max_sitemap_children, 0), SITEMAP_CHILD_CAP),
+        args.skip_offsite,
+        fetcher,
+        args.public_only,
     )
     print("开始采集 %s (深度 %s)" % (col.base, args.depth))
     print("原始数据保存到: %s" % out)

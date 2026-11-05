@@ -576,18 +576,29 @@ def summarize_run(run_dir, domain=None):
         # Localized child maps (e.g. /es-US/sitemap_products_1.xml) repeat the
         # same products, so count unique handles instead of raw URLs.
         handles = set()
+        sitemap_handle_cap = 2000
+        sitemap_truncated = False
         for _n, fname in sp_pages:
             txt = read_text(run.path(fname)) or ""
             for u in re.findall(r"<loc>\s*([^<]+?)\s*</loc>", txt):
                 if "/products/" in u:
                     handles.add(u.split("/products/", 1)[1].split("?")[0].strip("/"))
+                    if len(handles) >= sitemap_handle_cap:
+                        sitemap_truncated = True
+                        break
+            if sitemap_truncated:
+                break
         sitemap_product_urls = len(handles)
+        if sitemap_truncated:
+            run.warnings.append("sitemap_products_truncated_at_2000")
         if sm_children and len(sp_pages) < len(sm_children):
             run.warnings.append("sitemap_products_incomplete")
         endpoints["sitemap_products"] = {
             "result": "ok",
             "files": len(sp_pages),
             "declared": len(sm_children),
+            "product_handle_cap": sitemap_handle_cap,
+            "truncated": sitemap_truncated,
         }
     else:
         entry = run.status_entry("sitemap-products-1.xml", None)

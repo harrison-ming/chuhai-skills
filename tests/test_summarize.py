@@ -16,6 +16,7 @@ import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.join(HERE, "fixtures")
@@ -508,6 +509,133 @@ class TestL1Samples(unittest.TestCase):
 
 
 class TestCollectLocal(FixtureCase):
+    def test_sitemap_child_budget(self):
+        class FakeFetcher(object):
+            def __init__(self):
+                self.urls = []
+
+            def get(self, url, _accept):
+                self.urls.append(url)
+                if url.endswith("/sitemap.xml"):
+                    body = (
+                        "<sitemapindex>"
+                        + "".join(
+                            "<sitemap><loc>https://example.com/sitemap_products_%d.xml</loc></sitemap>"
+                            % i
+                            for i in range(5)
+                        )
+                        + "</sitemapindex>"
+                    ).encode("utf-8")
+                else:
+                    body = b"<urlset></urlset>"
+                return {
+                    "status": 200,
+                    "body": body,
+                    "final_url": url,
+                    "elapsed_ms": 1,
+                    "note": "",
+                }
+
+        out = os.path.join(self.tmp, "budget")
+        fetcher = FakeFetcher()
+        col = collect.Collector("https://example.com", out, "L0", 1, 2, True, fetcher)
+        os.makedirs(col.raw)
+        col.collect_sitemap()
+        self.assertEqual(len(fetcher.urls), 3)
+        self.assertTrue(os.path.isfile(os.path.join(col.raw, "sitemap-products-2.xml")))
+        self.assertFalse(
+            os.path.exists(os.path.join(col.raw, "sitemap-products-3.xml"))
+        )
+
+    def test_private_network_target_is_rejected(self):
+        with mock.patch.object(
+            collect.socket,
+            "getaddrinfo",
+            return_value=[(None, None, None, None, ("127.0.0.1", 443))],
+        ):
+            with self.assertRaisesRegex(ValueError, "private, local or reserved"):
+                collect.ensure_public_url("https://internal.example/")
+
+    def test_mixed_public_and_private_dns_is_rejected(self):
+        answers = [
+            (None, None, None, None, ("93.184.216.34", 443)),
+            (None, None, None, None, ("fd00::1", 443, 0, 0)),
+        ]
+        with mock.patch.object(collect.socket, "getaddrinfo", return_value=answers):
+            with self.assertRaisesRegex(ValueError, "private, local or reserved"):
+                collect.ensure_public_url("https://mixed.example/")
+
+    def test_redirect_to_private_network_is_rejected(self):
+        answers = [(None, None, None, None, ("169.254.169.254", 80))]
+        with mock.patch.object(collect.socket, "getaddrinfo", return_value=answers):
+            with self.assertRaises(collect.URLError):
+                collect.PublicOnlyRedirect().redirect_request(
+                    None, None, 302, "Found", {}, "http://169.254.169.254/latest"
+                )
+
+    def test_public_only_skips_cross_origin_sitemap(self):
+        class FakeFetcher(object):
+            def __init__(self):
+                self.urls = []
+
+            def get(self, url, _accept):
+                self.urls.append(url)
+                body = (
+                    "<sitemapindex>"
+                    "<loc>https://example.com/sitemap_products_1.xml</loc>"
+                    "<loc>https://evil.example/sitemap_products_2.xml</loc>"
+                    "</sitemapindex>"
+                    if url.endswith("/sitemap.xml")
+                    else "<urlset></urlset>"
+                ).encode("utf-8")
+                return {
+                    "status": 200,
+                    "body": body,
+                    "final_url": url,
+                    "elapsed_ms": 1,
+                    "note": "",
+                }
+
+        out = os.path.join(self.tmp, "same-origin")
+        fetcher = FakeFetcher()
+        col = collect.Collector(
+            "https://example.com", out, "L0", 1, 8, True, fetcher, True
+        )
+        os.makedirs(col.raw)
+        with mock.patch.object(collect, "ensure_public_url", return_value=True):
+            col.collect_sitemap()
+        self.assertEqual(
+            fetcher.urls,
+            [
+                "https://example.com/sitemap.xml",
+                "https://example.com/sitemap_products_1.xml",
+            ],
+        )
+
+    def test_sitemap_product_handles_are_capped(self):
+        out = os.path.join(self.tmp, "sitemap-cap")
+        raw = os.path.join(out, "raw")
+        os.makedirs(raw)
+        with open(os.path.join(raw, "sitemap.xml"), "w", encoding="utf-8") as fh:
+            fh.write(
+                "<sitemapindex><loc>https://example.com/sitemap_products_1.xml</loc></sitemapindex>"
+            )
+        with open(
+            os.path.join(raw, "sitemap-products-1.xml"), "w", encoding="utf-8"
+        ) as fh:
+            fh.write(
+                "<urlset>"
+                + "".join(
+                    "<loc>https://example.com/products/p%d</loc>" % i
+                    for i in range(2100)
+                )
+                + "</urlset>"
+            )
+        result = summarize.summarize_run(out, "example.com")
+        self.assertEqual(result["products"]["sitemap_product_urls"], 2000)
+        self.assertTrue(result["endpoints"]["sitemap_products"]["truncated"])
+        self.assertIn("sitemap_products_truncated_at_2000", result["warnings"])
+
     def test_collect_fake_store(self):
         server = HTTPServer(("127.0.0.1", 0), FakeStore)
         port = server.server_address[1]
@@ -516,7 +644,10 @@ class TestCollectLocal(FixtureCase):
         try:
             out = os.path.join(self.tmp, "run")
             buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
+            with (
+                contextlib.redirect_stdout(buf),
+                mock.patch.object(collect, "ensure_public_url", return_value=True),
+            ):
                 rc = collect.main(
                     [
                         "http://127.0.0.1:%d/products/whatever" % port,
