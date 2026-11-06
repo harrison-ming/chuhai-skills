@@ -45,7 +45,7 @@
 
 网页读取工具返回的内容若被截断或转成了 markdown, 照样保存, 但在 `_status.json` 或报告里注明. 手动模式没有 `products-*.json`, 只存了 `page-product-*.html` 时, 这些商品页同样当价格抽样统计 (`endpoints.product_page_sample.source` 为 `saved_files`).
 
-限流 (HTTP 429): collect 按 `Retry-After` (秒数或 HTTP 日期) 等待, 单次最多 `--max-wait` (默认 75 秒; 店铺要求更久就不重试), 每个请求最多重试 2 次, 全程等待合计不超过 `--wait-budget` (默认 240 秒, 用完后再遇 429 直接放弃), 之后对该主机的请求间隔提高到 2-3 秒. products.json 第 1 页仍被限流时不再翻页, 也不再请求 collections.json (记为 `not_checked`), 改走上面的商品页抽样; 第 N 页 (N > 1) 被限流时保留已拿到的页. 不换 User-Agent, 不用代理, 不并发. `products.json` 太大时改用 `limit=50` 分页, 文件名不变.
+限流 (HTTP 429): collect 按 `Retry-After` (秒数或 HTTP 日期) 等待, 单次最多 `--max-wait` (默认 75 秒; 店铺要求更久就不重试), 每个请求最多重试 2 次, 全程等待合计不超过 `--wait-budget` (默认 240 秒, 用完后再遇 429 直接放弃), 之后对该主机的请求间隔提高到 2-3 秒. products.json 第 1 页仍被限流时不再翻页, 也不再请求 collections.json (记为 `not_checked`), 改走上面的商品页抽样; 第 N 页 (N > 1) 被限流时保留已拿到的页. 之后的停止规则 ("最终 429" 指等待重试后仍是 429): 批量商品数据 (products.json / collections.json) 最终 429, 只跳过另一个批量接口, 商品页抽样照常; 商品类页面 (`sitemap_products` 子地图, 商品页, 集合页, best-selling 排序页) 最终 429, 本次跳过其余全部商品类请求 (含剩余子地图); 其他店铺页面 (政策页, 关于页, 网站地图索引) 最终 429, 不再请求这个主机的任何页面. 跳过的请求在 `_status.json` 记为 `not_checked`, note 分别为 `skipped: store rate limited products.json (429)`, `skipped: store rate limited catalogue pages`, `skipped: store rate limited this site`. 站外查询 (RDAP, Wayback) 不受影响. 跳转到另一个主机 (例如裸域名 → www) 后才收到 429 时, 两个主机都放慢. 不换 User-Agent, 不用代理, 不并发. `products.json` 太大时改用 `limit=50` 分页, 文件名不变.
 
 ## 3. `summary.json` 主要字段
 
@@ -129,7 +129,7 @@
   - `price_source`: `products_json` = 全店商品数据; `product_page_sample` = 只来自商品页抽样 (`price_sample_size` 款, 总体约 `price_population` 款, 取自网站地图), 报告必须写明是抽样估计 (check_report.py 会检查); `null` = 没有价格数据.
   - `discount_data` / `new_product_cadence`: 有没有折扣 (原价) 数据和上新日期. 为 false 时折扣占比, 折扣深度, 上新节奏一律写 `[查不到]`, 对应字段为 null, 原因在 `products.unavailable_reasons`.
   - `rate_limited_endpoints`: 本次收到过 429 的请求键 (例如 `products_json`, `product_page_sample`).
-- 价格来自抽样时 (`price_source` = `product_page_sample`): `products.price` / `price_excluding_virtual` / `price_bands` 按每个抽样商品页上的最低价统计 (优先页面里的结构化商品数据 JSON-LD `offers`, 其次 `og:price:amount` / `product:price:amount`), 币种是页面显示的币种 (可能按访客地区本地化); `on_sale_share`, `discount_depth_median`, `variants`, `created_*`, `published_by_month` 为 null 或空. 不从页面猜原价.
+- 价格来自抽样时 (`price_source` = `product_page_sample`): `products.price` / `price_excluding_virtual` / `price_bands` 按每个抽样商品页上的最低价统计 (优先页面里的结构化商品数据 JSON-LD `offers`, 任意嵌套层级都会找, 例如 `mainEntity`; 页面有多个商品时用网址 (`url` / `@id` / offer `url`) 指向本商品的那个, 对不上就改用 `og:price:amount` / `product:price:amount`, 再没有就记为没有价格, 不猜), 币种是页面显示的币种 (可能按访客地区本地化); `on_sale_share`, `discount_depth_median`, `variants`, `created_*`, `published_by_month` 为 null 或空. 不从页面猜原价.
 - `products.sitemap_lastmod_by_month` 是网站地图里每个商品的**最近修改时间** (`<lastmod>`) 按月计数, 改价, 改图, 改库存都会更新它, **不是上架时间**. 报告里只能写"最近更新", 不能当上新节奏.
 - `offsite.wayback.captures_by_year` 是**该年有快照的月份数** (0-12), 不是抓取次数.
 - `theme.storefront_hint` 为 `headless_possible` 时 (例如检测到 Next.js 而读不到 `Shopify.theme`), 只能写 `[推测]`, 不等于 Hydrogen.

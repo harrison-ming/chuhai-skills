@@ -26,6 +26,7 @@ import os
 import re
 import sys
 from collections import Counter
+from urllib.parse import unquote
 
 SCHEMA = "store-teardown/summary/1"
 RAW_DIRNAME = "原始数据"  # same as delivery.RAW_DIRNAME
@@ -462,17 +463,42 @@ def _money(value):
     return None
 
 
-def _ld_nodes(obj):
-    """Every dict inside a JSON-LD document (lists and @graph included)."""
-    stack = [obj]
-    while stack:
-        cur = stack.pop()
+LD_MAX_DEPTH = 12
+LD_MAX_NODES = 5000
+
+
+def _ld_nodes(obj, max_depth=LD_MAX_DEPTH, max_nodes=LD_MAX_NODES):
+    """Every dict inside a JSON-LD document, at any depth (``@graph``,
+    ``mainEntity``, ``itemListElement``...), document order, bounded by
+    depth and node count."""
+    stack = [(obj, 0)]
+    seen = 0
+    while stack and seen < max_nodes:
+        cur, depth = stack.pop()
+        if depth > max_depth:
+            continue
         if isinstance(cur, list):
-            stack.extend(reversed(cur))
+            stack.extend((x, depth + 1) for x in reversed(cur))
         elif isinstance(cur, dict):
+            seen += 1
             yield cur
-            if "@graph" in cur:
-                stack.append(cur["@graph"])
+            stack.extend(
+                (v, depth + 1)
+                for v in reversed(list(cur.values()))
+                if isinstance(v, (dict, list))
+            )
+
+
+def _ld_items(obj):
+    """Dicts of a value that may be one dict or a (nested) list: no deeper."""
+    if isinstance(obj, dict):
+        return [obj]
+    if isinstance(obj, list):
+        out = []
+        for x in obj:
+            out.extend(_ld_items(x))
+        return out
+    return []
 
 
 def _ld_is(node, kind):
@@ -497,8 +523,121 @@ def _availability(values):
     return None
 
 
-def _from_json_ld(src):
-    """Price facts of the first JSON-LD Product with a usable offer."""
+def _is_strikethrough(spec):
+    kind = str(spec.get("priceType") or "")
+    return "Strikethrough" in kind or "ListPrice" in kind
+
+
+def _offer_facts(offers):
+    """(prices, highs, compare, currencies, availability, urls) of offers."""
+    prices, highs, compare, currencies, avail, urls = [], [], [], [], [], []
+    for o in _ld_items(offers):
+        if not (
+            _ld_is(o, "Offer")
+            or _ld_is(o, "AggregateOffer")
+            or "price" in o
+            or "lowPrice" in o
+        ):
+            continue
+        low = _money(o.get("lowPrice"))
+        high = _money(o.get("highPrice"))
+        price = _money(o.get("price"))
+        for sp in _ld_items(o.get("priceSpecification")):
+            val = _money(sp.get("price"))
+            if val is None:
+                continue
+            if _is_strikethrough(sp):
+                compare.append(val)
+            elif price is None:
+                price = val
+        for v in (price, low):
+            if v is not None:
+                prices.append(v)
+        for v in (price, high):
+            if v is not None:
+                highs.append(v)
+        cur = o.get("priceCurrency")
+        if isinstance(cur, str) and cur.strip():
+            currencies.append(cur.strip().upper())
+        if o.get("availability") is not None:
+            avail.append(o.get("availability"))
+        if isinstance(o.get("url"), str):
+            urls.append(o["url"])
+        # an AggregateOffer may list its offers
+        if o.get("offers") is not None and o.get("offers") is not offers:
+            sub = _offer_facts(o["offers"])
+            for acc, extra in zip(
+                (prices, highs, compare, currencies, avail, urls), sub
+            ):
+                acc.extend(extra)
+    return prices, highs, compare, currencies, avail, urls
+
+
+def _ld_product_facts(node):
+    """Price facts of one Product / ProductGroup node, or None (no price)."""
+    offers = node.get("offers")
+    variants = [v for v in _ld_items(node.get("hasVariant"))]
+    if offers is None and variants:
+        offers = [v.get("offers") for v in variants]
+    prices, highs, compare, currencies, avail, urls = _offer_facts(offers)
+    if not prices:
+        return None
+    for v in variants:
+        for key in ("url", "@id"):
+            if isinstance(v.get(key), str):
+                urls.append(v[key])
+    for key in ("url", "@id"):
+        if isinstance(node.get(key), str):
+            urls.append(node[key])
+    name = node.get("name")
+    return {
+        "title": name.strip() if isinstance(name, str) else None,
+        "price": min(prices),
+        "price_max": max(highs) if highs else min(prices),
+        "compare_at": max(compare) if compare else None,
+        "currency": Counter(currencies).most_common(1)[0][0] if currencies else None,
+        "available": _availability(avail),
+        "price_from": "json_ld",
+        "_urls": urls,
+        "_variants": [id(v) for v in variants],
+    }
+
+
+def _handle_key(handle):
+    return unquote(handle or "").strip("/").lower()
+
+
+def _matches_handle(facts, handle):
+    want = _handle_key(handle)
+    return bool(want) and any(
+        _handle_key(product_handle(u)) == want for u in facts["_urls"]
+    )
+
+
+def _merge_facts(items):
+    currencies = [x["currency"] for x in items if x.get("currency")]
+    compare = [x["compare_at"] for x in items if x.get("compare_at") is not None]
+    avail = [x["available"] for x in items if x.get("available") is not None]
+    return {
+        "title": next((x["title"] for x in items if x.get("title")), None),
+        "price": min(x["price"] for x in items),
+        "price_max": max(x["price_max"] for x in items),
+        "compare_at": max(compare) if compare else None,
+        "currency": Counter(currencies).most_common(1)[0][0] if currencies else None,
+        "available": (True if any(avail) else False) if avail else None,
+        "price_from": "json_ld",
+    }
+
+
+def _from_json_ld(src, handle=None):
+    """Price facts of the page's own JSON-LD Product, or None.
+
+    A page can carry several Product nodes (recommendations, bundles). The
+    one whose url / @id / offer url points at ``handle`` wins; one priced
+    Product is used as is; several priced Products and none matching:
+    None (the caller falls back to the page's meta price, no guessing).
+    """
+    candidates = []
     for raw in LD_JSON_RE.findall(src):
         doc = None
         for text in (raw.strip(), html.unescape(raw.strip())):
@@ -510,70 +649,21 @@ def _from_json_ld(src):
         if doc is None:
             continue
         for node in _ld_nodes(doc):
-            if not (_ld_is(node, "Product") or _ld_is(node, "ProductGroup")):
-                continue
-            offers = node.get("offers")
-            if offers is None and isinstance(node.get("hasVariant"), list):
-                offers = [
-                    v.get("offers") for v in node["hasVariant"] if isinstance(v, dict)
-                ]
-            offer_list = []
-            for o in _ld_nodes(offers):
-                if (
-                    _ld_is(o, "Offer")
-                    or _ld_is(o, "AggregateOffer")
-                    or ("price" in o or "lowPrice" in o)
-                ):
-                    offer_list.append(o)
-            prices, highs, compare, currencies, avail = [], [], [], [], []
-            for o in offer_list:
-                low = _money(o.get("lowPrice"))
-                high = _money(o.get("highPrice"))
-                price = _money(o.get("price"))
-                if price is None:
-                    spec = o.get("priceSpecification")
-                    for sp in _ld_nodes(spec):
-                        kind = str(sp.get("priceType") or "")
-                        val = _money(sp.get("price"))
-                        if val is None:
-                            continue
-                        if "Strikethrough" in kind or "ListPrice" in kind:
-                            compare.append(val)
-                        elif price is None:
-                            price = val
-                else:
-                    for sp in _ld_nodes(o.get("priceSpecification")):
-                        kind = str(sp.get("priceType") or "")
-                        val = _money(sp.get("price"))
-                        if val is not None and (
-                            "Strikethrough" in kind or "ListPrice" in kind
-                        ):
-                            compare.append(val)
-                for v in (price, low):
-                    if v is not None:
-                        prices.append(v)
-                for v in (price, high):
-                    if v is not None:
-                        highs.append(v)
-                cur = o.get("priceCurrency")
-                if isinstance(cur, str) and cur.strip():
-                    currencies.append(cur.strip().upper())
-                if o.get("availability") is not None:
-                    avail.append(o.get("availability"))
-            if not prices:
-                continue
-            name = node.get("name")
-            return {
-                "title": name.strip() if isinstance(name, str) else None,
-                "price": min(prices),
-                "price_max": max(highs) if highs else min(prices),
-                "compare_at": max(compare) if compare else None,
-                "currency": Counter(currencies).most_common(1)[0][0]
-                if currencies
-                else None,
-                "available": _availability(avail),
-                "price_from": "json_ld",
-            }
+            if _ld_is(node, "Product") or _ld_is(node, "ProductGroup"):
+                facts = _ld_product_facts(node)
+                if facts is not None:
+                    facts["_id"] = id(node)
+                    candidates.append(facts)
+    # variants of a priced ProductGroup are part of it, not other products
+    inside = {v for c in candidates for v in c["_variants"]}
+    candidates = [c for c in candidates if c["_id"] not in inside]
+    if not candidates:
+        return None
+    matched = [c for c in candidates if handle and _matches_handle(c, handle)]
+    if matched:
+        return _merge_facts(matched)
+    if len(candidates) == 1:
+        return _merge_facts(candidates)
     return None
 
 
@@ -587,19 +677,20 @@ def _meta_values(src):
     return out
 
 
-def parse_product_page(src):
+def parse_product_page(src, handle=None):
     """Price facts visible on a public product page, or None.
 
     Reads JSON-LD ``Product`` offers first (price / lowPrice / highPrice,
-    priceCurrency, availability), then the ``og:price:amount`` /
-    ``product:price:amount`` meta tags. Returns ``{title, price, price_max,
+    priceCurrency, availability; with several Products, the one matching
+    ``handle``), then the ``og:price:amount`` / ``product:price:amount``
+    meta tags. Returns ``{title, price, price_max,
     compare_at, currency, available, price_from}``; ``compare_at`` is only set
     when JSON-LD states a strikethrough / list price (never guessed).
     """
     if not src:
         return None
     meta = _meta_values(src)
-    found = _from_json_ld(src)
+    found = _from_json_ld(src, handle)
     if found is None:
         price = None
         for key in ("og:price:amount", "product:price:amount"):
@@ -1326,7 +1417,7 @@ def load_page_sample(run, page_files):
         txt, state = run.load_html_file(fname)
         if txt and state == "ok":
             entry["result"] = "ok"
-            facts = parse_product_page(txt)
+            facts = parse_product_page(txt, handle)
             entry.update(facts or {"price": None})
         else:
             entry["result"] = "blocked" if state == "blocked" else (result or "missing")

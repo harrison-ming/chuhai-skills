@@ -573,8 +573,12 @@ class Fetcher(object):
             )
             if status == 429:
                 rl_seen = True
-                self._rate_limited[host] = self._rate_limited.get(host, 0) + 1
-                self._slow_down(host)
+                # The answer may come from another host after a redirect
+                # (e.g. bare domain -> www): slow down both.
+                final_host = (urlsplit(final_url or url).hostname or "").lower()
+                for h in {host, final_host} - {""}:
+                    self._rate_limited[h] = self._rate_limited.get(h, 0) + 1
+                    self._slow_down(h)
                 wait = (
                     ra if ra is not None else RATE_LIMIT_DEFAULT_WAIT * (rl_attempt + 1)
                 )

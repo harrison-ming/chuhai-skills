@@ -20,8 +20,12 @@ Hard errors (must be fixed, then re-run):
   - [推测] without "依据" in the same line (or its continuation line / cell)
   - missing the fixed ending "本报告没有覆盖的"
   - summary.json says prices come from a product-page sample
-    (coverage.price_source == "product_page_sample") but the report never
-    says so (no "抽样" / "sample")
+    (coverage.price_source == "product_page_sample") but the body (before
+    the appendix) never says so, only negates it ("没有抽样"), or does not
+    give the sample size N in the same line
+  - bulk product data cut short by a 429 (coverage.products_json ==
+    "partial") while products.count is a lower bound, and the body has no
+    "至少"
 
 Warnings (do not fail, but the agent must review each one):
   - suspected over-labeling: the claim attached to [已核实] contains
@@ -30,6 +34,9 @@ Warnings (do not fail, but the agent must review each one):
   - full-width punctuation
   - the store rate limited the bulk product data (coverage.products_json ==
     "rate_limited") but the report does not mention it (限流 / 限制 / 429)
+  - sampled prices without the population M (共约 M 款) in the body
+  - bulk product data partial because of a 429, body never says so
+    (部分 / 至少 / 不完整)
 
 The rule engine is ``_shared/checks.py``; this module holds the teardown
 word lists. deliver.py imports check_text() / format_result() from here.
@@ -123,30 +130,111 @@ def claim_segments(line):
     return checks.claim_segments(line, BADGE_RE)
 
 
-SAMPLE_WORDS_RE = re.compile(r"抽样|(?i:\bsampled?\b)")
+SAMPLE_WORDS_RE = re.compile(r"抽样|(?i:\bsampl(?:e|ed|ing)\b)")
+SAMPLE_NEGATION_RE = re.compile(
+    r"(?:未|没有|没|无|不|并非|不是)\s*(?:做|做过|进行|经过|采用|用)?\s*抽样"
+    r"|(?i:\b(?:not|no|without)\s+(?:a\s+)?sampl)"
+)
 RATE_LIMIT_WORDS_RE = re.compile(r"限流|限制|429|(?i:rate.?limit)")
+PARTIAL_WORDS_RE = re.compile(r"部分|至少|不完整|不全|(?i:\bpartial\b|\bat least\b)")
+LOWER_BOUND_RE = re.compile(r"至少|(?i:\bat least\b)")
+
+
+def _has_number(text, value):
+    """True when ``value`` (an int) appears as a whole number in text."""
+    if value is None:
+        return False
+    return bool(re.search(r"(?<![\d.,])%s(?![\d])" % re.escape(str(value)), text))
+
+
+def _body_lines(md_text):
+    """(lineno, line) before the appendix heading (``## 附录...``)."""
+    out = []
+    for ln, line in content_lines(md_text):
+        if line.strip().startswith(APPENDIX_PREFIX):
+            break
+        out.append((ln, line))
+    return out
+
+
+def _sample_lines(lines):
+    """Lines that state a sample (mention 抽样 / sample, not negated)."""
+    out = []
+    for ln, line in lines:
+        if not SAMPLE_WORDS_RE.search(line):
+            continue
+        rest = SAMPLE_NEGATION_RE.sub("", line)
+        if SAMPLE_WORDS_RE.search(rest):
+            out.append((ln, line))
+    return out
 
 
 def coverage_issues(md_text, summary):
-    """Rules that compare the report with summary.json ``coverage``."""
+    """Rules that compare the report with summary.json ``coverage``.
+
+    - prices from a product-page sample: the body (before the appendix) must
+      say so, not negated, with the sample size N in the same line (error);
+      the population M should appear in the body too (warning);
+    - bulk product data rate limited: the report should mention it (warning);
+    - bulk product data partial because of a mid-pagination 429: the body
+      must say the data is partial (warning), or "至少" when the count is a
+      lower bound (error).
+    """
     cov = (summary or {}).get("coverage") or {}
+    products = (summary or {}).get("products") or {}
     issues = []
-    if cov.get("price_source") == "product_page_sample" and not SAMPLE_WORDS_RE.search(
-        md_text
-    ):
-        n, m = cov.get("price_sample_size"), cov.get("price_population")
-        issues.append(
-            Issue(
-                "error",
-                "price_sample_unstated",
-                0,
-                "",
-                "本次价格来自 %s 个商品页抽样 (不是全店商品数据), 报告没有说明这一点, "
-                "读者会把抽样估计当成全店统计." % n,
-                "在价格那一节写明 '价格基于 %s 个商品页抽样 (共约 %s 款), 是估计', "
-                "附录写明店铺限制了批量读取." % (n, m if m is not None else "?"),
-            )
+    body = _body_lines(md_text)
+    body_text = "\n".join(line for _ln, line in body)
+    n, m = cov.get("price_sample_size"), cov.get("price_population")
+    m_txt = m if m is not None else "?"
+    if cov.get("price_source") == "product_page_sample":
+        stated = _sample_lines(body)
+        fix = (
+            "在正文价格那一节 (附录之前) 写明 '价格基于 %s 个商品页抽样 (共约 %s 款), "
+            "是估计', 附录写明店铺限制了批量读取." % (n, m_txt)
         )
+        if not stated:
+            where = (
+                "只在附录里提到抽样"
+                if _sample_lines(list(content_lines(md_text)))
+                else "报告没有说明这一点"
+            )
+            issues.append(
+                Issue(
+                    "error",
+                    "price_sample_unstated",
+                    0,
+                    "",
+                    "本次价格来自 %s 个商品页抽样 (不是全店商品数据), %s, "
+                    "读者会把抽样估计当成全店统计." % (n, where),
+                    fix,
+                )
+            )
+        elif n is not None and not any(_has_number(line, n) for _ln, line in stated):
+            ln, line = stated[0]
+            issues.append(
+                Issue(
+                    "error",
+                    "price_sample_count_wrong",
+                    ln,
+                    clip(line),
+                    "写了抽样, 但同一句里没有本次实际抽样的商品页数 %s." % n,
+                    fix,
+                )
+            )
+        elif m is not None and not _has_number(body_text, m):
+            ln, line = stated[0]
+            issues.append(
+                Issue(
+                    "warning",
+                    "price_population_unstated",
+                    ln,
+                    clip(line),
+                    "没写抽样是从多少款里抽的 (共约 %s 款), 读者判断不了样本占比." % m,
+                    fix,
+                )
+            )
+    limited = cov.get("rate_limited_endpoints") or []
     if cov.get("products_json") == "rate_limited" and not RATE_LIMIT_WORDS_RE.search(
         md_text
     ):
@@ -161,6 +249,34 @@ def coverage_issues(md_text, summary):
                 "已按要求等待后仍受限', 并说明哪些结论因此缺失.",
             )
         )
+    if cov.get("products_json") == "partial" and "products_json" in limited:
+        count = products.get("count")
+        if products.get("count_is_lower_bound") and not LOWER_BOUND_RE.search(
+            body_text
+        ):
+            issues.append(
+                Issue(
+                    "error",
+                    "partial_count_no_lower_bound",
+                    0,
+                    "",
+                    "读取商品数据中途被店铺限流, 只拿到 %s 款, 实际可能更多; "
+                    "正文没有写 '至少'." % count,
+                    "正文写 '至少 %s 款', 并说明店铺中途限制了读取, 商品统计基于部分数据."
+                    % count,
+                )
+            )
+        elif not PARTIAL_WORDS_RE.search(body_text):
+            issues.append(
+                Issue(
+                    "warning",
+                    "partial_data_unstated",
+                    0,
+                    "",
+                    "读取商品数据中途被店铺限流, 统计只基于部分商品, 正文没有说明.",
+                    "正文写明 '店铺中途限制了读取, 以下统计基于部分商品' (或 '至少 N 款').",
+                )
+            )
     return issues
 
 

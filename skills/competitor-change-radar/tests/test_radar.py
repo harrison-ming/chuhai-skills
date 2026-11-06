@@ -305,6 +305,54 @@ class FakeFetcher(object):
         return dict(status=status, body=body, final_url=url, elapsed_ms=1, note="")
 
 
+class RateLimitFetcher(object):
+    """products.json and the first product sitemap answer a final 429."""
+
+    def __init__(self, base):
+        self.base = base
+        self.delay = 0
+        self.calls = []
+
+    def get(self, url, accept=None, headers=None):
+        self.calls.append(url)
+        path = url[len(self.base) :]
+        if path.startswith(("/products.json", "/sitemap_products_1")):
+            return dict(
+                status=429, body=b"slow", final_url=url, elapsed_ms=1, note="429"
+            )
+        if path == "/sitemap.xml":
+            body = (
+                "<sitemapindex><loc>%s/sitemap_products_1.xml</loc>"
+                "<loc>%s/sitemap_products_2.xml</loc></sitemapindex>"
+                % (self.base, self.base)
+            )
+        elif path == "/meta.json":
+            body = "{}"
+        else:
+            body = "<html>Shopify page</html>"
+        return dict(
+            status=200, body=body.encode(), final_url=url, elapsed_ms=1, note=""
+        )
+
+
+class RateLimitStopTest(Tmp):
+    def test_no_catalogue_requests_after_final_429(self):
+        base = "https://shop.example"
+        f = RateLimitFetcher(base)
+        col = snapshot.RadarCollector(base, os.path.join(self.tmp, "d"), f)
+        col.run()
+        paths = [u[len(base) :] for u in f.calls if u.startswith(base)]
+        self.assertEqual(paths.count("/products.json?limit=250&page=1"), 1)
+        after = paths[paths.index("/sitemap_products_1.xml") + 1 :]
+        catalogue = ("/products", "/collections", "/sitemap_products")
+        self.assertFalse([p for p in after if p.startswith(catalogue)], after)
+        self.assertFalse(any(p.startswith("/collections.json") for p in paths))
+        self.assertIn("/policies/refund-policy", after)
+        notes = [r["note"] for r in col.requests if r["result"] == "not_checked"]
+        self.assertIn(snapshot.collect.SKIP_CATALOGUE_NOTE, notes)
+        self.assertIn(snapshot.collect.SKIP_BULK_NOTE, notes)
+
+
 class StorageTest(Tmp):
     def test_capture_is_idempotent_per_day(self):
         _old, new = ff.scenario("price-drop")

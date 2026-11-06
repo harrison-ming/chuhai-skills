@@ -207,6 +207,70 @@ class TestCoverageRules(unittest.TestCase):
         self.assertTrue(r.ok, kinds(r))
         self.assertEqual(r.warnings, [], kinds(r))
 
+    def body_with(self, sentence):
+        return GOOD.replace(
+            "## 价格怎么定的\n\n", "## 价格怎么定的\n\n%s\n\n" % sentence
+        )
+
+    def test_sample_only_in_appendix_fails(self):
+        md = GOOD.replace(
+            "## 附录: 证据与数据来源\n\n",
+            "## 附录: 证据与数据来源\n\n价格基于 12 个商品页抽样 (共约 19 款).\n\n",
+        )
+        r = check_report.check_text(md, SAMPLED)
+        errs = [i for i in r.errors if i.kind == "price_sample_unstated"]
+        self.assertEqual(len(errs), 1)
+        self.assertIn("附录", errs[0].why)
+
+    def test_negated_sample_fails(self):
+        for text in (
+            "价格没有抽样, 共约 19 款 12 个.",
+            "本次未做抽样 (12 个, 共约 19 款).",
+        ):
+            r = check_report.check_text(self.body_with(text), SAMPLED)
+            self.assertIn(("error", "price_sample_unstated"), kinds(r), text)
+
+    def test_sample_needs_actual_count(self):
+        r = check_report.check_text(
+            self.body_with("价格基于 15 个商品页抽样 (共约 19 款)."), SAMPLED
+        )
+        self.assertIn(("error", "price_sample_count_wrong"), kinds(r))
+        r = check_report.check_text(
+            self.body_with("价格基于 112 个商品页抽样 (共约 19 款)."), SAMPLED
+        )
+        self.assertIn(("error", "price_sample_count_wrong"), kinds(r))
+
+    def test_population_missing_is_warning(self):
+        r = check_report.check_text(
+            self.body_with("价格基于 12 个商品页抽样, 店铺限制了批量读取."), SAMPLED
+        )
+        self.assertTrue(r.ok, kinds(r))
+        self.assertIn(("warning", "price_population_unstated"), kinds(r))
+
+    def test_partial_after_mid_pagination_429(self):
+        partial = {
+            "coverage": {
+                "products_json": "partial",
+                "price_source": "products_json",
+                "rate_limited_endpoints": ["products_json"],
+            },
+            "products": {"count": 500, "count_is_lower_bound": True},
+        }
+        r = check_report.check_text(GOOD, partial)
+        self.assertIn(("error", "partial_count_no_lower_bound"), kinds(r))
+        r = check_report.check_text(
+            self.body_with("店铺中途限制了读取, 在售至少 500 款."), partial
+        )
+        self.assertTrue(r.ok, kinds(r))
+        partial["products"]["count_is_lower_bound"] = False
+        r = check_report.check_text(GOOD, partial)
+        self.assertTrue(r.ok, kinds(r))
+        self.assertIn(("warning", "partial_data_unstated"), kinds(r))
+        r = check_report.check_text(self.body_with("统计只基于部分商品."), partial)
+        self.assertEqual(kinds(r), [])
+        partial["coverage"]["rate_limited_endpoints"] = []  # partial, no 429
+        self.assertEqual(kinds(check_report.check_text(GOOD, partial)), [])
+
     def test_no_summary_or_full_data_unchanged(self):
         self.assertTrue(check_report.check_text(GOOD).ok)
         full = {"coverage": {"products_json": "ok", "price_source": "products_json"}}

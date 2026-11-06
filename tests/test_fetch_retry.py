@@ -314,6 +314,29 @@ class TestRateLimit(unittest.TestCase):
         # the polite pause before the next request uses the raised delay
         self.assertTrue(self.sleeps and self.sleeps[0] > 1.5, self.sleeps)
 
+    def test_redirected_429_slows_final_host(self):
+        f = self.fetcher([(200, None)], delay=0.5, rate_limit_retries=0)
+
+        class Redirected(ScriptedOpener):
+            def open(self, req, timeout=None):
+                self.urls.append(req.full_url)
+                if len(self.urls) == 1:
+                    msg = email.message.Message()
+                    msg["Retry-After"] = "5"
+                    final = "https://www.shop.example/products.json"
+                    raise HTTPError(final, 429, "x", msg, io.BytesIO(b""))
+                return FakeResponse(req.full_url)
+
+        f.opener = Redirected([])
+        r = f.get("https://shop.example/products.json")
+        self.assertEqual(r["status"], 429)
+        self.assertEqual(f.host_delay("www.shop.example"), fetch.RATE_LIMIT_DELAY_MIN)
+        self.assertEqual(f.host_delay("shop.example"), fetch.RATE_LIMIT_DELAY_MIN)
+        self.assertIn("www.shop.example", f.rate_limited_hosts())
+        self.sleeps[:] = []
+        f.get("https://www.shop.example/sitemap.xml")
+        self.assertTrue(self.sleeps and self.sleeps[0] > 1.5, self.sleeps)
+
     def test_delay_raise_is_bounded(self):
         f = self.fetcher([(429, {})], delay=10, rate_limit_retries=0)
         f.get("https://shop.example/a")

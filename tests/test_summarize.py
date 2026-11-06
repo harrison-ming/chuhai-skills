@@ -910,6 +910,69 @@ class TestProductPageParse(unittest.TestCase):
         self.assertIsNone(facts["currency"])
         self.assertEqual(facts["title"], "Lamp & Co")
 
+    def test_nested_main_entity_product(self):
+        ld = {
+            "@type": "WebPage",
+            "mainEntity": {
+                "@type": "Product",
+                "name": "Deep",
+                "offers": {"@type": "Offer", "price": "42.00", "priceCurrency": "CAD"},
+            },
+        }
+        src = '<script type="application/ld+json">%s</script>' % json.dumps(ld)
+        facts = summarize.parse_product_page(src)
+        self.assertEqual((facts["price"], facts["currency"]), (42.0, "CAD"))
+        # depth-bounded: a pathologically deep document does not hang
+        deep = {"@type": "Product", "offers": {"price": 1}}
+        for _ in range(500):
+            deep = {"x": deep}
+        self.assertIsNone(
+            summarize._from_json_ld(
+                '<script type="application/ld+json">%s</script>' % json.dumps(deep)
+            )
+        )
+
+    def test_several_products_prefer_handle(self):
+        def product(handle, price):
+            return {
+                "@type": "Product",
+                "name": handle,
+                "url": "https://shop.example/products/%s" % handle,
+                "offers": {"@type": "Offer", "price": price, "priceCurrency": "USD"},
+            }
+
+        page = '<script type="application/ld+json">%s</script>' % json.dumps(
+            [product("cheap-add-on", 9), product("main-item", 120)]
+        )
+        facts = summarize.parse_product_page(page, "main-item")
+        self.assertEqual((facts["price"], facts["title"]), (120.0, "main-item"))
+        # several priced, none matching: no guess; meta price when present
+        self.assertIsNone(summarize.parse_product_page(page, "other"))
+        self.assertIsNone(summarize.parse_product_page(page))
+        meta = page + '<meta property="og:price:amount" content="99.00">'
+        facts = summarize.parse_product_page(meta, "other")
+        self.assertEqual((facts["price"], facts["price_from"]), (99.0, "meta"))
+        # offer url match, ProductGroup variants count as one product
+        group = {
+            "@type": "ProductGroup",
+            "name": "Tee",
+            "hasVariant": [
+                {
+                    "@type": "Product",
+                    "offers": {
+                        "price": p,
+                        "url": "/products/tee?variant=%d" % p,
+                    },
+                }
+                for p in (20, 25)
+            ],
+        }
+        src = '<script type="application/ld+json">%s</script>' % json.dumps(group)
+        facts = summarize.parse_product_page(src, "tee")
+        self.assertEqual((facts["price"], facts["price_max"]), (20.0, 25.0))
+        facts = summarize.parse_product_page(src)
+        self.assertEqual((facts["price"], facts["price_max"]), (20.0, 25.0))
+
     def test_no_price(self):
         self.assertIsNone(summarize.parse_product_page("<html>hi</html>"))
         self.assertIsNone(summarize.parse_product_page(""))
@@ -1072,6 +1135,116 @@ class TestRateLimitedCollect(RateLimitedCase):
         self.assertEqual(s["endpoints"]["product_page_sample"]["source"], "saved_files")
         self.assertEqual(s["coverage"]["products_json"], "not_checked")
         self.assertEqual(len(s["l1_samples"]), 2)  # mode B keeps file-name samples
+
+
+class ScriptFetcher(object):
+    """Fake fetcher: path -> status (429 / 200); records every URL."""
+
+    def __init__(self, base, answers):
+        self.base = base
+        self.answers = answers
+        self.urls = []
+
+    def get(self, url, _accept):
+        self.urls.append(url)
+        path = url[len(self.base) :] if url.startswith(self.base) else url
+        status = 200
+        for prefix, code in self.answers:
+            if path.startswith(prefix):
+                status = code
+                break
+        if status == 429:
+            return {
+                "status": 429,
+                "body": b"slow down",
+                "final_url": url,
+                "elapsed_ms": 1,
+                "note": "rate limited (429), wait budget exhausted",
+                "rate_limited": True,
+            }
+        if path == "/sitemap.xml":
+            body = (
+                "<sitemapindex><loc>%s/sitemap_products_1.xml</loc>"
+                "<loc>%s/sitemap_products_2.xml</loc></sitemapindex>"
+                % (self.base, self.base)
+            )
+        elif path.startswith("/sitemap_products"):
+            body = "<urlset><url><loc>%s/products/a-1</loc></url></urlset>" % self.base
+        elif path.endswith(".json"):
+            body = "{}"
+        else:
+            body = "<html>Shopify page %s</html>" % path
+        return {
+            "status": 200,
+            "body": body.encode("utf-8"),
+            "final_url": url,
+            "elapsed_ms": 1,
+            "note": "",
+        }
+
+
+CATALOGUE_PATHS = (
+    "/products.json",
+    "/collections.json",
+    "/sitemap_products",
+    "/products/",
+    "/collections/",
+)
+
+
+class TestRateLimitStops(FixtureCase):
+    base = "https://shop.example"
+
+    def run_collect(self, answers, depth="L1", skip_offsite=True):
+        f = ScriptFetcher(self.base, answers)
+        out = os.path.join(self.tmp, "stop-%d" % len(os.listdir(self.tmp)))
+        col = collect.Collector(self.base, out, depth, 100, 50, skip_offsite, f)
+        col.run()
+        return col, f
+
+    def paths(self, urls):
+        return [u[len(self.base) :] for u in urls if u.startswith(self.base)]
+
+    def test_catalogue_429_stops_catalogue_requests(self):
+        col, f = self.run_collect(
+            [("/products.json", 429), ("/sitemap_products_1", 429)]
+        )
+        paths = self.paths(f.urls)
+        first = paths.index("/sitemap_products_1.xml")
+        after = paths[first + 1 :]
+        self.assertFalse(
+            [p for p in after if p.startswith(CATALOGUE_PATHS)], after
+        )  # zero further catalogue requests
+        self.assertNotIn("/collections.json?limit=250&page=1", paths)
+        self.assertIn("/policies/refund-policy", after)  # plain pages still once
+        skipped = [r for r in col.requests if r["result"] == "not_checked"]
+        notes = {r["key"]: r["note"] for r in skipped}
+        self.assertEqual(notes["sitemap_products"], collect.SKIP_CATALOGUE_NOTE)
+        self.assertEqual(notes["best_selling"], collect.SKIP_CATALOGUE_NOTE)
+        self.assertEqual(notes["page_collection"], collect.SKIP_CATALOGUE_NOTE)
+        self.assertEqual(notes["collections_json"], collect.SKIP_BULK_NOTE)
+        self.assertTrue(col.catalogue_limited)
+
+    def test_plain_page_429_stops_the_host_not_offsite(self):
+        col, f = self.run_collect(
+            [("/products.json", 429), ("/policies/refund-policy", 429)],
+            skip_offsite=False,
+        )
+        paths = self.paths(f.urls)
+        idx = paths.index("/policies/refund-policy")
+        self.assertEqual(paths[idx + 1 :], [])  # nothing more to the store
+        self.assertTrue(any("rdap.org" in u for u in f.urls))
+        self.assertTrue(any("web.archive.org" in u for u in f.urls))
+        skipped = [r for r in col.requests if r["note"] == collect.SKIP_HOST_NOTE]
+        self.assertTrue(any(r["key"] == "page_about" for r in skipped))
+
+    def test_product_page_429_stops_l1_pages(self):
+        col, f = self.run_collect([("/products.json", 429), ("/products/a-1", 429)])
+        paths = self.paths(f.urls)
+        self.assertEqual(paths.count("/products/a-1"), 1)
+        after = paths[paths.index("/products/a-1") + 1 :]
+        self.assertFalse([p for p in after if p.startswith(CATALOGUE_PATHS)], after)
+        self.assertEqual(col.sample_info["stopped"], "rate_limited")
 
 
 if __name__ == "__main__":

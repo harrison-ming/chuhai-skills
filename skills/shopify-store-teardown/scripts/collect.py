@@ -85,6 +85,27 @@ L1_SAMPLE_ROLES = ("entry", "main", "premium")
 PRICE_SAMPLE_DEFAULT = 12
 PRICE_SAMPLE_CAP = 30
 SAMPLE_MIN_DELAY = 1.5  # seconds between sampled product pages, at least
+# Rate-limit stop rules (a "final" 429 is one the fetcher gave up on):
+# - bulk product data (products.json, collections.json): skip the other bulk
+#   endpoint; the sitemap + product-page sample fallback still runs;
+# - catalogue pages (product sitemaps, product pages, collection pages,
+#   best-selling): skip every remaining catalogue request to the store;
+# - any other store page (policies, about, sitemap index...): stop every
+#   further request to that host. Off-site lookups are not affected.
+BULK_KEYS = frozenset(["products_json", "collections_json"])
+CATALOGUE_KEYS = frozenset(
+    [
+        "sitemap_products",
+        "product_page_sample",
+        "page_product",
+        "page_collection",
+        "best_selling",
+    ]
+)
+OFFSITE_KEYS = frozenset(["rdap", "wayback"])
+SKIP_BULK_NOTE = "skipped: store rate limited products.json (429)"
+SKIP_CATALOGUE_NOTE = "skipped: store rate limited catalogue pages"
+SKIP_HOST_NOTE = "skipped: store rate limited this site"
 
 
 def ensure_public_url(url):
@@ -202,10 +223,57 @@ class Collector(object):
         self.sitemap_handles = []  # product handles from sitemap_products_*.xml
         self.page_samples = []  # sampled product pages (see collect_page_sample)
         self.sample_info = None
+        self.bulk_limited = False  # products/collections.json ended in 429
+        self.catalogue_limited = False  # a catalogue page ended in 429
+        self.stopped_hosts = set()  # store hosts that rate limited a plain page
+
+    def skip_reason(self, key, url):
+        """Why a request must not be sent after a rate limit, or None."""
+        if key in OFFSITE_KEYS:
+            return None
+        if (urlsplit(url).hostname or "").lower() in self.stopped_hosts:
+            return SKIP_HOST_NOTE
+        if key in BULK_KEYS and (self.bulk_limited or self.catalogue_limited):
+            return SKIP_BULK_NOTE if self.bulk_limited else SKIP_CATALOGUE_NOTE
+        if key in CATALOGUE_KEYS and self.catalogue_limited:
+            return SKIP_CATALOGUE_NOTE
+        return None
+
+    def note_rate_limit(self, key, url, final_url):
+        """Record a final 429 answer (see BULK_KEYS / CATALOGUE_KEYS)."""
+        if key in OFFSITE_KEYS:
+            return
+        if key in BULK_KEYS:
+            self.bulk_limited = True
+        elif key in CATALOGUE_KEYS:
+            self.catalogue_limited = True
+        else:
+            for u in (url, final_url):
+                host = (urlsplit(u or "").hostname or "").lower()
+                if host:
+                    self.stopped_hosts.add(host)
 
     def fetch(self, key, url, fname, kind):
         """Fetch url, save to raw/fname on success, log status. Returns text or None."""
+        skip = self.skip_reason(key, url)
+        if skip:
+            self.requests.append(
+                {
+                    "key": key,
+                    "file": fname,
+                    "url": url,
+                    "final_url": None,
+                    "http_status": None,
+                    "result": "not_checked",
+                    "bytes": 0,
+                    "elapsed_ms": 0,
+                    "note": skip,
+                }
+            )
+            return None
         r = self.f.get(url, ACCEPT_JSON if kind == "json" else ACCEPT_HTML)
+        if r["status"] == 429:
+            self.note_rate_limit(key, url, r.get("final_url"))
         result, cnote, keep = classify(r["status"], r["body"], kind)
         note = "; ".join(n for n in (r["note"], cnote) if n)
         if r["status"] is None and not note:
@@ -302,30 +370,7 @@ class Collector(object):
             self.products.extend(p for p in items if isinstance(p, dict))
             page += 1
 
-    def products_rate_limited(self):
-        """True when the last products.json request was still answered 429."""
-        prod = [r for r in self.requests if r.get("key") == "products_json"]
-        return bool(prod) and prod[-1].get("http_status") == 429
-
     def collect_collections(self):
-        if not self.products and self.products_rate_limited():
-            # Same bulk-data interface the store just asked us to stop
-            # using: do not knock again, record it as not checked.
-            self.requests.append(
-                {
-                    "key": "collections_json",
-                    "file": "collections-1.json",
-                    "url": "%s/collections.json?limit=%d&page=1"
-                    % (self.base, PRODUCTS_LIMIT),
-                    "final_url": None,
-                    "http_status": None,
-                    "result": "not_checked",
-                    "bytes": 0,
-                    "elapsed_ms": 0,
-                    "note": "skipped: store rate limited products.json (429)",
-                }
-            )
-            return
         for page in range(1, COLLECTIONS_MAX_PAGES + 1):
             url = "%s/collections.json?limit=%d&page=%d" % (
                 self.base,
@@ -404,12 +449,11 @@ class Collector(object):
         try:
             for handle in handles:
                 fname = "page-product-%s.html" % safe_slug(handle)
-                text = self.fetch(
-                    "product_page_sample",
-                    "%s/products/%s" % (self.base, quote(handle, safe="")),
-                    fname,
-                    "html",
-                )
+                url = "%s/products/%s" % (self.base, quote(handle, safe=""))
+                if self.skip_reason("product_page_sample", url):
+                    self.sample_info["stopped"] = "rate_limited"
+                    break
+                text = self.fetch("product_page_sample", url, fname, "html")
                 req = self.requests[-1]
                 item = {
                     "handle": handle,
@@ -417,7 +461,7 @@ class Collector(object):
                     "result": req["result"],
                     "http_status": req.get("http_status"),
                 }
-                facts = summarize.parse_product_page(text) if text else None
+                facts = summarize.parse_product_page(text, handle) if text else None
                 if facts:
                     for key in ("price", "currency", "available", "title"):
                         item[key] = facts.get(key)

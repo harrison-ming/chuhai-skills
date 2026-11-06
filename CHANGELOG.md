@@ -20,6 +20,11 @@
 - 降级而不是空白: `collect.py` 新增 `--max-wait` (默认 75), `--wait-budget` (默认 240), `--price-sample` (默认 12, 上限 30). `products.json` 第 1 页仍被限流时停止翻页, 不再请求同类的 `collections.json`, 改从网站地图的商品网址里均匀挑商品页慢速读取 (间隔至少 1.5 秒, 跳过运费保障/礼品卡, 遇 429 或拦截立即停); 深度拆解的 3 个样本从已抽样的页面里挑, 不重复请求.
 - `summarize.py` 从商品页读价格 (结构化数据 JSON-LD `offers` 优先, 其次 `og:price:amount` / `product:price:amount`, 不猜原价), 算抽样价格分布; 新增 `summary.coverage` (商品数据 ok/partial/rate_limited/blocked..., 价格来源, 抽样数/总体数, 有无折扣和上新数据, 收到 429 的请求), `products.price_source` / `price_sample_size` / `price_population` / `sitemap_lastmod_by_month` (网站地图的最近更新时间, 不是上架时间) / `unavailable_reasons`; 新警告 `products_json_rate_limited`, `prices_from_page_sample`, `price_sample_small`; `products.tsv` 抽样行 `source` 为 `product_page`; 采集摘要用大白话说明限流和抽样依据, 并建议隔一段时间再试.
 - 自检: 价格来自抽样而报告没写 "抽样" 记为错误, 被限流而报告没提限流记为提示 (`check_report.py` 与 `deliver.py` 都读 `summary.json`).
+- 交叉审计修正 (第 1 轮):
+  - 最终 429 之后不再继续请求: 批量商品数据被限流只跳过另一个批量接口; 商品类页面 (商品网站地图, 商品页, 集合页, 排序页) 被限流后本次不再请求任何商品类页面 (含剩余子地图); 政策页等普通页面被限流后不再请求该店任何页面; 跳过的请求记为 `not_checked` 并写明原因, 站外查询不受影响 (店铺拆解与竞品雷达同一规则).
+  - 跳转到另一个主机后才收到 429 时, 原主机和跳转后的主机都放慢.
+  - 商品页价格: JSON-LD 任意嵌套层级都找 (例如 `mainEntity`, 有深度和节点上限); 页面有多个商品 (推荐位, 套装) 时只用网址对应本商品的那个, 对不上改用页面的价格标签, 再没有就不取价, 不猜.
+  - 自检: 抽样说明必须在正文 (附录之前), 不能是否定句, 同一句要有实际抽样数 N; 没写总体数 M 只提示. 商品数据中途被限流时, 正文没说是部分数据记为提示, 商品数是下限却没写 "至少" 记为错误.
 - 文档: SKILL.md 限流处理改为不循环重跑, 报告写明抽样依据, 完成状态写 partial; data-contract / report-template / evidence / manual-collection 同步. 新测试夹具 `tests/fixtures/rate_limited/` 与离线测试 (假时钟, 不真等待).
 
 ## v0.2.2 (未发布, 随 v0.2.3 一起发布)
