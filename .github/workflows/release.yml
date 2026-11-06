@@ -9,7 +9,8 @@ permissions:
 
 jobs:
   package:
-    runs-on: ubuntu-latest
+    # Python 3.8 (the oldest we support) is not published for newer Ubuntu images.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
