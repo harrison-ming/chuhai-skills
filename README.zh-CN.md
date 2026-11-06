@@ -124,7 +124,7 @@ npx skills add harrison-ming/chuhai-skills
 
 | | 内容 | 获取 |
 |---|---|---|
-| **Pro 版** | 3-8 家店横向对比, 带锚点的评分卡, 对照你自己店铺的差距清单, 浏览器档 (购物车/移动端/弹窗/评价挂件, 需本地运行), 12 个月更新 | [在 Moveset 获取](https://moveset.io/zh/skills/shopify-store-teardown?ref=github) |
+| **Pro 版** | 2-8 家店横向对比, 带锚点的评分卡, 对照你自己店铺的差距清单, 浏览器档 (购物车/移动端/弹窗/评价挂件, 需本地运行), 12 个月更新 | [在 Moveset 获取](https://moveset.io/zh/skills/shopify-store-teardown?ref=github) |
 | **利润测算 Pro 版** | 最多 200 个 SKU 与店铺加权, Shopify / Amazon FBA / TikTok Shop 渠道对比, 全部输入敏感度龙卷风图, 12 个月现金流与现金谷底, 价格网格, 复购回本 | 准备中 |
 | **人工深度拆解** | 由 StellarByte 完成 1 家对标店的完整拆解, 对照你的店铺给出改造建议, 含 30 分钟通话 | [联系 StellarByte](https://stellarbyte.ca/zh/contact/?ref=skill-teardown) |
 

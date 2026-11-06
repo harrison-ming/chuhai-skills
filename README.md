@@ -99,7 +99,7 @@ The free skill fully covers single-store quick checks and deep teardowns, with n
 
 | | What | How |
 |---|---|---|
-| **Pro** | Comparison across 3-8 stores, anchored scorecard, gap list against your own store, browser checks (cart / mobile / popups / review widgets, run locally), 12 months of updates | [On Moveset](https://moveset.io/en/skills/shopify-store-teardown?ref=github) |
+| **Pro** | Comparison across 2-8 stores, anchored scorecard, gap list against your own store, browser checks (cart / mobile / popups / review widgets, run locally), 12 months of updates | [On Moveset](https://moveset.io/en/skills/shopify-store-teardown?ref=github) |
 | **Profit model Pro** | Up to 200 SKUs with store weighting, Shopify / Amazon FBA / TikTok Shop comparison, full sensitivity tornado chart, 12-month cash plan with the cash low point, price grid, repeat-purchase payback | In preparation |
 | **Done-for-you teardown** | StellarByte tears down 1 benchmark store end to end, compares it with your store and gives improvement suggestions, including a 30-minute call | [Contact StellarByte](https://stellarbyte.ca/contact/?ref=skill-teardown) |
 
