@@ -217,7 +217,7 @@ def main(argv=None):
     except OSError as e:
         print("错误: 读取 report.md 失败: %s" % e, file=sys.stderr)
         return 1
-    check = check_report.check_text(md_text)
+    check = check_report.check_text(md_text, summary)
     if check.errors or check.warnings:
         print(check_report.format_result(check, md_path, limit=12))
         print("")

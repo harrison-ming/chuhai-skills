@@ -29,7 +29,7 @@ from collections import Counter
 
 SCHEMA = "store-teardown/summary/1"
 RAW_DIRNAME = "原始数据"  # same as delivery.RAW_DIRNAME
-TOOL_VERSION = "0.2.2"
+TOOL_VERSION = "0.2.3"
 
 POLICY_NAMES = [
     "refund-policy",
@@ -51,6 +51,8 @@ NON_PRODUCT_RE = re.compile(
 MIN_REAL_PRICE = 5.0
 
 POLICY_MIN_CHARS = 200
+# Fewer sampled product-page prices than this: warn that the sample is small.
+PRICE_SAMPLE_SMALL = 8
 COLLECTIONS_MISMATCH_RATIO = 0.20
 SITEMAP_MISMATCH_RATIO = 0.10
 
@@ -401,6 +403,246 @@ def js_object_after(src, pattern):
 
 
 # ---------------------------------------------------------------------------
+# sitemap and product page parsing (also used by collect.py)
+# ---------------------------------------------------------------------------
+
+LOC_RE = re.compile(r"<loc>\s*([^<]+?)\s*</loc>")
+URL_BLOCK_RE = re.compile(r"(?is)<url>(.*?)</url>")
+LASTMOD_RE = re.compile(r"(?is)<lastmod>\s*([^<]+?)\s*</lastmod>")
+LD_JSON_RE = re.compile(
+    r"(?is)<script\b[^>]*type\s*=\s*[\"']application/ld\+json[\"'][^>]*>(.*?)</script>"
+)
+META_TAG_RE = re.compile(r"(?is)<meta\b[^>]*>")
+TITLE_RE = re.compile(r"(?is)<title\b[^>]*>(.*?)</title>")
+
+
+def product_handle(url):
+    """Handle of a ``.../products/<handle>`` URL (unescaped), or None."""
+    url = html.unescape(url or "")
+    if "/products/" not in url:
+        return None
+    handle = url.split("/products/", 1)[1].split("?")[0].split("#")[0].strip("/")
+    if not handle or "/" in handle:
+        return None
+    return handle
+
+
+def sitemap_product_entries(text):
+    """[(handle, lastmod or None)] of product URLs in a sitemap, in order.
+
+    Handles may repeat (localized child maps list the same products).
+    """
+    out = []
+    blocks = URL_BLOCK_RE.findall(text or "")
+    if blocks:
+        for block in blocks:
+            m = LOC_RE.search(block)
+            handle = product_handle(m.group(1)) if m else None
+            if handle:
+                lm = LASTMOD_RE.search(block)
+                out.append((handle, lm.group(1).strip() if lm else None))
+        return out
+    for loc in LOC_RE.findall(text or ""):
+        handle = product_handle(loc)
+        if handle:
+            out.append((handle, None))
+    return out
+
+
+def _money(value):
+    """Float from 25, "25.00" or "1,234.50"; None otherwise."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        text = value.strip().replace(",", "")
+        if re.match(r"^\d+(?:\.\d+)?$", text):
+            return float(text)
+    return None
+
+
+def _ld_nodes(obj):
+    """Every dict inside a JSON-LD document (lists and @graph included)."""
+    stack = [obj]
+    while stack:
+        cur = stack.pop()
+        if isinstance(cur, list):
+            stack.extend(reversed(cur))
+        elif isinstance(cur, dict):
+            yield cur
+            if "@graph" in cur:
+                stack.append(cur["@graph"])
+
+
+def _ld_is(node, kind):
+    t = node.get("@type")
+    types = t if isinstance(t, list) else [t]
+    return any(isinstance(x, str) and x.split("/")[-1] == kind for x in types)
+
+
+def _availability(values):
+    """True if any offer is in stock, False if all are sold out, else None."""
+    flags = []
+    for v in values:
+        low = str(v or "").lower()
+        if "instock" in low or "limitedavailability" in low or "preorder" in low:
+            flags.append(True)
+        elif "outofstock" in low or "soldout" in low or "discontinued" in low:
+            flags.append(False)
+    if any(flags):
+        return True
+    if flags:
+        return False
+    return None
+
+
+def _from_json_ld(src):
+    """Price facts of the first JSON-LD Product with a usable offer."""
+    for raw in LD_JSON_RE.findall(src):
+        doc = None
+        for text in (raw.strip(), html.unescape(raw.strip())):
+            try:
+                doc = json.loads(text)
+                break
+            except ValueError:
+                continue
+        if doc is None:
+            continue
+        for node in _ld_nodes(doc):
+            if not (_ld_is(node, "Product") or _ld_is(node, "ProductGroup")):
+                continue
+            offers = node.get("offers")
+            if offers is None and isinstance(node.get("hasVariant"), list):
+                offers = [
+                    v.get("offers") for v in node["hasVariant"] if isinstance(v, dict)
+                ]
+            offer_list = []
+            for o in _ld_nodes(offers):
+                if (
+                    _ld_is(o, "Offer")
+                    or _ld_is(o, "AggregateOffer")
+                    or ("price" in o or "lowPrice" in o)
+                ):
+                    offer_list.append(o)
+            prices, highs, compare, currencies, avail = [], [], [], [], []
+            for o in offer_list:
+                low = _money(o.get("lowPrice"))
+                high = _money(o.get("highPrice"))
+                price = _money(o.get("price"))
+                if price is None:
+                    spec = o.get("priceSpecification")
+                    for sp in _ld_nodes(spec):
+                        kind = str(sp.get("priceType") or "")
+                        val = _money(sp.get("price"))
+                        if val is None:
+                            continue
+                        if "Strikethrough" in kind or "ListPrice" in kind:
+                            compare.append(val)
+                        elif price is None:
+                            price = val
+                else:
+                    for sp in _ld_nodes(o.get("priceSpecification")):
+                        kind = str(sp.get("priceType") or "")
+                        val = _money(sp.get("price"))
+                        if val is not None and (
+                            "Strikethrough" in kind or "ListPrice" in kind
+                        ):
+                            compare.append(val)
+                for v in (price, low):
+                    if v is not None:
+                        prices.append(v)
+                for v in (price, high):
+                    if v is not None:
+                        highs.append(v)
+                cur = o.get("priceCurrency")
+                if isinstance(cur, str) and cur.strip():
+                    currencies.append(cur.strip().upper())
+                if o.get("availability") is not None:
+                    avail.append(o.get("availability"))
+            if not prices:
+                continue
+            name = node.get("name")
+            return {
+                "title": name.strip() if isinstance(name, str) else None,
+                "price": min(prices),
+                "price_max": max(highs) if highs else min(prices),
+                "compare_at": max(compare) if compare else None,
+                "currency": Counter(currencies).most_common(1)[0][0]
+                if currencies
+                else None,
+                "available": _availability(avail),
+                "price_from": "json_ld",
+            }
+    return None
+
+
+def _meta_values(src):
+    out = {}
+    for tag in META_TAG_RE.findall(src):
+        attrs = parse_attrs(tag)
+        key = (attrs.get("property") or attrs.get("name") or "").lower()
+        if key and "content" in attrs:
+            out.setdefault(key, attrs["content"])
+    return out
+
+
+def parse_product_page(src):
+    """Price facts visible on a public product page, or None.
+
+    Reads JSON-LD ``Product`` offers first (price / lowPrice / highPrice,
+    priceCurrency, availability), then the ``og:price:amount`` /
+    ``product:price:amount`` meta tags. Returns ``{title, price, price_max,
+    compare_at, currency, available, price_from}``; ``compare_at`` is only set
+    when JSON-LD states a strikethrough / list price (never guessed).
+    """
+    if not src:
+        return None
+    meta = _meta_values(src)
+    found = _from_json_ld(src)
+    if found is None:
+        price = None
+        for key in ("og:price:amount", "product:price:amount"):
+            price = _money(meta.get(key))
+            if price is not None:
+                break
+        if price is None:
+            return None
+        cur = meta.get("og:price:currency") or meta.get("product:price:currency")
+        found = {
+            "title": None,
+            "price": price,
+            "price_max": price,
+            "compare_at": None,
+            "currency": cur.strip().upper() if cur and cur.strip() else None,
+            "available": None,
+            "price_from": "meta",
+        }
+    if not found.get("title"):
+        title = meta.get("og:title")
+        if not title:
+            m = TITLE_RE.search(src)
+            title = html.unescape(m.group(1)).strip() if m else None
+        found["title"] = title or None
+    return found
+
+
+def sample_product(entry):
+    """Minimal products.json-like dict for a sampled product page, so the
+    shared price rules (is_real_product, select_l1_samples) apply."""
+    variant = {"price": "%.2f" % entry["price"]}
+    if entry.get("available") is not None:
+        variant["available"] = entry["available"]
+    if entry.get("compare_at") is not None:
+        variant["compare_at_price"] = "%.2f" % entry["compare_at"]
+    return {
+        "handle": entry.get("handle"),
+        "title": entry.get("title") or entry.get("handle"),
+        "variants": [variant],
+    }
+
+
+# ---------------------------------------------------------------------------
 # summarizer
 # ---------------------------------------------------------------------------
 
@@ -572,6 +814,8 @@ def summarize_run(run_dir, domain=None):
         ]
     sp_pages = list_pages(run.raw, "sitemap-products-", ".xml")
     sitemap_product_urls = None
+    sitemap_handle_order = []
+    sitemap_lastmod = {}  # handle -> latest <lastmod> (last-modified, not publish)
     if sp_pages:
         # Localized child maps (e.g. /es-US/sitemap_products_1.xml) repeat the
         # same products, so count unique handles instead of raw URLs.
@@ -580,12 +824,17 @@ def summarize_run(run_dir, domain=None):
         sitemap_truncated = False
         for _n, fname in sp_pages:
             txt = read_text(run.path(fname)) or ""
-            for u in re.findall(r"<loc>\s*([^<]+?)\s*</loc>", txt):
-                if "/products/" in u:
-                    handles.add(u.split("/products/", 1)[1].split("?")[0].strip("/"))
-                    if len(handles) >= sitemap_handle_cap:
-                        sitemap_truncated = True
-                        break
+            for handle, lastmod in sitemap_product_entries(txt):
+                if handle not in handles:
+                    handles.add(handle)
+                    sitemap_handle_order.append(handle)
+                if lastmod and len(lastmod) >= 7 and re.match(r"^\d{4}-\d{2}", lastmod):
+                    prev = sitemap_lastmod.get(handle)
+                    if prev is None or lastmod > prev:
+                        sitemap_lastmod[handle] = lastmod
+                if len(handles) >= sitemap_handle_cap:
+                    sitemap_truncated = True
+                    break
             if sitemap_truncated:
                 break
         sitemap_product_urls = len(handles)
@@ -693,6 +942,38 @@ def summarize_run(run_dir, domain=None):
     # products -------------------------------------------------------------
     currency = shop.get("currency") or None
     pstats, rows = product_stats(products, currency, base)
+    page_files = sorted(
+        n
+        for n in (os.listdir(run.raw) if os.path.isdir(run.raw) else [])
+        if n.startswith("page-") and n.endswith(".html")
+    )
+    samples, sample_ep = ([], None) if products else load_page_sample(run, page_files)
+    if sample_ep is not None:
+        endpoints["product_page_sample"] = sample_ep
+    priced = [x for x in samples if x.get("price") is not None]
+    price_source = None
+    if priced:
+        price_source = "product_page_sample"
+        sample_currency = Counter(
+            x["currency"] for x in priced if x.get("currency")
+        ).most_common(1)
+        sstats, rows = sample_stats(
+            priced, sample_currency[0][0] if sample_currency else currency, base
+        )
+        pstats.update(sstats)
+    elif products and pstats["price"].get("median") is not None:
+        price_source = "products_json"
+    pstats["price_source"] = price_source
+    pstats.setdefault("unavailable_reasons", {})
+    if price_source == "product_page_sample":
+        pstats["price_sample_size"] = len(priced)
+    elif price_source == "products_json":
+        pstats["price_sample_size"] = (
+            pstats["price_excluding_virtual"]["count"]
+            + (pstats["price_excluding_virtual"]["excluded"])
+        )
+    else:
+        pstats["price_sample_size"] = None
     if prod_ep.get("result") == "ok":
         pstats["count_source"] = "products_json"
         if prod_ep.get("truncated") or prod_ep.get("pagination_complete") is False:
@@ -704,6 +985,13 @@ def summarize_run(run_dir, domain=None):
         pstats["count"] = None
         pstats["count_source"] = None
     pstats["sitemap_product_urls"] = sitemap_product_urls
+    pstats["price_population"] = (
+        sitemap_product_urls
+        if price_source == "product_page_sample"
+        else (pstats.get("count") if price_source else None)
+    )
+    lastmod_months = Counter(v[:7] for v in sitemap_lastmod.values())
+    pstats["sitemap_lastmod_by_month"] = dict(sorted(lastmod_months.items()))
     all_count = None
     for c in collections:
         if c.get("handle") == "all" and c.get("products_count") is not None:
@@ -742,7 +1030,25 @@ def summarize_run(run_dir, domain=None):
             if pstats["count_source"] != "sitemap"
             else "raw/sitemap.xml",
         )
-    if pstats.get("price", {}).get("median") is not None:
+    if price_source == "product_page_sample":
+        pr = pstats["price"]
+        run.add_evidence(
+            "E1",
+            "price_sample",
+            "商品页抽样 %d 款 (共约 %s 款) 的最低价中位数 %s %s (P25 %s, P75 %s); "
+            "是抽样估计, 不是全店统计"
+            % (
+                len(priced),
+                sitemap_product_urls if sitemap_product_urls is not None else "?",
+                pr["median"],
+                pr.get("currency") or "",
+                pr["p25"],
+                pr["p75"],
+            ),
+            run.url_for(priced[0]["file"][4:], "/products/%s" % priced[0]["handle"]),
+            "raw/page-product-*.html",
+        )
+    elif pstats.get("price", {}).get("median") is not None:
         pr = pstats["price"]
         pv = pstats.get("price_excluding_virtual") or {}
         run.add_evidence(
@@ -825,14 +1131,16 @@ def summarize_run(run_dir, domain=None):
         }
 
     # about / other pages --------------------------------------------------
-    page_files = sorted(
-        n
-        for n in (os.listdir(run.raw) if os.path.isdir(run.raw) else [])
-        if n.startswith("page-") and n.endswith(".html")
-    )
     if "page-about.html" in page_files or "page-about.html" in run.by_file:
         endpoints["page_about"] = run.status_entry("page-about.html", None)
-    l1_samples = build_l1_samples(run, products, page_files)
+    from_collect = (sample_ep or {}).get("source") == "collect"
+    l1_samples = build_l1_samples(
+        run,
+        products,
+        page_files,
+        {x["file"][4:] for x in samples} if from_collect else (),
+        {x["handle"]: x["price"] for x in priced},
+    )
     for sample in l1_samples:
         if sample.get("result") == "ok":
             run.add_evidence(
@@ -882,6 +1190,16 @@ def summarize_run(run_dir, domain=None):
         for k in [k for k in ep if k.startswith("_")]:
             del ep[k]
 
+    coverage = build_coverage(run, endpoints, pstats)
+    if coverage["products_json"] == "rate_limited" or (
+        "products_json" in coverage["rate_limited_endpoints"]
+    ):
+        run.warnings.append("products_json_rate_limited")
+    if price_source == "product_page_sample":
+        run.warnings.append("prices_from_page_sample")
+        if len(priced) < PRICE_SAMPLE_SMALL:
+            run.warnings.append("price_sample_small")
+
     summary = {
         "schema": SCHEMA,
         "tool_version": TOOL_VERSION,
@@ -893,6 +1211,7 @@ def summarize_run(run_dir, domain=None):
         "shop": shop,
         "theme": theme,
         "products": pstats,
+        "coverage": coverage,
         "best_selling_top": best,
         "l1_samples": l1_samples,
         "offsite": offsite,
@@ -909,8 +1228,13 @@ def summarize_run(run_dir, domain=None):
 L1_ROLE_LABELS = {"entry": "入门款", "main": "主力款", "premium": "高价款"}
 
 
-def build_l1_samples(run, products, page_files):
-    """L1 sample product pages from _status.json, else from file names."""
+def build_l1_samples(run, products, page_files, exclude=(), page_prices=None):
+    """L1 sample product pages from _status.json, else from file names.
+
+    ``exclude``: file names that belong to collect.py's price page sample
+    (not L1 samples unless _status.json lists them as such).
+    ``page_prices``: {handle: price} read from sampled product pages, used
+    when products.json gave no price."""
     prices = {}
     for p in products:
         vals = [
@@ -920,6 +1244,8 @@ def build_l1_samples(run, products, page_files):
         ]
         if p.get("handle") and vals:
             prices[p["handle"]] = min(vals)
+    for handle, price in (page_prices or {}).items():
+        prices.setdefault(handle, price)
     out = []
     listed = run.status.get("l1_samples")
     if isinstance(listed, list) and listed:
@@ -943,7 +1269,7 @@ def build_l1_samples(run, products, page_files):
             out.append(entry)
         return out
     for fname in page_files:
-        if fname.startswith("page-product-"):
+        if fname.startswith("page-product-") and fname not in exclude:
             handle = fname[len("page-product-") : -len(".html")]
             out.append(
                 {
@@ -955,6 +1281,171 @@ def build_l1_samples(run, products, page_files):
                 }
             )
     return out
+
+
+SAMPLE_BASIS = "per-product lowest price shown on sampled product pages"
+SAMPLE_UNAVAILABLE = {
+    "on_sale_share": "product pages do not reliably show compare-at prices",
+    "discount_depth_median": "product pages do not reliably show compare-at prices",
+    "variants": "variant lists are not read from product pages",
+    "created_first": "creation dates are only in the bulk product data",
+    "published_by_month": "publish dates are only in the bulk product data",
+}
+
+
+def load_page_sample(run, page_files):
+    """Sampled product pages: (entries, endpoint entry or None).
+
+    Entries come from ``_status.json`` ``price_sample.items`` (collect.py);
+    without it (files saved by hand), every ``page-product-*.html`` is used.
+    Each entry: handle, file, result, and the parse_product_page() facts.
+    """
+    info = run.status.get("price_sample")
+    listed = []
+    if isinstance(info, dict) and isinstance(info.get("items"), list):
+        origin = "collect"
+        for it in info["items"]:
+            if isinstance(it, dict) and it.get("handle"):
+                fname = (it.get("file") or "")[4:] or (
+                    "page-product-%s.html" % it["handle"]
+                )
+                listed.append((it["handle"], fname, it.get("result"), it))
+    else:
+        origin = "saved_files"
+        info = {}
+        for fname in page_files:
+            if fname.startswith("page-product-"):
+                listed.append(
+                    (fname[len("page-product-") : -len(".html")], fname, None, {})
+                )
+    if not listed:
+        return [], None
+    out = []
+    for handle, fname, result, item in listed:
+        entry = {"handle": handle, "file": "raw/" + fname}
+        txt, state = run.load_html_file(fname)
+        if txt and state == "ok":
+            entry["result"] = "ok"
+            facts = parse_product_page(txt)
+            entry.update(facts or {"price": None})
+        else:
+            entry["result"] = "blocked" if state == "blocked" else (result or "missing")
+            entry["price"] = None
+            if item.get("http_status") is not None:
+                entry["http_status"] = item["http_status"]
+        out.append(entry)
+    fetched = sum(1 for x in out if x["result"] == "ok")
+    priced = sum(1 for x in out if x.get("price") is not None)
+    ep = {
+        "result": "ok" if priced else ("error" if fetched else "blocked"),
+        "source": origin,
+        "requested": len(out),
+        "fetched": fetched,
+        "priced": priced,
+        "population": info.get("population"),
+        "stopped": info.get("stopped"),
+    }
+    if any(x.get("http_status") == 429 for x in out):
+        ep["http_status"] = 429
+    return out, ep
+
+
+def sample_stats(priced, currency, base):
+    """Price statistics of sampled product pages: (stats subset, tsv rows).
+
+    Only what a product page shows reliably is computed; discount, variant
+    and date fields are None, with the reason in ``unavailable_reasons``.
+    """
+    stats, _rows = product_stats([sample_product(x) for x in priced], currency, base)
+    out = {
+        "price": stats["price"],
+        "price_excluding_virtual": stats["price_excluding_virtual"],
+        "price_bands": stats["price_bands"],
+        "availability": stats["availability"],
+        "on_sale_share": None,
+        "discount_depth_median": None,
+        "variants": {"median": None, "max": None, "multi_variant_share": None},
+        "options_top": [],
+        "product_types_top": [],
+        "vendors_top": [],
+        "tags_top": [],
+        "created_first": None,
+        "created_last": None,
+        "published_by_month": {},
+        "unavailable_reasons": dict(SAMPLE_UNAVAILABLE),
+    }
+    out["price"]["basis"] = SAMPLE_BASIS
+    out["price_excluding_virtual"]["basis"] = (
+        SAMPLE_BASIS + ", excluding virtual items and prices below %g" % MIN_REAL_PRICE
+    )
+    rows = []
+    for x in priced:
+        rows.append(
+            [
+                None,
+                x["handle"],
+                "%s/products/%s" % (base, x["handle"]),
+                x.get("title"),
+                "",
+                "",
+                "",
+                x["price"],
+                x.get("price_max"),
+                x.get("compare_at"),
+                x.get("currency") or currency or "",
+                None,
+                "",
+                ""
+                if x.get("available") is None
+                else ("true" if x["available"] else "false"),
+                None,
+                None,
+                "product_page",
+            ]
+        )
+    return out, rows
+
+
+COVERAGE_RESULTS = ("not_found", "blocked", "error")
+
+
+def build_coverage(run, endpoints, pstats):
+    """What the numbers in this summary are based on (see data-contract.md)."""
+    limited = []
+    for req in run.status.get("requests") or []:
+        if isinstance(req, dict) and req.get("http_status") == 429:
+            if req.get("key") and req["key"] not in limited:
+                limited.append(req["key"])
+    ep = endpoints.get("products_json") or {}
+    res = ep.get("result")
+    if res == "ok":
+        partial = (
+            ep.get("truncated")
+            or ep.get("pagination_complete") is False
+            or "products_json" in limited
+        )
+        pj = "partial" if partial else "ok"
+    elif res in COVERAGE_RESULTS:
+        pj = res
+        if res != "not_found" and (
+            ep.get("http_status") == 429 or "products_json" in limited
+        ):
+            pj = "rate_limited"
+    else:
+        pj = "not_checked"
+    price_source = pstats.get("price_source")
+    return {
+        "products_json": pj,
+        "product_count_source": pstats.get("count_source"),
+        "price_source": price_source,
+        "price_sample_size": pstats.get("price_sample_size"),
+        "price_population": pstats.get("price_population"),
+        "discount_data": price_source == "products_json",
+        "new_product_cadence": bool(
+            pstats.get("published_by_month") or pstats.get("created_first")
+        ),
+        "rate_limited_endpoints": limited,
+    }
 
 
 def load_products(run):
@@ -1518,6 +2009,40 @@ def human_digest(summary):
                 "排除虚拟商品后: 中位数 %s (P25 %s / P75 %s, 排除 %s 款)"
                 % (pv["median"], pv["p25"], pv["p75"], pv.get("excluded"))
             )
+    cov = summary.get("coverage") or {}
+    warns = summary.get("warnings") or []
+    if "products_json_rate_limited" in warns:
+        if cov.get("products_json") == "rate_limited":
+            lines.append(
+                "注意: 店铺限制了批量读取商品数据 (429), 已按要求等待后仍受限; "
+                "没有反复重试, 也没有换身份绕过."
+            )
+        else:
+            lines.append(
+                "注意: 批量读取商品数据中途被店铺限流 (429), 只拿到了部分商品."
+            )
+    if cov.get("price_source") == "product_page_sample":
+        lines.append(
+            "价格基于 %s 个商品页抽样 (共约 %s 款), 是估计不是全店统计; "
+            "折扣, 上新节奏这类数据本次没有."
+            % (
+                cov.get("price_sample_size"),
+                cov.get("price_population")
+                if cov.get("price_population") is not None
+                else "?",
+            )
+        )
+        if "price_sample_small" in warns:
+            lines.append(
+                "注意: 抽样不足 %d 款, 价格结论只能当参考." % PRICE_SAMPLE_SMALL
+            )
+    elif cov.get("products_json") == "rate_limited":
+        lines.append("价格: 本次没有取到 (商品页抽样也没有拿到价格).")
+    if cov.get("products_json") == "rate_limited":
+        lines.append(
+            "建议: 报告写明价格依据 (抽样或缺失); 不要立刻重跑, "
+            "隔一段时间 (例如 1 小时后) 再试一次."
+        )
     lines.append("失败端点: %s" % (", ".join(failed) if failed else "无"))
     if summary.get("warnings"):
         lines.append("警告: %s" % ", ".join(summary["warnings"]))

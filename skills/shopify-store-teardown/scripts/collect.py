@@ -8,12 +8,19 @@ collection page and three sample product pages at L1),
 records every request in ``raw/_status.json`` and then runs summarize.py
 unless ``--no-summarize`` is given. A failing request never aborts the run.
 
+When products.json yields no products (e.g. the store answers 429 rate
+limited), a small, slow sample of public product pages listed in the
+product sitemap is fetched instead (``--price-sample``), stopping at the
+first 429 / block. Rate limits are respected: waits follow Retry-After
+within ``--max-wait`` / ``--wait-budget``; nothing is parallel or disguised.
+
 CLI:
     python collect.py <store_url_or_domain> [--out-root DIR | --out DIR]
                       [--depth L0|L1] [--max-pages 100]
                       [--max-sitemap-children 50] [--skip-offsite]
                       [--delay 0.5] [--timeout 20] [--no-summarize]
-                      [--init-only]
+                      [--max-wait 75] [--wait-budget 240]
+                      [--price-sample 12] [--init-only]
 
 By default a new run folder ``<root>/<domain> 对标拆解 <YYYY-MM-DD>[ (N)]/``
 is created, where <root> is resolved by delivery.resolve_output_root
@@ -33,7 +40,7 @@ import re
 import socket
 import subprocess  # noqa: F401  (tests patch collect.subprocess.run)
 import sys
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from urllib.error import URLError
 from urllib.request import HTTPSHandler, build_opener
 
@@ -74,6 +81,10 @@ ABOUT_SLUGS = ["about", "about-us", "our-story"]
 NON_PRODUCT_RE = summarize.NON_PRODUCT_RE
 MIN_SAMPLE_PRICE = summarize.MIN_REAL_PRICE
 L1_SAMPLE_ROLES = ("entry", "main", "premium")
+# Product-page price sample (fallback when products.json gives nothing).
+PRICE_SAMPLE_DEFAULT = 12
+PRICE_SAMPLE_CAP = 30
+SAMPLE_MIN_DELAY = 1.5  # seconds between sampled product pages, at least
 
 
 def ensure_public_url(url):
@@ -165,6 +176,8 @@ class Collector(object):
         skip_offsite,
         fetcher,
         public_only=False,
+        price_sample=PRICE_SAMPLE_DEFAULT,
+        sample_delay=SAMPLE_MIN_DELAY,
     ):
         self.scheme, self.host = normalize_input(target)
         self.input = target
@@ -184,6 +197,11 @@ class Collector(object):
         self.collections = []
         self.best_selling = []
         self.l1_samples = []
+        self.price_sample = min(max(int(price_sample or 0), 0), PRICE_SAMPLE_CAP)
+        self.sample_delay = sample_delay
+        self.sitemap_handles = []  # product handles from sitemap_products_*.xml
+        self.page_samples = []  # sampled product pages (see collect_page_sample)
+        self.sample_info = None
 
     def fetch(self, key, url, fname, kind):
         """Fetch url, save to raw/fname on success, log status. Returns text or None."""
@@ -230,6 +248,8 @@ class Collector(object):
         self.collect_products()
         self.collect_collections()
         self.collect_sitemap()
+        if not self.products:
+            self.collect_page_sample()
         best_txt = self.fetch(
             "best_selling",
             self.base + "/collections/all?sort_by=best-selling",
@@ -269,6 +289,9 @@ class Collector(object):
             )
             text = self.fetch("products_json", url, "products-%d.json" % page, "json")
             if text is None:
+                # Page 1 refused (e.g. 429 after the fetcher's waits): stop,
+                # the sitemap + page sample fallback takes over. Page N > 1:
+                # keep what we have (summarize marks the data as partial).
                 break
             try:
                 items = json.loads(text).get("products")
@@ -279,7 +302,30 @@ class Collector(object):
             self.products.extend(p for p in items if isinstance(p, dict))
             page += 1
 
+    def products_rate_limited(self):
+        """True when the last products.json request was still answered 429."""
+        prod = [r for r in self.requests if r.get("key") == "products_json"]
+        return bool(prod) and prod[-1].get("http_status") == 429
+
     def collect_collections(self):
+        if not self.products and self.products_rate_limited():
+            # Same bulk-data interface the store just asked us to stop
+            # using: do not knock again, record it as not checked.
+            self.requests.append(
+                {
+                    "key": "collections_json",
+                    "file": "collections-1.json",
+                    "url": "%s/collections.json?limit=%d&page=1"
+                    % (self.base, PRODUCTS_LIMIT),
+                    "final_url": None,
+                    "http_status": None,
+                    "result": "not_checked",
+                    "bytes": 0,
+                    "elapsed_ms": 0,
+                    "note": "skipped: store rate limited products.json (429)",
+                }
+            )
+            return
         for page in range(1, COLLECTIONS_MAX_PAGES + 1):
             url = "%s/collections.json?limit=%d&page=%d" % (
                 self.base,
@@ -323,8 +369,69 @@ class Collector(object):
                 except ValueError:
                     continue
             children.append(url)
+        seen = set(self.sitemap_handles)
         for i, url in enumerate(children[: self.max_sitemap_children], 1):
-            self.fetch("sitemap_products", url, "sitemap-products-%d.xml" % i, "xml")
+            child = self.fetch(
+                "sitemap_products", url, "sitemap-products-%d.xml" % i, "xml"
+            )
+            for handle, _lastmod in summarize.sitemap_product_entries(child or ""):
+                handle = unquote(handle)
+                if handle not in seen:
+                    seen.add(handle)
+                    self.sitemap_handles.append(handle)
+
+    def collect_page_sample(self):
+        """Fallback price data: a few public product pages from the sitemap.
+
+        Handles are spread evenly over the sitemap order (deterministic),
+        add-ons such as shipping protection are skipped, requests are at
+        least ``sample_delay`` seconds apart, and sampling stops at the first
+        429 or block instead of trying more pages.
+        """
+        handles = spread_sample(self.sitemap_handles, self.price_sample)
+        self.sample_info = {
+            "population": len(self.sitemap_handles),
+            "planned": len(handles),
+            "requested": 0,
+            "stopped": None,
+            "items": self.page_samples,
+        }
+        if not handles:
+            return
+        saved = getattr(self.f, "delay", None)
+        if saved is not None:
+            self.f.delay = max(saved, self.sample_delay)
+        try:
+            for handle in handles:
+                fname = "page-product-%s.html" % safe_slug(handle)
+                text = self.fetch(
+                    "product_page_sample",
+                    "%s/products/%s" % (self.base, quote(handle, safe="")),
+                    fname,
+                    "html",
+                )
+                req = self.requests[-1]
+                item = {
+                    "handle": handle,
+                    "file": "raw/" + fname,
+                    "result": req["result"],
+                    "http_status": req.get("http_status"),
+                }
+                facts = summarize.parse_product_page(text) if text else None
+                if facts:
+                    for key in ("price", "currency", "available", "title"):
+                        item[key] = facts.get(key)
+                self.page_samples.append(item)
+                self.sample_info["requested"] += 1
+                if req.get("http_status") == 429:
+                    self.sample_info["stopped"] = "rate_limited"
+                    break
+                if req["result"] == "blocked":
+                    self.sample_info["stopped"] = "blocked"
+                    break
+        finally:
+            if saved is not None:
+                self.f.delay = saved
 
     def collect_l1_pages(self):
         """One main collection page and three sample product pages."""
@@ -342,6 +449,23 @@ class Collector(object):
                     "page-collection-%s.html" % safe_slug(handle),
                     "html",
                 )
+        if not self.products and self.page_samples:
+            # products.json unavailable: pick the three roles from the pages
+            # already sampled, without requesting them again.
+            self.l1_samples = select_l1_samples(
+                [
+                    summarize.sample_product(x)
+                    for x in self.page_samples
+                    if x.get("price") is not None and x["result"] == "ok"
+                ],
+                self.best_selling,
+            )
+            by_handle = {x["handle"]: x for x in self.page_samples}
+            for sample in self.l1_samples:
+                sample["basis_pool"] = "product_page_sample"
+                sample["file"] = by_handle[sample["handle"]]["file"]
+                sample["result"] = by_handle[sample["handle"]]["result"]
+            return
         self.l1_samples = select_l1_samples(self.products, self.best_selling)
         for sample in self.l1_samples:
             fname = "page-product-%s.html" % safe_slug(sample["handle"])
@@ -387,6 +511,15 @@ class Collector(object):
             "l1_samples": self.l1_samples,
             "requests": self.requests,
         }
+        if self.sample_info is not None:
+            status["price_sample"] = self.sample_info
+        rate_limited = getattr(self.f, "rate_limited_hosts", None)
+        if callable(rate_limited) and rate_limited():
+            status["rate_limit"] = {
+                "hosts": rate_limited(),
+                "waited_seconds": round(getattr(self.f, "rate_limit_waited", 0.0), 1),
+                "wait_budget_seconds": getattr(self.f, "rate_limit_budget", None),
+            }
         with open(os.path.join(self.raw, "_status.json"), "w", encoding="utf-8") as fh:
             json.dump(status, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
@@ -408,6 +541,18 @@ def pick_collection(collections):
         if count is None or (isinstance(count, (int, float)) and count > 0):
             return handle
     return None
+
+
+def spread_sample(handles, n):
+    """Up to n handles spread evenly over the list (deterministic), skipping
+    obvious add-ons (shipping protection, gift cards...)."""
+    pool = [h for h in handles or [] if h and not NON_PRODUCT_RE.search(h)]
+    if n <= 0 or not pool:
+        return []
+    if len(pool) <= n:
+        return list(pool)
+    step = len(pool) / float(n)
+    return [pool[int(i * step + step / 2)] for i in range(n)]
 
 
 sample_price = summarize.lowest_price
@@ -535,6 +680,26 @@ def main(argv=None):
     )
     ap.add_argument("--delay", type=float, default=0.5, help="seconds between requests")
     ap.add_argument("--timeout", type=float, default=20.0)
+    ap.add_argument(
+        "--max-wait",
+        type=float,
+        default=fetch.MAX_RETRY_AFTER,
+        help="longest single wait (s) a rate-limited (429) answer may ask for; "
+        "a longer Retry-After is not retried",
+    )
+    ap.add_argument(
+        "--wait-budget",
+        type=float,
+        default=fetch.RATE_LIMIT_BUDGET,
+        help="total seconds this run may spend waiting on 429 answers",
+    )
+    ap.add_argument(
+        "--price-sample",
+        type=int,
+        default=PRICE_SAMPLE_DEFAULT,
+        help="product pages to sample for prices when products.json gives "
+        "nothing (0-%d, 0 = off)" % PRICE_SAMPLE_CAP,
+    )
     ap.add_argument("--no-summarize", action="store_true")
     ap.add_argument(
         "--init-only",
@@ -576,7 +741,13 @@ def main(argv=None):
             print("错误: 只允许访问公网 HTTP(S) 店铺: %s" % exc, file=sys.stderr)
             return 2
     fetcher_cls = PublicOnlyFetcher if args.public_only else Fetcher
-    fetcher = fetcher_cls(timeout=args.timeout, delay=max(args.delay, 0.0))
+    fetcher = fetcher_cls(
+        timeout=args.timeout,
+        delay=max(args.delay, 0.0),
+        rate_limit_retries=2,
+        max_retry_after=max(args.max_wait, 0.0),
+        rate_limit_budget=max(args.wait_budget, 0.0),
+    )
     col = Collector(
         args.store,
         out,
@@ -586,6 +757,7 @@ def main(argv=None):
         args.skip_offsite,
         fetcher,
         args.public_only,
+        price_sample=args.price_sample,
     )
     print("开始采集 %s (深度 %s)" % (col.base, args.depth))
     print("原始数据保存到: %s" % out)

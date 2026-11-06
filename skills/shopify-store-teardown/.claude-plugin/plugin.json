@@ -1,6 +1,6 @@
 {
   "name": "moveset-store-teardown",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Tear down any public Shopify store from public data: store identity and age, catalog size, price bands, discounts, launch cadence, theme, apps, Markets and tracking tags. Read-only, no login, no API key. Delivers a PDF report with evidence labels and a product spreadsheet.",
   "author": {
     "name": "Moveset",

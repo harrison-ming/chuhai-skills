@@ -342,6 +342,135 @@ class FakeStore(BaseHTTPRequestHandler):
             self.send(404, "not found")
 
 
+# A store that refuses bulk product data with 429 (Retry-After: 60) but
+# serves its homepage, meta.json, sitemap and product pages normally.
+RL_HANDLES = ["shipping-protection"] + [
+    "%s-%d" % (kind, i)
+    for kind in ("trail-runner", "wool-sock", "rain-jacket")
+    for i in range(1, 7)
+]
+
+
+def rl_price(handle):
+    """Deterministic price of a rate-limited fake store product."""
+    if handle == "shipping-protection":
+        return 2.5
+    kind, num = handle.rsplit("-", 1)
+    base = {"trail-runner": 120.0, "wool-sock": 18.0, "rain-jacket": 210.0}[kind]
+    return base + 5 * int(num)
+
+
+def rl_product_page(handle):
+    price = rl_price(handle)
+    num = int(handle.rsplit("-", 1)[1]) if handle[-1].isdigit() else 0
+    title = handle.replace("-", " ").title()
+    if num % 3 == 0:
+        # no JSON-LD: Open Graph price tags only
+        head = (
+            '<meta property="og:title" content="%s">'
+            '<meta property="og:price:amount" content="%.2f">'
+            '<meta property="og:price:currency" content="USD">' % (title, price)
+        )
+    else:
+        ld = {
+            "@context": "http://schema.org/",
+            "@type": "Product",
+            "name": title,
+            "offers": [
+                {
+                    "@type": "Offer",
+                    "price": "%.2f" % price,
+                    "priceCurrency": "USD",
+                    "availability": "http://schema.org/"
+                    + ("OutOfStock" if num == 4 else "InStock"),
+                },
+                {
+                    "@type": "Offer",
+                    "price": "%.2f" % (price + 10),
+                    "priceCurrency": "USD",
+                    "availability": "http://schema.org/InStock",
+                },
+            ],
+        }
+        head = '<script type="application/ld+json">%s</script>' % json.dumps(ld)
+    return (
+        "<!doctype html><html><head><title>%s</title>%s"
+        '<script>Shopify.shop = "rl-store.myshopify.com";</script></head>'
+        "<body><h1>%s</h1></body></html>" % (title, head, title)
+    )
+
+
+class RateLimitedStore(FakeStore):
+    seen = []  # request paths, for tests
+
+    def send_429(self):
+        data = b"Too Many Requests"
+        self.send_response(429)
+        self.send_header("Retry-After", "60")
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        path = self.path
+        self.seen.append(path)
+        host = "http://%s" % self.headers.get("Host")
+        if path == "/":
+            self.send(
+                200,
+                '<html><head><script>Shopify.shop = "rl-store.myshopify.com";'
+                'Shopify.theme = {"name":"Dawn","schema_name":"Dawn",'
+                '"schema_version":"15.0.0","role":"main"};</script></head>'
+                "<body><a href='/products/rain-jacket-2'>x</a></body></html>",
+            )
+        elif path == "/meta.json":
+            self.send(
+                200,
+                json.dumps(
+                    {
+                        "name": "RL Store",
+                        "myshopify_domain": "rl-store.myshopify.com",
+                        "currency": "USD",
+                        "published_products_count": len(RL_HANDLES),
+                    }
+                ),
+                "application/json",
+            )
+        elif path.startswith(("/products.json", "/collections.json")):
+            self.send_429()
+        elif path == "/sitemap.xml":
+            self.send(
+                200,
+                "<sitemapindex><sitemap><loc>%s/sitemap_products_1.xml?from=1"
+                "&amp;to=99</loc></sitemap></sitemapindex>" % host,
+                "application/xml",
+            )
+        elif path.startswith("/sitemap_products_1.xml"):
+            urls = "".join(
+                "<url><loc>%s/products/%s</loc><lastmod>2026-%02d-15T10:00:00Z"
+                "</lastmod></url>" % (host, h, 6 + i % 3)
+                for i, h in enumerate(RL_HANDLES)
+            )
+            self.send(
+                200, "<urlset><url><loc>%s/</loc></url>%s</urlset>" % (host, urls)
+            )
+        elif path.startswith("/collections/all"):
+            self.send(
+                200,
+                "<a href='/products/wool-sock-4'>a</a>"
+                "<a href='/products/trail-runner-3'>b</a>",
+            )
+        elif path.startswith("/products/"):
+            handle = path.split("/products/", 1)[1]
+            if handle in RL_HANDLES:
+                self.send(200, rl_product_page(handle))
+            else:
+                self.send(404, "not found")
+        else:
+            self.send(404, "not found")
+
+
 def fake_product(handle, price, title=None, ptype="Shoes", **variant):
     v = {"price": "%.2f" % price, "available": True}
     v.update(variant)
@@ -492,7 +621,7 @@ class TestL1Samples(unittest.TestCase):
         self.assertEqual(rc, 0)
         with open(os.path.join(data, "summary.json"), encoding="utf-8") as fh:
             s = json.load(fh)
-        self.assertEqual(s["tool_version"], "0.2.2")
+        self.assertEqual(s["tool_version"], "0.2.3")
         self.assertEqual(s["domain"], "x.com")
         self.assertEqual(
             s["l1_samples"],
@@ -706,6 +835,243 @@ class TestCollectLocal(FixtureCase):
         self.assertTrue(all("basis" in x for x in s["l1_samples"]))
         self.assertIn("l1_samples", status)
         self.assertIn("price_excluding_virtual", s["products"])
+
+
+class TestProductPageParse(unittest.TestCase):
+    def test_json_ld_offers(self):
+        src = rl_product_page("trail-runner-1")
+        facts = summarize.parse_product_page(src)
+        self.assertEqual(facts["price"], 125.0)
+        self.assertEqual(facts["price_max"], 135.0)
+        self.assertEqual(facts["currency"], "USD")
+        self.assertIs(facts["available"], True)
+        self.assertIsNone(facts["compare_at"])
+        self.assertEqual(facts["title"], "Trail Runner 1")
+        self.assertEqual(facts["price_from"], "json_ld")
+        sold = summarize.parse_product_page(rl_product_page("trail-runner-4"))
+        self.assertIs(sold["available"], True)  # one variant still in stock
+
+    def test_json_ld_graph_aggregate_and_strikethrough(self):
+        ld = {
+            "@graph": [
+                {"@type": "Organization", "name": "X"},
+                {
+                    "@type": ["Product"],
+                    "name": "Sofa",
+                    "offers": {
+                        "@type": "AggregateOffer",
+                        "lowPrice": "1,299.00",
+                        "highPrice": 1899,
+                        "priceCurrency": "eur",
+                        "availability": "https://schema.org/OutOfStock",
+                    },
+                },
+            ]
+        }
+        src = '<script type="application/ld+json">%s</script>' % json.dumps(ld)
+        facts = summarize.parse_product_page(src)
+        self.assertEqual((facts["price"], facts["price_max"]), (1299.0, 1899.0))
+        self.assertEqual(facts["currency"], "EUR")
+        self.assertIs(facts["available"], False)
+        offer = {
+            "@type": "Product",
+            "name": "Mug",
+            "offers": {
+                "@type": "Offer",
+                "price": 12,
+                "priceSpecification": [
+                    {"@type": "UnitPriceSpecification", "price": 12},
+                    {
+                        "@type": "UnitPriceSpecification",
+                        "priceType": "https://schema.org/StrikethroughPrice",
+                        "price": 20,
+                    },
+                ],
+            },
+        }
+        src = "<script type='application/ld+json'>%s</script>" % json.dumps(offer)
+        facts = summarize.parse_product_page(src)
+        self.assertEqual((facts["price"], facts["compare_at"]), (12.0, 20.0))
+        self.assertIsNone(facts["available"])
+
+    def test_meta_price_fallback(self):
+        facts = summarize.parse_product_page(rl_product_page("wool-sock-3"))
+        self.assertEqual(facts["price"], 33.0)
+        self.assertEqual(facts["currency"], "USD")
+        self.assertEqual(facts["price_from"], "meta")
+        self.assertEqual(facts["title"], "Wool Sock 3")
+        src = (
+            '<meta content="1,050.5" property="product:price:amount">'
+            "<title>Lamp &amp; Co</title>"
+            '<script type="application/ld+json">{broken</script>'
+        )
+        facts = summarize.parse_product_page(src)
+        self.assertEqual(facts["price"], 1050.5)
+        self.assertIsNone(facts["currency"])
+        self.assertEqual(facts["title"], "Lamp & Co")
+
+    def test_no_price(self):
+        self.assertIsNone(summarize.parse_product_page("<html>hi</html>"))
+        self.assertIsNone(summarize.parse_product_page(""))
+        ld = '<script type="application/ld+json">{"@type": "Product"}</script>'
+        self.assertIsNone(summarize.parse_product_page(ld))
+
+    def test_sitemap_entries_and_spread(self):
+        xml = (
+            "<urlset><url><loc>https://x.com/</loc></url>"
+            "<url><loc>https://x.com/products/a</loc>"
+            "<lastmod>2026-07-01T00:00:00Z</lastmod>"
+            "<image:image><image:loc>https://cdn/x.jpg</image:loc></image:image>"
+            "</url><url><loc>https://x.com/es/products/b?v=1</loc></url></urlset>"
+        )
+        self.assertEqual(
+            summarize.sitemap_product_entries(xml),
+            [("a", "2026-07-01T00:00:00Z"), ("b", None)],
+        )
+        handles = ["gift-card"] + ["p%d" % i for i in range(10)]
+        self.assertEqual(collect.spread_sample(handles, 20), handles[1:])
+        picks = collect.spread_sample(handles, 4)
+        self.assertEqual(picks, ["p1", "p3", "p6", "p8"])
+        self.assertEqual(picks, collect.spread_sample(handles, 4))  # deterministic
+        self.assertEqual(collect.spread_sample(handles, 0), [])
+
+
+class RateLimitedCase(FixtureCase):
+    def serve(self, handler):
+        handler.seen = []
+        server = HTTPServer(("127.0.0.1", 0), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return "http://127.0.0.1:%d/" % server.server_address[1]
+
+    def collect(self, url, depth="L1", **kw):
+        self.sleeps = []
+        fetcher = collect.Fetcher(timeout=5, delay=0, sleep=self.sleeps.append)
+        out = os.path.join(self.tmp, "rl-run")
+        with mock.patch.object(collect, "ensure_public_url", return_value=True):
+            col = collect.Collector(url, out, depth, 100, 50, True, fetcher, **kw)
+            col.run()
+        return col, out
+
+
+class TestRateLimitedCollect(RateLimitedCase):
+    def test_falls_back_to_sitemap_page_sample(self):
+        col, out = self.collect(self.serve(RateLimitedStore))
+        seen = RateLimitedStore.seen
+        # products.json: first try + 2 polite retries after Retry-After 60
+        self.assertEqual(sum(1 for p in seen if p.startswith("/products.json")), 3)
+        self.assertEqual(self.sleeps.count(60.0), 2)
+        self.assertFalse(any(p.startswith("/collections.json") for p in seen))
+        page_hits = [p for p in seen if p.startswith("/products/")]
+        self.assertEqual(len(page_hits), 12)
+        self.assertEqual(len(set(page_hits)), 12)  # L1 samples not refetched
+        self.assertNotIn("/products/shipping-protection", page_hits)
+        # at least 1.5 s between sampled pages (host delay raised after 429)
+        self.assertTrue(all(s >= 1.4 for s in self.sleeps if s < 60), self.sleeps)
+        summary = summarize.summarize_run(out)
+        p = summary["products"]
+        cov = summary["coverage"]
+        self.assertEqual(p["price_source"], "product_page_sample")
+        self.assertEqual(p["price_sample_size"], 12)
+        self.assertEqual(p["price_population"], 19)
+        self.assertEqual(p["count_source"], "sitemap")
+        self.assertIsNone(p["on_sale_share"])
+        self.assertIsNone(p["discount_depth_median"])
+        self.assertIn("on_sale_share", p["unavailable_reasons"])
+        self.assertEqual(p["price"]["min"], 23.0)
+        self.assertEqual(p["price"]["max"], 240.0)
+        self.assertEqual(
+            p["sitemap_lastmod_by_month"], {"2026-06": 7, "2026-07": 6, "2026-08": 6}
+        )
+        self.assertEqual(cov["products_json"], "rate_limited")
+        self.assertEqual(cov["price_source"], "product_page_sample")
+        self.assertFalse(cov["discount_data"])
+        self.assertFalse(cov["new_product_cadence"])
+        self.assertEqual(cov["rate_limited_endpoints"], ["products_json"])
+        for w in ("products_json_rate_limited", "prices_from_page_sample"):
+            self.assertIn(w, summary["warnings"])
+        self.assertNotIn("price_sample_small", summary["warnings"])
+        roles = {x["role"]: x for x in summary["l1_samples"]}
+        self.assertEqual(sorted(roles), ["entry", "main", "premium"])
+        self.assertTrue(
+            all(x["basis_pool"] == "product_page_sample" for x in roles.values())
+        )
+        self.assertEqual(roles["premium"]["handle"], "rain-jacket-6")
+        with open(os.path.join(out, "products.tsv"), encoding="utf-8") as fh:
+            rows = fh.read().splitlines()
+        self.assertEqual(rows[0].split("\t"), summarize.TSV_HEADER)
+        self.assertEqual(len(rows), 13)
+        self.assertTrue(all(r.split("\t")[-1] == "product_page" for r in rows[1:]))
+        digest = summarize.human_digest(summary)
+        self.assertIn("429", digest)
+        self.assertIn("价格基于 12 个商品页抽样 (共约 19 款)", digest)
+        with open(os.path.join(out, "raw", "_status.json"), encoding="utf-8") as fh:
+            status = json.load(fh)
+        self.assertEqual(status["rate_limit"]["waited_seconds"], 120.0)
+        self.assertEqual(status["price_sample"]["requested"], 12)
+
+    def test_sampling_stops_at_first_429(self):
+        class Flaky(RateLimitedStore):
+            def do_GET(self):
+                pages = [p for p in self.seen if p.startswith("/products/")]
+                if self.path.startswith("/products/") and len(pages) >= 2:
+                    self.seen.append(self.path)
+                    return self.send_429()
+                return RateLimitedStore.do_GET(self)
+
+        col, out = self.collect(self.serve(Flaky), depth="L0", price_sample=6)
+        self.assertEqual(col.sample_info["stopped"], "rate_limited")
+        self.assertEqual(col.sample_info["requested"], 3)
+        summary = summarize.summarize_run(out)
+        self.assertEqual(summary["products"]["price_sample_size"], 2)
+        self.assertIn("price_sample_small", summary["warnings"])
+        self.assertEqual(
+            summary["endpoints"]["product_page_sample"]["stopped"], "rate_limited"
+        )
+        self.assertEqual(
+            summary["coverage"]["rate_limited_endpoints"],
+            ["products_json", "product_page_sample"],
+        )
+        self.assertEqual(summary["l1_samples"], [])  # L0: page sample only
+
+    def test_sample_off_and_working_products_untouched(self):
+        col, out = self.collect(self.serve(RateLimitedStore), "L0", price_sample=0)
+        self.assertFalse(any(p.startswith("/products/") for p in RateLimitedStore.seen))
+        summary = summarize.summarize_run(out)
+        self.assertIsNone(summary["products"]["price_source"])
+        self.assertIn("价格: 本次没有取到", summarize.human_digest(summary))
+        col, out = self.collect(self.serve(FakeStore), "L0")
+        self.assertEqual(col.page_samples, [])
+        self.assertIsNone(col.sample_info)
+
+    def test_rate_limited_fixture(self):
+        _dst, s = self.run_fixture("rate_limited")
+        self.assertEqual(s["coverage"]["products_json"], "rate_limited")
+        self.assertEqual(s["products"]["price_source"], "product_page_sample")
+        self.assertEqual(s["products"]["price"]["median"], 137.5)
+        self.assertEqual(s["endpoints"]["collections_json"]["result"], "not_checked")
+        self.assertEqual(s["endpoints"]["products_json"]["result"], "blocked")
+
+    def test_blocked_fixture_keeps_semantics(self):
+        _dst, s = self.run_fixture("blocked")
+        self.assertEqual(s["endpoints"]["products_json"]["result"], "blocked")
+        self.assertEqual(s["coverage"]["products_json"], "rate_limited")
+        self.assertIsNone(s["coverage"]["price_source"])
+        self.assertNotIn("prices_from_page_sample", s["warnings"])
+
+    def test_saved_product_pages_without_status(self):
+        dst = os.path.join(self.tmp, "example-store.com", "manual")
+        os.makedirs(os.path.join(dst, "raw"))
+        for h in ("trail-runner-1", "wool-sock-3"):
+            with open(os.path.join(dst, "raw", "page-product-%s.html" % h), "w") as fh:
+                fh.write(rl_product_page(h))
+        s = summarize.summarize_run(dst, "example-store.com")
+        self.assertEqual(s["products"]["price_source"], "product_page_sample")
+        self.assertEqual(s["endpoints"]["product_page_sample"]["source"], "saved_files")
+        self.assertEqual(s["coverage"]["products_json"], "not_checked")
+        self.assertEqual(len(s["l1_samples"]), 2)  # mode B keeps file-name samples
 
 
 if __name__ == "__main__":

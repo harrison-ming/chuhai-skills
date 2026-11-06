@@ -12,7 +12,17 @@
 - shopify-store-teardown 改用 `_shared`, 输出不变 (黄金输出比对测试逐字节一致); 新增 `acceptance.json`.
 - marketplace.json 改为由 SKILL.md 生成, 版本号只在 SKILL.md 维护. Release 工作流检查副本同步, marketplace 与全部测试, zip 不含模板, 测试与验收文件.
 
-## v0.2.2 (未发布)
+## v0.2.3 (未发布)
+
+店铺限流 (HTTP 429) 修复. 2026-11-05 起不少 Shopify 店对 `products.json` 第一次请求就返回 429 (Retry-After: 60), 首页, 网站地图, meta.json 仍正常; 原来的采集只重试 2 次, 每次最多等 15 秒, 商品数据直接记为被拦, 价格带, 折扣, 上新节奏全部丢失, 深度拆解也挑不出 3 个样本商品页.
+
+- 尊重限流, 不绕过: `_shared/fetch.py` 的 429 按 `Retry-After` 等待 (支持秒数和 HTTP 日期), 单次最多 75 秒 (店铺要求更久就不重试, 不提前重试), 每个请求最多重试 2 次, 整次运行合计最多等 240 秒 (用完后再遇 429 直接返回); 收到 429 后对该主机的请求间隔提高到 2-3 秒直到运行结束. 不换 User-Agent, 不用代理, 不并发. 5xx 行为不变 (Retry-After 也认 HTTP 日期). 新参数 `rate_limit_retries` / `max_retry_after` / `rate_limit_budget` / `sleep` 有向后兼容的默认值, 其他 skill 自动获得同样行为.
+- 降级而不是空白: `collect.py` 新增 `--max-wait` (默认 75), `--wait-budget` (默认 240), `--price-sample` (默认 12, 上限 30). `products.json` 第 1 页仍被限流时停止翻页, 不再请求同类的 `collections.json`, 改从网站地图的商品网址里均匀挑商品页慢速读取 (间隔至少 1.5 秒, 跳过运费保障/礼品卡, 遇 429 或拦截立即停); 深度拆解的 3 个样本从已抽样的页面里挑, 不重复请求.
+- `summarize.py` 从商品页读价格 (结构化数据 JSON-LD `offers` 优先, 其次 `og:price:amount` / `product:price:amount`, 不猜原价), 算抽样价格分布; 新增 `summary.coverage` (商品数据 ok/partial/rate_limited/blocked..., 价格来源, 抽样数/总体数, 有无折扣和上新数据, 收到 429 的请求), `products.price_source` / `price_sample_size` / `price_population` / `sitemap_lastmod_by_month` (网站地图的最近更新时间, 不是上架时间) / `unavailable_reasons`; 新警告 `products_json_rate_limited`, `prices_from_page_sample`, `price_sample_small`; `products.tsv` 抽样行 `source` 为 `product_page`; 采集摘要用大白话说明限流和抽样依据, 并建议隔一段时间再试.
+- 自检: 价格来自抽样而报告没写 "抽样" 记为错误, 被限流而报告没提限流记为提示 (`check_report.py` 与 `deliver.py` 都读 `summary.json`).
+- 文档: SKILL.md 限流处理改为不循环重跑, 报告写明抽样依据, 完成状态写 partial; data-contract / report-template / evidence / manual-collection 同步. 新测试夹具 `tests/fixtures/rate_limited/` 与离线测试 (假时钟, 不真等待).
+
+## v0.2.2 (未发布, 随 v0.2.3 一起发布)
 
 首轮跨 agent 自动验收 (Claude / Codex) 暴露的问题修复.
 

@@ -1,0 +1,487 @@
+{
+ "schema": "store-teardown/status/1",
+ "tool_version": "0.2.3",
+ "input": "example-store.com",
+ "domain": "example-store.com",
+ "base_url": "https://example-store.com",
+ "depth": "L1",
+ "started_at_utc": "2026-09-30T08:00:00Z",
+ "finished_at_utc": "2026-09-30T08:09:00Z",
+ "l1_samples": [
+  {
+   "handle": "wool-sock-6",
+   "role": "entry",
+   "price": 48.0,
+   "basis": "closest_to_p25_excluding_virtual",
+   "basis_value": 45.5,
+   "basis_pool": "product_page_sample",
+   "file": "raw/page-product-wool-sock-6.html",
+   "result": "ok"
+  },
+  {
+   "handle": "trail-runner-3",
+   "role": "main",
+   "price": 135.0,
+   "basis": "best_selling_in_p25_p75_excluding_virtual",
+   "basis_value": 137.5,
+   "basis_pool": "product_page_sample",
+   "file": "raw/page-product-trail-runner-3.html",
+   "result": "ok"
+  },
+  {
+   "handle": "rain-jacket-6",
+   "role": "premium",
+   "price": 240.0,
+   "basis": "max_excluding_virtual",
+   "basis_value": 240.0,
+   "basis_pool": "product_page_sample",
+   "file": "raw/page-product-rain-jacket-6.html",
+   "result": "ok"
+  }
+ ],
+ "requests": [
+  {
+   "key": "homepage",
+   "file": "homepage.html",
+   "url": "https://example-store.com/",
+   "final_url": "https://example-store.com/",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 228,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "meta_json",
+   "file": "meta.json",
+   "url": "https://example-store.com/meta.json",
+   "final_url": "https://example-store.com/meta.json",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 117,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "products_json",
+   "file": "products-1.json",
+   "url": "https://example-store.com/products.json?limit=250&page=1",
+   "final_url": "https://example-store.com/products.json?limit=250&page=1",
+   "http_status": 429,
+   "result": "blocked",
+   "bytes": 17,
+   "elapsed_ms": 10,
+   "note": "rate limited (429), waited 120s, retried 2, still limited; HTTP 429"
+  },
+  {
+   "key": "collections_json",
+   "file": "collections-1.json",
+   "url": "https://example-store.com/collections.json?limit=250&page=1",
+   "final_url": null,
+   "http_status": null,
+   "result": "not_checked",
+   "bytes": 0,
+   "elapsed_ms": 10,
+   "note": "skipped: store rate limited products.json (429)"
+  },
+  {
+   "key": "sitemap",
+   "file": "sitemap.xml",
+   "url": "https://example-store.com/sitemap.xml",
+   "final_url": "https://example-store.com/sitemap.xml",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 121,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "sitemap_products",
+   "file": "sitemap-products-1.xml",
+   "url": "https://example-store.com/sitemap_products_1.xml?from=1&to=99",
+   "final_url": "https://example-store.com/sitemap_products_1.xml?from=1&to=99",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 2076,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-trail-runner-1.html",
+   "url": "https://example-store.com/products/trail-runner-1",
+   "final_url": "https://example-store.com/products/trail-runner-1",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 515,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-trail-runner-3.html",
+   "url": "https://example-store.com/products/trail-runner-3",
+   "final_url": "https://example-store.com/products/trail-runner-3",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 313,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-trail-runner-4.html",
+   "url": "https://example-store.com/products/trail-runner-4",
+   "final_url": "https://example-store.com/products/trail-runner-4",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 518,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-trail-runner-6.html",
+   "url": "https://example-store.com/products/trail-runner-6",
+   "final_url": "https://example-store.com/products/trail-runner-6",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 313,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-wool-sock-1.html",
+   "url": "https://example-store.com/products/wool-sock-1",
+   "final_url": "https://example-store.com/products/wool-sock-1",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 504,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-wool-sock-3.html",
+   "url": "https://example-store.com/products/wool-sock-3",
+   "final_url": "https://example-store.com/products/wool-sock-3",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 303,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-wool-sock-4.html",
+   "url": "https://example-store.com/products/wool-sock-4",
+   "final_url": "https://example-store.com/products/wool-sock-4",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 507,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-wool-sock-6.html",
+   "url": "https://example-store.com/products/wool-sock-6",
+   "final_url": "https://example-store.com/products/wool-sock-6",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 303,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-rain-jacket-1.html",
+   "url": "https://example-store.com/products/rain-jacket-1",
+   "final_url": "https://example-store.com/products/rain-jacket-1",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 512,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-rain-jacket-3.html",
+   "url": "https://example-store.com/products/rain-jacket-3",
+   "final_url": "https://example-store.com/products/rain-jacket-3",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 310,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-rain-jacket-4.html",
+   "url": "https://example-store.com/products/rain-jacket-4",
+   "final_url": "https://example-store.com/products/rain-jacket-4",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 515,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "product_page_sample",
+   "file": "page-product-rain-jacket-6.html",
+   "url": "https://example-store.com/products/rain-jacket-6",
+   "final_url": "https://example-store.com/products/rain-jacket-6",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 310,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "best_selling",
+   "file": "best-selling.html",
+   "url": "https://example-store.com/collections/all?sort_by=best-selling",
+   "final_url": "https://example-store.com/collections/all?sort_by=best-selling",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 77,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "page_collection",
+   "file": "page-collection-all.html",
+   "url": "https://example-store.com/collections/all",
+   "final_url": "https://example-store.com/collections/all",
+   "http_status": 200,
+   "result": "ok",
+   "bytes": 77,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "policy_refund_policy",
+   "file": "policy-refund-policy.html",
+   "url": "https://example-store.com/policies/refund-policy",
+   "final_url": "https://example-store.com/policies/refund-policy",
+   "http_status": 404,
+   "result": "not_found",
+   "bytes": 9,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "policy_shipping_policy",
+   "file": "policy-shipping-policy.html",
+   "url": "https://example-store.com/policies/shipping-policy",
+   "final_url": "https://example-store.com/policies/shipping-policy",
+   "http_status": 404,
+   "result": "not_found",
+   "bytes": 9,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "policy_privacy_policy",
+   "file": "policy-privacy-policy.html",
+   "url": "https://example-store.com/policies/privacy-policy",
+   "final_url": "https://example-store.com/policies/privacy-policy",
+   "http_status": 404,
+   "result": "not_found",
+   "bytes": 9,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "policy_terms_of_service",
+   "file": "policy-terms-of-service.html",
+   "url": "https://example-store.com/policies/terms-of-service",
+   "final_url": "https://example-store.com/policies/terms-of-service",
+   "http_status": 404,
+   "result": "not_found",
+   "bytes": 9,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "policy_contact_information",
+   "file": "policy-contact-information.html",
+   "url": "https://example-store.com/policies/contact-information",
+   "final_url": "https://example-store.com/policies/contact-information",
+   "http_status": 404,
+   "result": "not_found",
+   "bytes": 9,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "page_about",
+   "file": "page-about.html",
+   "url": "https://example-store.com/pages/about",
+   "final_url": "https://example-store.com/pages/about",
+   "http_status": 404,
+   "result": "not_found",
+   "bytes": 9,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "page_about",
+   "file": "page-about.html",
+   "url": "https://example-store.com/pages/about-us",
+   "final_url": "https://example-store.com/pages/about-us",
+   "http_status": 404,
+   "result": "not_found",
+   "bytes": 9,
+   "elapsed_ms": 10,
+   "note": ""
+  },
+  {
+   "key": "page_about",
+   "file": "page-about.html",
+   "url": "https://example-store.com/pages/our-story",
+   "final_url": "https://example-store.com/pages/our-story",
+   "http_status": 404,
+   "result": "not_found",
+   "bytes": 9,
+   "elapsed_ms": 10,
+   "note": ""
+  }
+ ],
+ "price_sample": {
+  "population": 19,
+  "planned": 12,
+  "requested": 12,
+  "stopped": null,
+  "items": [
+   {
+    "handle": "trail-runner-1",
+    "file": "raw/page-product-trail-runner-1.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 125.0,
+    "currency": "USD",
+    "available": true,
+    "title": "Trail Runner 1"
+   },
+   {
+    "handle": "trail-runner-3",
+    "file": "raw/page-product-trail-runner-3.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 135.0,
+    "currency": "USD",
+    "available": null,
+    "title": "Trail Runner 3"
+   },
+   {
+    "handle": "trail-runner-4",
+    "file": "raw/page-product-trail-runner-4.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 140.0,
+    "currency": "USD",
+    "available": true,
+    "title": "Trail Runner 4"
+   },
+   {
+    "handle": "trail-runner-6",
+    "file": "raw/page-product-trail-runner-6.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 150.0,
+    "currency": "USD",
+    "available": null,
+    "title": "Trail Runner 6"
+   },
+   {
+    "handle": "wool-sock-1",
+    "file": "raw/page-product-wool-sock-1.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 23.0,
+    "currency": "USD",
+    "available": true,
+    "title": "Wool Sock 1"
+   },
+   {
+    "handle": "wool-sock-3",
+    "file": "raw/page-product-wool-sock-3.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 33.0,
+    "currency": "USD",
+    "available": null,
+    "title": "Wool Sock 3"
+   },
+   {
+    "handle": "wool-sock-4",
+    "file": "raw/page-product-wool-sock-4.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 38.0,
+    "currency": "USD",
+    "available": true,
+    "title": "Wool Sock 4"
+   },
+   {
+    "handle": "wool-sock-6",
+    "file": "raw/page-product-wool-sock-6.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 48.0,
+    "currency": "USD",
+    "available": null,
+    "title": "Wool Sock 6"
+   },
+   {
+    "handle": "rain-jacket-1",
+    "file": "raw/page-product-rain-jacket-1.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 215.0,
+    "currency": "USD",
+    "available": true,
+    "title": "Rain Jacket 1"
+   },
+   {
+    "handle": "rain-jacket-3",
+    "file": "raw/page-product-rain-jacket-3.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 225.0,
+    "currency": "USD",
+    "available": null,
+    "title": "Rain Jacket 3"
+   },
+   {
+    "handle": "rain-jacket-4",
+    "file": "raw/page-product-rain-jacket-4.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 230.0,
+    "currency": "USD",
+    "available": true,
+    "title": "Rain Jacket 4"
+   },
+   {
+    "handle": "rain-jacket-6",
+    "file": "raw/page-product-rain-jacket-6.html",
+    "result": "ok",
+    "http_status": 200,
+    "price": 240.0,
+    "currency": "USD",
+    "available": null,
+    "title": "Rain Jacket 6"
+   }
+  ]
+ },
+ "rate_limit": {
+  "hosts": {
+   "example-store.com": 3
+  },
+  "waited_seconds": 120.0,
+  "wait_budget_seconds": 240.0
+ }
+}

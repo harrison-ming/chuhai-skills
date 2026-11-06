@@ -9,6 +9,8 @@
 - 每节 3-8 行, 最多加一张表, 不超过一屏. 深度拆解全文控制在约 6-10 页 A4, 快速核验约 2-3 页.
 - 数字写单位和币种 ("105 美元", "692 款"), 比例写百分比 ("20.8%"), 日期写 "2026 年 3 月".
 - 价格分布优先用排除虚拟商品后的口径 (`summary.json` 的 `price_excluding_virtual`), 并注明; 全店含虚拟商品的数字只放附录.
+- **价格来自商品页抽样时** (`summary.json` 的 `coverage.price_source` 为 `product_page_sample`, 通常是店铺限制了批量读取商品数据): 正文用大白话写明依据, 例如 "店铺限制了批量读取商品数据, 价格基于 12 个商品页抽样 (共约 640 款), 是估计不是全店统计". 不写 "products.json" "sitemap" "429" 这类词, 说成 "店铺公开的商品数据" "网站地图" "商品页抽样". 价格分布按抽样数字写 (`price_excluding_virtual`), 但不写 "全店 X% 在 Y 价位" 这种全店结论; 折扣占比, 折扣深度, 上新节奏写 `[查不到]` 并说明原因. 抽样不足 8 款 (`price_sample_small`) 时只给最低/最高价, 不判断价格带结构. 商品数仍按 `products.count` 写, 来自网站地图时同样遵守 "至少 N 款" 规则 (`count_is_lower_bound` 或 `sitemap_products_incomplete`). check_report.py 会检查报告是否写了 "抽样".
+- 网站地图里的 "最近更新" 月份 (`sitemap_lastmod_by_month`) 是商品最近一次被修改的时间, 不是上架时间, 不能写成 "每月上新 N 款".
 - 写完先运行 `check_report.py` 自检 (见 SKILL.md 第 5 步), 它会查出缺节, 旧标签, 技术词, `[推测]` 缺依据和疑似标高.
 - 正文**不出现**: E1-E6, L0/L1/L2, products.json, collections.json, summary.json, myshopify, Shopify.theme, hreflang, Markets, RDAP, WHOIS, Wayback, sitemap, JSON, API, raw/, created_at 等字段名这类技术词. 完整清单以 `scripts/check_report.py` 为准; handle, tag 只提示不报错; 同一行带 "也就是" "即:" "指的是" 等解释时也降为提示. 实在要提, 换成大白话: "网站注册记录" (RDAP/WHOIS), "网页历史存档" (Wayback), "店铺公开的商品数据" (products.json), "公开数据接口" (API), "商品后台分类标记" (tag), "多国站点设置" (hreflang/Markets).
 - 技术细节和原始证据统统放进附录, 附录里可以用技术词.
@@ -75,7 +77,7 @@
 <一句话解读. 对不上时标 [有矛盾] 并给出可能原因.>
 
 ## 规模有多大
-<在售 N 款商品, 主力价位 X-Y <币种>, 近 12 个月每月大约上新 N 款, N% 在打折. 数据不全时写 "至少 N 款".>
+<在售 N 款商品, 主力价位 X-Y <币种>, 近 12 个月每月大约上新 N 款, N% 在打折. 数据不全时写 "至少 N 款". 价格来自商品页抽样时写 "价格基于 N 个商品页抽样 (共约 M 款)", 上新和打折写 [查不到].>
 
 ## 还有哪些没查清
 <哪些信息没拿到 (例如 "网页历史存档打不开"), 下一步怎么补. 拿不到不等于不存在.>
@@ -121,6 +123,7 @@
 | 主力款 | | | |
 | 最贵的款 | | | |
 <价格分布一行 (最低/中间/最高, 多少在打折, 一般打几折), 免邮门槛, 套装/满减. 不估算利润.>
+<价格来自商品页抽样 (`coverage.price_source` = `product_page_sample`) 时, 第一句先交代 "店铺限制了批量读取商品数据, 以下价格基于 N 个商品页抽样 (共约 M 款)"; "原价" 列只在商品页明确写了划线价时填, 否则写 "未取得"; "多少在打折" 写 [查不到].>
 <价格分布优先用 `price_excluding_virtual` (排除运费保障, 礼品卡等虚拟商品以及价格低于 5 的商品), 并写明 "不含运费保障等虚拟商品"; 只看有货商品时用 `price_excluding_virtual.in_stock`; 入门款价格与四分之一位对不上时, 多半是样本只从有货商品里挑, 按 `l1_samples` 的 `basis_pool` / `basis_value` 说明口径.>
 
 ## 首页和商品页怎么说服人下单
@@ -169,6 +172,7 @@
 - 应用与脚本: <名称 + 可信度 (脚本最多 possible)>
 - 追踪代码, 支付图标 (仅页面显示), 多国站点结构 (hreflang / Markets)
 - 采集状态: 档位, 完成状态 complete/partial/failed, 失败的数据来源, summary.json 的 warnings 及对应数值
+- 数据覆盖: summary.json 的 `coverage` (商品数据 ok/partial/rate_limited/blocked, 价格来源, 抽样数/总体数, 有无折扣和上新数据); 被限流时写明哪些请求收到 429, 已等待多久 (`_status.json` 的 `rate_limit`), 抽样了哪些商品页 (`price_sample.items`), 建议隔一段时间重拆
 ```
 
 ---

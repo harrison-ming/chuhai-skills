@@ -19,12 +19,17 @@ Hard errors (must be fixed, then re-run):
   - old labels such as [事实] [推断] [存疑] [未知] [观察] [品牌自述] [第三方声称]
   - [推测] without "依据" in the same line (or its continuation line / cell)
   - missing the fixed ending "本报告没有覆盖的"
+  - summary.json says prices come from a product-page sample
+    (coverage.price_source == "product_page_sample") but the report never
+    says so (no "抽样" / "sample")
 
 Warnings (do not fail, but the agent must review each one):
   - suspected over-labeling: the claim attached to [已核实] contains
     judgment words (JUDGMENT_WORDS) or source words (MIXED_SOURCE_WORDS)
   - "handle" / "tag" / snake_case field names before the appendix
   - full-width punctuation
+  - the store rate limited the bulk product data (coverage.products_json ==
+    "rate_limited") but the report does not mention it (限流 / 限制 / 429)
 
 The rule engine is ``_shared/checks.py``; this module holds the teardown
 word lists. deliver.py imports check_text() / format_result() from here.
@@ -34,6 +39,7 @@ Python 3.8+, standard library only.
 import argparse
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -117,9 +123,70 @@ def claim_segments(line):
     return checks.claim_segments(line, BADGE_RE)
 
 
-def check_text(md_text):
-    """Run every rule on report markdown and return a Result."""
-    return checks.check_text(md_text, PROFILE)
+SAMPLE_WORDS_RE = re.compile(r"抽样|(?i:\bsampled?\b)")
+RATE_LIMIT_WORDS_RE = re.compile(r"限流|限制|429|(?i:rate.?limit)")
+
+
+def coverage_issues(md_text, summary):
+    """Rules that compare the report with summary.json ``coverage``."""
+    cov = (summary or {}).get("coverage") or {}
+    issues = []
+    if cov.get("price_source") == "product_page_sample" and not SAMPLE_WORDS_RE.search(
+        md_text
+    ):
+        n, m = cov.get("price_sample_size"), cov.get("price_population")
+        issues.append(
+            Issue(
+                "error",
+                "price_sample_unstated",
+                0,
+                "",
+                "本次价格来自 %s 个商品页抽样 (不是全店商品数据), 报告没有说明这一点, "
+                "读者会把抽样估计当成全店统计." % n,
+                "在价格那一节写明 '价格基于 %s 个商品页抽样 (共约 %s 款), 是估计', "
+                "附录写明店铺限制了批量读取." % (n, m if m is not None else "?"),
+            )
+        )
+    if cov.get("products_json") == "rate_limited" and not RATE_LIMIT_WORDS_RE.search(
+        md_text
+    ):
+        issues.append(
+            Issue(
+                "warning",
+                "rate_limit_unstated",
+                0,
+                "",
+                "店铺限制了批量读取商品数据 (限流), 报告没有提到, 读者不知道哪些数据缺了.",
+                "附录的数据来源里写一句 '店铺限制了批量读取商品数据 (限流), "
+                "已按要求等待后仍受限', 并说明哪些结论因此缺失.",
+            )
+        )
+    return issues
+
+
+def check_text(md_text, summary=None):
+    """Run every rule on report markdown and return a Result.
+
+    ``summary`` (summary.json as a dict) enables the coverage rules.
+    """
+    result = checks.check_text(md_text, PROFILE)
+    extra = coverage_issues(md_text, summary)
+    if not extra:
+        return result
+    issues = result.errors + result.warnings + extra
+    issues.sort(key=lambda i: (i.severity != "error", i.line))
+    return Result(issues, result.status)
+
+
+def load_summary(md_path):
+    """summary.json next to report.md, or None."""
+    path = os.path.join(os.path.dirname(md_path), "summary.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def format_result(result, path=None, limit=None):
@@ -147,7 +214,7 @@ def main(argv=None):
     if not md_path:
         print("错误: 找不到 report.md (在 %s 下)" % args.path, file=sys.stderr)
         return 2
-    result = check_text(output.read_text(md_path))
+    result = check_text(output.read_text(md_path), load_summary(md_path))
     if args.json:
         data = checks.result_dict(result)
         print(json.dumps(data, ensure_ascii=False, indent=2))

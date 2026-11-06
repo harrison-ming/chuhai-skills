@@ -4,7 +4,7 @@ description: >-
   拆解任意公开 Shopify 独立站 (对标店/竞品店). 核实店铺身份与店龄, 全量统计商品数/价格带/折扣/上新节奏, 识别主题/应用/Markets/追踪标签, 检查政策页一致性, 交付一份大白话的中文 PDF 报告 (保留证据标签) 和一张可用 Excel 打开的商品清单. 用户只给一个网址加一句短问题也用它, 例如 "xx.com 是 Shopify 店吗", "这个网站用什么建站的", "这家店是真的吗", "开了多久/规模多大", "它靠什么卖这个价", "帮我拆解一下这个独立站", "对标店分析", "竞品独立站拆解"; English: "is xx.com a Shopify store", "what platform is this store built on", "how old is this store", "Shopify store teardown", "competitor store analysis". 只读公开页面, 不登录, 不下单.
 license: MIT
 metadata:
-  version: "0.2.2"
+  version: "0.2.3"
   author: StellarByte
   homepage: https://github.com/harrison-ming/chuhai-skills
   status: experimental
@@ -71,6 +71,7 @@ python3 <skill 目录>/scripts/collect.py <店铺网址> --depth L1
 
 - **用户没有指定保存位置时, 不要加 `--out-root` 或 `--out`**, 也不要自作主张写到当前目录: 默认会存到用户的"文档/出海拆解报告" (Windows 自动识别 OneDrive 下的文档; 找不到就用用户主目录; 云端沙箱 (`/mnt/user-data/outputs` 存在且可写) 时自动写到 `/mnt/user-data/outputs/出海拆解报告`). 已设置环境变量 `CHUHAI_OUTPUT_DIR` 时脚本会自动用它, 同样不要加参数, **也不要自己设置或改写这个变量**. 只有用户明确说了存哪, 才加 `--out-root <目录>`.
 - 同一天重复拆同一家店, 文件夹会自动加 "(2)", 不会覆盖.
+- 店铺限制批量读取商品数据 (HTTP 429, 限流) 时, 脚本会按店铺要求的时间等待 (单次最多 `--max-wait` 75 秒, 全程最多 `--wait-budget` 240 秒), 仍受限就停, 改从网站地图里均匀挑最多 12 个商品页 (`--price-sample`) 慢速读取价格, 再遇限流就停. 不换身份, 不并发, 不绕过. 这一步可能多花几分钟, 正常等它跑完.
 - 输出里有 `network_unavailable` (店铺和其他网站都没响应), 说明当前环境不能联网, 不代表网站不存在: 有网页读取工具就换模式 B, 没有就按"失败时"交付短报告并说明是环境不能联网.
 
 **模式 B: 能运行 Python 但不能联网, 有网页读取工具** → 先让脚本建好运行目录 (不联网, 位置规则和模式 A 相同), **不要自己在当前目录建**:
@@ -100,11 +101,12 @@ python3 <skill 目录>/scripts/summarize.py "<运行目录>"
 1. `warnings` 有 `site_unreachable` (网站打不开; `network_unavailable` 见第 2 步), 或 `identity.status` 不是 `confirmed` / `probable`: 直接按"失败时"写短报告并交付, 不做后面的分析.
 2. 其他 `warnings`: 每一条都要在报告里交代 (正文用大白话, 附录写原值和实际数值), 不要自行解释原因. 例如 `collections_count_mismatch` 时写出 `collections_all_products_count` 与 `products.count` 两个数, 并说明商品量以 `products.count` 为准.
 3. `endpoints` 里失败的项: 写进"还有哪些没查清", **拿不到不等于不存在**.
+4. `coverage` 说明各项数字的来源. `coverage.price_source` 是 `product_page_sample` 时, 价格只来自商品页抽样 (`coverage.price_sample_size` 款, 共约 `coverage.price_population` 款): 正文必须写明是抽样估计, 折扣和上新节奏写 `[查不到]` (`discount_data` / `new_product_cadence` 为 false), 不要用 `sitemap_lastmod_by_month` 代替上新节奏 (那是"最近更新", 不是上架时间). 写法见 `references/report-template.md`.
 
 ## 第 4 步: 分析
 
 - **L0**: 身份信号, 店名与基础币种, 店龄三方对照 (域名注册 / 网页历史存档首抓 / 首个商品 `created_at`, 有品牌自称年份也放进来), 规模速览. 规则见 `references/shopify-checks.md` §1-2 和 `references/business-analysis.md` §9.
-- **L1**: 在 L0 基础上, 读首页, 1 个主要集合页, 3 个商品页 (入门/主力/高价), About 页, 5 个政策页. 模式 A 已全部存到 `raw/`: 集合页 `page-collection-<handle>.html`, 商品页 `page-product-<handle>.html`, 选了哪 3 个商品 (角色, 价格, 选择依据 `basis`) 见 `summary.json` 的 `l1_samples` (脚本按排除虚拟商品后的价格分位和 best-selling 排序挑选). 价格分布优先引用 `products.price_excluding_virtual` (样本只从有货商品挑, 对应其中的 `in_stock`). 模式 B 按同样的文件名手动保存. 按 `references/business-analysis.md` 全文分析, 平台层按 `references/shopify-checks.md` §3-9.
+- **L1**: 在 L0 基础上, 读首页, 1 个主要集合页, 3 个商品页 (入门/主力/高价), About 页, 5 个政策页. 模式 A 已全部存到 `raw/`: 集合页 `page-collection-<handle>.html`, 商品页 `page-product-<handle>.html`, 选了哪 3 个商品 (角色, 价格, 选择依据 `basis`) 见 `summary.json` 的 `l1_samples` (脚本按排除虚拟商品后的价格分位和 best-selling 排序挑选; 商品数据被限流时从已抽样的商品页里挑, `basis_pool` 为 `product_page_sample`, 不会重复请求). 价格分布优先引用 `products.price_excluding_virtual` (样本只从有货商品挑, 对应其中的 `in_stock`). 模式 B 按同样的文件名手动保存. 按 `references/business-analysis.md` 全文分析, 平台层按 `references/shopify-checks.md` §3-9.
 
 证据规则见 `references/evidence.md`. 最容易犯的错:
 
@@ -160,5 +162,5 @@ python3 <skill 目录>/scripts/deliver.py "<运行目录>"
 
 - **网站打不开 (`site_unreachable`), 或确认不了是 Shopify 店**: 仍按 `references/report-template.md` 的"失败短报告模板"写 `report.md`, 照常跑 check_report.py 和 deliver.py 交付文件. 完成状态: 什么都没拿到写 `failed`, 看到了首页但不是 Shopify 写 `partial`. 正文用大白话写清卡在哪一步 (例如"网址对应的网站不存在, 可能拼错"), 建议用户核对网址或稍后重试; 技术原因只放附录. 不要改用其他工具绕过去, 也不要只在对话里回答.
 - 证书错误: 脚本已自动兼容 (Windows 上会先让系统补一次根证书再重试). 仍失败时把脚本打印的"提示"用大白话转告用户: macOS 上 python.org 版 Python 运行一次 "Install Certificates.command"; Windows 先用浏览器打开一次该网站, 或等几分钟再试; Linux 更新系统证书. **不要关闭证书校验.**
-- 被限流 (429): 加大 `--delay` 重试, 不要并发.
+- 被限流 (429, `warnings` 有 `products_json_rate_limited`): 脚本已按店铺要求等待并改用商品页抽样, **不要循环重跑, 不要加大并发, 不要换工具或换身份绕过**. 报告照常写: 正文说明"店铺限制了批量读取商品数据, 价格基于 N 个商品页抽样 (共约 M 款)" (没抽到价格就写 `[查不到]`), 附录写明限流和抽样范围, 完成状态写 `partial`; 建议用户过一段时间 (例如 1 小时后) 再拆一次拿完整数据.
 - `deliver.py` 失败: 报告仍在 `原始数据/report.md`, 告诉用户这个位置, 并在对话里给出摘要.

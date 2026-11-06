@@ -29,6 +29,7 @@
 注意:
 - **先预期好: 模式 B 通常只能稳定完成 L0.** 很多读取工具会截断长内容, 或者只返回摘要而不是原文, 这时全量商品统计做不了. 报告里写明原因, 并建议用户在能联网运行 Python 的环境 (模式 A) 重跑.
 - 读取工具返回的 JSON 如果太长被截断, 改用 `limit=50` 分页重取; 实在取不全, 就不要保存残缺文件, 在 `raw/_status.json` 里记一笔, 报告里写明"商品统计缺失".
+- `products.json` 返回 429 (限流, "Too Many Requests") 时: 不要反复重试, 不要换工具绕过. 改存网站地图 (`raw/sitemap.xml` 与 `raw/sitemap-products-1.xml`), 从里面均匀挑最多 12 个商品页 (跳过运费保障, 礼品卡), 每个间隔几秒, 按商品页原样 (含源码) 存成 `raw/page-product-<handle>.html`; 再遇 429 就停. 没有 `products-*.json` 时, summarize.py 会把这些商品页当价格抽样统计, 报告按抽样写 (见 `report-template.md`).
 - 商品数的兜底来源: `meta.json` 里的 `published_products_count` (店铺自报的公开商品数). 用它时注明"店铺自报, 未与 products.json 交叉核对".
 - 读取工具如果只给 markdown 正文拿不到源码, 主题, 应用, 追踪代码, hreflang 就写 `[查不到]`, 不要猜.
 - `rdap.org` 被拦截时, 改用注册局的官方 RDAP, 例如 `.com` / `.net` 用 `https://rdap.verisign.com/com/v1/domain/<domain>`. 它返回的是标准 RDAP 格式, 可以照样存为 `raw/rdap.json`.

@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import json
 import os
 import shutil
 import sys
@@ -181,6 +182,38 @@ class TestRules(unittest.TestCase):
         self.assertIn("通过", check_report.format_result(self.check(GOOD)))
 
 
+SAMPLED = {
+    "coverage": {
+        "products_json": "rate_limited",
+        "price_source": "product_page_sample",
+        "price_sample_size": 12,
+        "price_population": 19,
+    }
+}
+
+
+class TestCoverageRules(unittest.TestCase):
+    def test_sampled_prices_must_be_stated(self):
+        r = check_report.check_text(GOOD, SAMPLED)
+        self.assertIn(("error", "price_sample_unstated"), kinds(r))
+        self.assertIn(("warning", "rate_limit_unstated"), kinds(r))
+        self.assertFalse(r.ok)
+        stated = GOOD.replace(
+            "## 价格怎么定的\n\n",
+            "## 价格怎么定的\n\n价格基于 12 个商品页抽样 (共约 19 款). "
+            "店铺限制了批量读取商品数据.\n\n",
+        )
+        r = check_report.check_text(stated, SAMPLED)
+        self.assertTrue(r.ok, kinds(r))
+        self.assertEqual(r.warnings, [], kinds(r))
+
+    def test_no_summary_or_full_data_unchanged(self):
+        self.assertTrue(check_report.check_text(GOOD).ok)
+        full = {"coverage": {"products_json": "ok", "price_source": "products_json"}}
+        self.assertEqual(kinds(check_report.check_text(GOOD, full)), [])
+        self.assertEqual(kinds(check_report.check_text(GOOD, {})), [])
+
+
 class TestCli(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="store-teardown-check-")
@@ -206,6 +239,16 @@ class TestCli(unittest.TestCase):
             fh.write("# t\n")
         self.assertEqual(self.run_cli([run])[0], 1)
         self.assertEqual(self.run_cli([os.path.join(self.tmp, "nope")])[0], 2)
+
+    def test_cli_reads_summary_coverage(self):
+        run, raw = make_run(self.tmp, GOOD)
+        with open(os.path.join(raw, "summary.json"), "w", encoding="utf-8") as fh:
+            json.dump(dict(SAMPLED, domain="example.com"), fh)
+        rc, out, _ = self.run_cli([run])
+        self.assertEqual(rc, 1)
+        self.assertIn("抽样", out)
+        rc, out, _ = self.call_deliver([run, "--no-open", "--strict"])
+        self.assertEqual(rc, 1)
 
     def call_deliver(self, argv):
         out = io.StringIO()

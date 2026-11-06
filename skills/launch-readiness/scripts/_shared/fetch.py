@@ -1,7 +1,14 @@
 """Polite HTTP fetching for public pages (standard library only).
 
 - Browser-like User-Agent, gzip/deflate, a delay between requests, retries
-  with backoff on network errors, 429 and 5xx (Retry-After honoured, max 15 s).
+  with backoff on network errors and 5xx (Retry-After honoured, max 15 s).
+- HTTP 429 (rate limited) is respected, never worked around: the fetcher
+  waits as long as Retry-After asks (delta-seconds or HTTP-date), up to
+  ``max_retry_after`` per wait and ``rate_limit_budget`` in total per run,
+  retries at most ``rate_limit_retries`` times, and raises that host's delay
+  between requests for the rest of the run. A request that asks for a longer
+  wait than allowed, or arrives after the budget is spent, returns the 429 at
+  once. No User-Agent rotation, proxies or parallel requests, by design.
 - A cut-off transfer (IncompleteRead, connection reset, remote disconnect;
   common behind proxies) is retried with bounded backoff, the retry asking
   for an uncompressed body.
@@ -19,6 +26,7 @@ Python 3.8+, standard library only.
 """
 
 import datetime
+import email.utils
 import gzip
 import http.client
 import re
@@ -50,6 +58,17 @@ WIN_ROOT_REFRESH_TIMEOUT = 20
 TRANSIENT_RETRIES = 3
 MAX_BACKOFF = 8.0
 DNS_SKIP_NOTE = "skipped: host name did not resolve earlier"
+# Cap of one Retry-After wait for 5xx answers (unchanged behaviour).
+MAX_RETRY_AFTER_5XX = 15.0
+# 429 defaults: cap of one wait, total wait budget of one Fetcher, the wait
+# used when a 429 carries no Retry-After, and the per-host delay after a 429
+# (max(current, clamp(delay * 4, RATE_LIMIT_DELAY_MIN, RATE_LIMIT_DELAY_MAX))).
+MAX_RETRY_AFTER = 75.0
+RATE_LIMIT_BUDGET = 240.0
+RATE_LIMIT_DEFAULT_WAIT = 10.0
+RATE_LIMIT_DELAY_MIN = 2.0
+RATE_LIMIT_DELAY_MAX = 3.0
+RATE_LIMIT_NOTE = "rate limited (429)"
 SECOND_LEVEL = {
     "co.uk",
     "org.uk",
@@ -299,6 +318,37 @@ def backoff(attempt):
     return min(1.5 * (2 ** (attempt - 1)), MAX_BACKOFF)
 
 
+def parse_retry_after(value, now=None):
+    """Seconds asked by a Retry-After header, or None when absent/invalid.
+
+    Accepts delta-seconds ("60") and an HTTP-date ("Wed, 21 Oct 2026
+    07:28:00 GMT"); a date in the past gives 0. ``now`` (aware datetime) is
+    for tests.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if re.match(r"^\d+(?:\.\d+)?$", text):
+        return max(0.0, float(text))
+    try:
+        when = email.utils.parsedate_to_datetime(text)
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return None
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=datetime.timezone.utc)
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    return max(0.0, (when - now).total_seconds())
+
+
+def fmt_seconds(value):
+    """Seconds as a short note string: 60 -> "60s", 1.5 -> "1.5s"."""
+    return ("%.1f" % value).rstrip("0").rstrip(".") + "s"
+
+
 def describe_error(err, note_for_cert=None):
     if is_cert_error(err):
         return note_for_cert or CERT_NOTE
@@ -325,6 +375,13 @@ def cert_failures(requests, note_for_cert=None):
 class Fetcher(object):
     """Sequential polite fetcher. ``get`` never raises for network problems.
 
+    ``retries`` bounds retries after network errors and 5xx answers.
+    ``rate_limit_retries`` bounds retries after HTTP 429 (default: same as
+    ``retries``, so ``retries=0`` callers keep never retrying); each wait
+    follows Retry-After, is at most ``max_retry_after`` seconds, and all 429
+    waits of this Fetcher together stay within ``rate_limit_budget`` seconds.
+    ``sleep`` replaces ``time.sleep`` (tests).
+
     Subclasses may override ``_build_opener`` (it must set ``self.ctx`` and
     ``self.opener``), e.g. to add handlers.
     """
@@ -337,6 +394,10 @@ class Fetcher(object):
         user_agent=USER_AGENT,
         accept_language=ACCEPT_LANGUAGE,
         lang=None,
+        rate_limit_retries=None,
+        max_retry_after=MAX_RETRY_AFTER,
+        rate_limit_budget=RATE_LIMIT_BUDGET,
+        sleep=None,
     ):
         self.timeout = timeout
         self.delay = delay
@@ -344,6 +405,15 @@ class Fetcher(object):
         self.user_agent = user_agent
         self.accept_language = accept_language
         self.cert_note = CERT_NOTES[i18n.norm_lang(lang)]
+        self.rate_limit_retries = max(
+            0, int(retries if rate_limit_retries is None else rate_limit_retries)
+        )
+        self.max_retry_after = max(0.0, float(max_retry_after))
+        self.rate_limit_budget = max(0.0, float(rate_limit_budget))
+        self.rate_limit_waited = 0.0  # seconds spent waiting on 429s so far
+        self._sleep_fn = sleep
+        self._host_delay = {}  # host -> raised delay after a 429
+        self._rate_limited = {}  # host -> number of 429 answers
         self._refreshed_hosts = set()
         self._dns_failed = {}  # host -> note of the resolution failure
         self._build_opener()
@@ -366,13 +436,40 @@ class Fetcher(object):
         self._build_opener()
         return True
 
-    def _sleep_polite(self):
-        wait = self.delay - (time.time() - self._last)
+    def _sleep(self, seconds):
+        if seconds <= 0:
+            return
+        if self._sleep_fn is not None:
+            self._sleep_fn(seconds)
+        else:
+            time.sleep(seconds)
+
+    def host_delay(self, host):
+        """Seconds between requests to host (raised after a 429)."""
+        return max(self.delay, self._host_delay.get(host, 0.0))
+
+    def _sleep_polite(self, host=None):
+        wait = self.host_delay(host) - (time.time() - self._last)
         if wait > 0:
-            time.sleep(wait)
+            self._sleep(wait)
+
+    def _slow_down(self, host):
+        """After a 429: keep a larger delay for this host for the whole run."""
+        raised = min(max(self.delay * 4, RATE_LIMIT_DELAY_MIN), RATE_LIMIT_DELAY_MAX)
+        self._host_delay[host] = max(self._host_delay.get(host, 0.0), raised)
+
+    def rate_limited_hosts(self):
+        """{host: number of 429 answers} seen so far (a copy)."""
+        return dict(self._rate_limited)
+
+    def rate_limit_budget_left(self):
+        return max(0.0, self.rate_limit_budget - self.rate_limit_waited)
 
     def get(self, url, accept=ACCEPT_HTML, headers=None):
-        """Return dict(status, body(bytes|None), final_url, elapsed_ms, note)."""
+        """Return dict(status, body(bytes|None), final_url, elapsed_ms, note).
+
+        After any 429 the dict also carries ``rate_limited: True``.
+        """
         host = (urlsplit(url).hostname or "").lower()
         if host in self._dns_failed:
             return {
@@ -382,14 +479,18 @@ class Fetcher(object):
                 "elapsed_ms": 0,
                 "note": "%s; %s" % (self._dns_failed[host], DNS_SKIP_NOTE),
             }
-        attempt = 0
+        attempt = 0  # retries after network errors / 5xx
+        rl_attempt = 0  # retries after 429
+        rl_waited = 0.0
+        rl_seen = False
+        rl_stop = ""  # why a 429 was not retried
         refreshed = False
         identity = False  # ask for an uncompressed body after a cut-off
         while True:
             # Per-attempt note: a cert error that a retry fixed must not leak
             # into the final result (only the refresh marker is kept).
             note = ""
-            self._sleep_polite()
+            self._sleep_polite(host)
             t0 = time.time()
             status, body, final_url, resp_headers, err = None, None, url, {}, None
             req_headers = {
@@ -450,6 +551,8 @@ class Fetcher(object):
                 if is_cert_error(err) or dns or attempt >= limit:
                     if dns and host:
                         self._dns_failed[host] = note
+                    if rl_seen:
+                        note += "; " + self._rl_note(rl_waited, rl_attempt, "")
                     if attempt:
                         note += "; retried %d" % attempt
                     return {
@@ -461,33 +564,73 @@ class Fetcher(object):
                     }
                 attempt += 1
                 identity = identity or transient
-                time.sleep(backoff(attempt))
+                self._sleep(backoff(attempt))
                 continue
-            if (status == 429 or (status is not None and status >= 500)) and (
-                attempt < self.retries
-            ):
+            ra = (
+                parse_retry_after(resp_headers.get("Retry-After"))
+                if hasattr(resp_headers, "get")
+                else None
+            )
+            if status == 429:
+                rl_seen = True
+                self._rate_limited[host] = self._rate_limited.get(host, 0) + 1
+                self._slow_down(host)
+                wait = (
+                    ra if ra is not None else RATE_LIMIT_DEFAULT_WAIT * (rl_attempt + 1)
+                )
+                if rl_attempt >= self.rate_limit_retries:
+                    rl_stop = "still limited"
+                elif wait > self.max_retry_after:
+                    # Retrying before the time the site asked for is not
+                    # polite; give up instead of waiting a shorter time.
+                    rl_stop = "asked to wait %s, more than the %s limit" % (
+                        fmt_seconds(wait),
+                        fmt_seconds(self.max_retry_after),
+                    )
+                elif wait > self.rate_limit_budget_left():
+                    rl_stop = "wait budget exhausted"
+                else:
+                    rl_attempt += 1
+                    rl_waited += wait
+                    self.rate_limit_waited += wait
+                    self._sleep(wait)
+                    continue
+            elif status is not None and status >= 500 and attempt < self.retries:
                 attempt += 1
                 wait = backoff(attempt)
-                ra = (
-                    resp_headers.get("Retry-After")
-                    if hasattr(resp_headers, "get")
-                    else None
-                )
-                if ra and str(ra).isdigit():
-                    wait = min(float(ra), 15.0)
-                time.sleep(wait)
+                if ra is not None:
+                    wait = min(ra, MAX_RETRY_AFTER_5XX)
+                self._sleep(wait)
                 continue
             if refreshed:
                 note = (note + "; " if note else "") + WIN_ROOT_REFRESH_NOTE
+            if rl_seen:
+                rl_note = self._rl_note(rl_waited, rl_attempt, rl_stop)
+                note = (note + "; " if note else "") + rl_note
             if attempt:
                 note = (note + "; " if note else "") + "retried %d" % attempt
-            return {
+            out = {
                 "status": status,
                 "body": body,
                 "final_url": final_url,
                 "elapsed_ms": elapsed,
                 "note": note,
             }
+            if rl_seen:
+                out["rate_limited"] = True
+            return out
+
+    @staticmethod
+    def _rl_note(waited, retried, stop):
+        """'rate limited (429), waited 60s, retried 1[, <why stopped>]'."""
+        parts = [RATE_LIMIT_NOTE]
+        if waited:
+            parts.append("waited %s" % fmt_seconds(waited))
+        if retried:
+            parts.append("retried %d" % retried)
+        if stop:
+            parts.append(stop)
+        return ", ".join(parts)
 
 
 def status_entry(key, url, response, result, fname=None, extra_note=""):
