@@ -353,6 +353,43 @@ class RateLimitStopTest(Tmp):
         self.assertIn(snapshot.collect.SKIP_BULK_NOTE, notes)
 
 
+class HomepageLimitedFetcher(RateLimitFetcher):
+    def get(self, url, accept=None, headers=None):
+        if url.startswith(self.base):
+            self.calls.append(url)
+            return dict(
+                status=429, body=b"slow", final_url=url, elapsed_ms=1, note="429"
+            )
+        return RateLimitFetcher.get(self, url, accept, headers)
+
+
+class HomepageLimitTest(Tmp):
+    def run_radar(self, offsite):
+        base = "https://shop.example"
+        f = HomepageLimitedFetcher(base)
+        col = snapshot.RadarCollector(
+            base, os.path.join(self.tmp, "h%d" % offsite), f, offsite=offsite
+        )
+        col.run()
+        return base, f, col
+
+    def test_homepage_429_first_snapshot_still_checks_site_age(self):
+        base, f, col = self.run_radar(True)
+        store = [u for u in f.calls if u.startswith(base)]
+        self.assertEqual(store, [base + "/"])  # zero further store requests
+        self.assertEqual(sum("rdap.org" in u for u in f.calls), 1)
+        self.assertEqual(sum("web.archive.org" in u for u in f.calls), 1)
+        skipped = [r for r in col.requests if r["result"] == "not_checked"]
+        self.assertTrue(skipped)
+        self.assertTrue(
+            all(r["note"] == snapshot.collect.SKIP_HOST_NOTE for r in skipped)
+        )
+
+    def test_homepage_429_later_snapshot_no_offsite(self):
+        base, f, _col = self.run_radar(False)
+        self.assertEqual(f.calls, [base + "/"])
+
+
 class StorageTest(Tmp):
     def test_capture_is_idempotent_per_day(self):
         _old, new = ff.scenario("price-drop")

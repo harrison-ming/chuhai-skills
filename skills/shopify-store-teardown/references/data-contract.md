@@ -129,7 +129,7 @@
   - `price_source`: `products_json` = 全店商品数据; `product_page_sample` = 只来自商品页抽样 (`price_sample_size` 款, 总体约 `price_population` 款, 取自网站地图), 报告必须写明是抽样估计 (check_report.py 会检查); `null` = 没有价格数据.
   - `discount_data` / `new_product_cadence`: 有没有折扣 (原价) 数据和上新日期. 为 false 时折扣占比, 折扣深度, 上新节奏一律写 `[查不到]`, 对应字段为 null, 原因在 `products.unavailable_reasons`.
   - `rate_limited_endpoints`: 本次收到过 429 的请求键 (例如 `products_json`, `product_page_sample`).
-- 价格来自抽样时 (`price_source` = `product_page_sample`): `products.price` / `price_excluding_virtual` / `price_bands` 按每个抽样商品页上的最低价统计 (优先页面里的结构化商品数据 JSON-LD `offers`, 任意嵌套层级都会找, 例如 `mainEntity`; 页面有多个商品时用网址 (`url` / `@id` / offer `url`) 指向本商品的那个, 对不上就改用 `og:price:amount` / `product:price:amount`, 再没有就记为没有价格, 不猜), 币种是页面显示的币种 (可能按访客地区本地化); `on_sale_share`, `discount_depth_median`, `variants`, `created_*`, `published_by_month` 为 null 或空. 不从页面猜原价.
+- 价格来自抽样时 (`price_source` = `product_page_sample`): `products.price` / `price_excluding_virtual` / `price_bands` 按每个抽样商品页上的最低价统计 (优先页面里的结构化商品数据 JSON-LD `offers`, 任意嵌套层级都会找, 例如 `mainEntity`; 页面有多个商品时用网址 (`url` / `@id` / offer `url`) 指向本商品的那个; 对不上时只有页面只描述一个商品才用它的价格, 否则改用 `og:price:amount` / `product:price:amount`, 再没有就记为没有价格, 不猜), 币种是页面显示的币种 (可能按访客地区本地化); `on_sale_share`, `discount_depth_median`, `variants`, `created_*`, `published_by_month` 为 null 或空. 不从页面猜原价.
 - `products.sitemap_lastmod_by_month` 是网站地图里每个商品的**最近修改时间** (`<lastmod>`) 按月计数, 改价, 改图, 改库存都会更新它, **不是上架时间**. 报告里只能写"最近更新", 不能当上新节奏.
 - `offsite.wayback.captures_by_year` 是**该年有快照的月份数** (0-12), 不是抓取次数.
 - `theme.storefront_hint` 为 `headless_possible` 时 (例如检测到 Next.js 而读不到 `Shopify.theme`), 只能写 `[推测]`, 不等于 Hydrogen.

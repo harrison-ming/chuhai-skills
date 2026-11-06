@@ -952,6 +952,18 @@ class TestProductPageParse(unittest.TestCase):
         meta = page + '<meta property="og:price:amount" content="99.00">'
         facts = summarize.parse_product_page(meta, "other")
         self.assertEqual((facts["price"], facts["price_from"]), (99.0, "meta"))
+        # current product unpriced + priced recommendation: never borrow it
+        current = product("main-item", 0)
+        del current["offers"]
+        page = '<script type="application/ld+json">%s</script>' % json.dumps(
+            [current, product("recommended", 55)]
+        )
+        self.assertIsNone(summarize.parse_product_page(page, "main-item"))
+        self.assertIsNone(summarize.parse_product_page(page))
+        facts = summarize.parse_product_page(
+            page + '<meta property="og:price:amount" content="80">', "main-item"
+        )
+        self.assertEqual((facts["price"], facts["price_from"]), (80.0, "meta"))
         # offer url match, ProductGroup variants count as one product
         group = {
             "@type": "ProductGroup",

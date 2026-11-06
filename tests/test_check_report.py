@@ -268,6 +268,23 @@ class TestCoverageRules(unittest.TestCase):
         self.assertIn(("warning", "partial_data_unstated"), kinds(r))
         r = check_report.check_text(self.body_with("统计只基于部分商品."), partial)
         self.assertEqual(kinds(r), [])
+        # unrelated 至少 / 部分 elsewhere in the body do not count
+        bypass = self.body_with("报告至少列出 3 个建议. 部分政策没拿到.")
+        r = check_report.check_text(bypass, partial)
+        self.assertIn(("warning", "partial_data_unstated"), kinds(r))
+        partial["products"]["count_is_lower_bound"] = True
+        r = check_report.check_text(bypass, partial)
+        self.assertIn(("error", "partial_count_no_lower_bound"), kinds(r))
+        r = check_report.check_text(
+            self.body_with("在售 500 款; 报告至少列出 3 个建议."), partial
+        )
+        self.assertIn(("error", "partial_count_no_lower_bound"), kinds(r))
+        partial["products"]["count"] = 1500
+        r = check_report.check_text(self.body_with("在售至少 1,500 款."), partial)
+        self.assertTrue(r.ok, kinds(r))
+        partial["products"].update(count=500, count_is_lower_bound=False)
+        r = check_report.check_text(self.body_with("在售 500 款, 数据不完整."), partial)
+        self.assertEqual(kinds(r), [])
         partial["coverage"]["rate_limited_endpoints"] = []  # partial, no 429
         self.assertEqual(kinds(check_report.check_text(GOOD, partial)), [])
 

@@ -24,8 +24,8 @@ Hard errors (must be fixed, then re-run):
     the appendix) never says so, only negates it ("没有抽样"), or does not
     give the sample size N in the same line
   - bulk product data cut short by a 429 (coverage.products_json ==
-    "partial") while products.count is a lower bound, and the body has no
-    "至少"
+    "partial") while products.count is a lower bound, and no body sentence
+    puts "至少" next to that count
 
 Warnings (do not fail, but the agent must review each one):
   - suspected over-labeling: the claim attached to [已核实] contains
@@ -138,6 +138,7 @@ SAMPLE_NEGATION_RE = re.compile(
 RATE_LIMIT_WORDS_RE = re.compile(r"限流|限制|429|(?i:rate.?limit)")
 PARTIAL_WORDS_RE = re.compile(r"部分|至少|不完整|不全|(?i:\bpartial\b|\bat least\b)")
 LOWER_BOUND_RE = re.compile(r"至少|(?i:\bat least\b)")
+PRODUCT_WORDS_RE = re.compile(r"商品|(?i:\bproducts?\b)")
 
 
 def _has_number(text, value):
@@ -145,6 +146,25 @@ def _has_number(text, value):
     if value is None:
         return False
     return bool(re.search(r"(?<![\d.,])%s(?![\d])" % re.escape(str(value)), text))
+
+
+SENTENCE_END_RE = re.compile(r"(?<=[.;!?])\s+|[\u3002\uff1b\uff01\uff1f]|\|")
+
+
+def _sentences(line):
+    """Sentences (and table cells) of one line."""
+    return [p for p in SENTENCE_END_RE.split(line) if p.strip()]
+
+
+def _mentions_count(line, count):
+    """True when the product count appears in line (1234 or 1,234)."""
+    if count is None:
+        return False
+    try:
+        n = int(count)
+    except (TypeError, ValueError):
+        return False
+    return _has_number(line, n) or ("{:,}".format(n) in line and n >= 1000)
 
 
 def _body_lines(md_text):
@@ -176,9 +196,10 @@ def coverage_issues(md_text, summary):
       say so, not negated, with the sample size N in the same line (error);
       the population M should appear in the body too (warning);
     - bulk product data rate limited: the report should mention it (warning);
-    - bulk product data partial because of a mid-pagination 429: the body
-      must say the data is partial (warning), or "至少" when the count is a
-      lower bound (error).
+    - bulk product data partial because of a mid-pagination 429: a body
+      line must say the product data is partial (部分 / 不完整 / 至少 next
+      to 商品 or the count; warning), or, when the count is a lower bound,
+      "至少" in the same sentence as products.count (error).
     """
     cov = (summary or {}).get("coverage") or {}
     products = (summary or {}).get("products") or {}
@@ -251,8 +272,10 @@ def coverage_issues(md_text, summary):
         )
     if cov.get("products_json") == "partial" and "products_json" in limited:
         count = products.get("count")
-        if products.get("count_is_lower_bound") and not LOWER_BOUND_RE.search(
-            body_text
+        lines = [part for _ln, line in body for part in _sentences(line)]
+        if products.get("count_is_lower_bound") and not any(
+            LOWER_BOUND_RE.search(line) and _mentions_count(line, count)
+            for line in lines
         ):
             issues.append(
                 Issue(
@@ -266,7 +289,11 @@ def coverage_issues(md_text, summary):
                     % count,
                 )
             )
-        elif not PARTIAL_WORDS_RE.search(body_text):
+        elif not any(
+            PARTIAL_WORDS_RE.search(line)
+            and (PRODUCT_WORDS_RE.search(line) or _mentions_count(line, count))
+            for line in lines
+        ):
             issues.append(
                 Issue(
                     "warning",

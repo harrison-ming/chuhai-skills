@@ -633,11 +633,14 @@ def _from_json_ld(src, handle=None):
     """Price facts of the page's own JSON-LD Product, or None.
 
     A page can carry several Product nodes (recommendations, bundles). The
-    one whose url / @id / offer url points at ``handle`` wins; one priced
-    Product is used as is; several priced Products and none matching:
-    None (the caller falls back to the page's meta price, no guessing).
+    one whose url / @id / offer url points at ``handle`` wins; without a
+    match, the price is used only when the document has exactly one Product
+    node; otherwise None (the caller falls back to the page's meta price, no
+    guessing).
     """
     candidates = []
+    product_ids = []  # every Product / ProductGroup node, priced or not
+    variant_ids = set()  # variants of a ProductGroup belong to it
     for raw in LD_JSON_RE.findall(src):
         doc = None
         for text in (raw.strip(), html.unescape(raw.strip())):
@@ -650,19 +653,23 @@ def _from_json_ld(src, handle=None):
             continue
         for node in _ld_nodes(doc):
             if _ld_is(node, "Product") or _ld_is(node, "ProductGroup"):
+                product_ids.append(id(node))
+                variant_ids.update(id(v) for v in _ld_items(node.get("hasVariant")))
                 facts = _ld_product_facts(node)
                 if facts is not None:
                     facts["_id"] = id(node)
                     candidates.append(facts)
-    # variants of a priced ProductGroup are part of it, not other products
-    inside = {v for c in candidates for v in c["_variants"]}
-    candidates = [c for c in candidates if c["_id"] not in inside]
+    products = [i for i in product_ids if i not in variant_ids]
+    candidates = [c for c in candidates if c["_id"] not in variant_ids]
     if not candidates:
         return None
     matched = [c for c in candidates if handle and _matches_handle(c, handle)]
     if matched:
         return _merge_facts(matched)
-    if len(candidates) == 1:
+    # Unmatched price only when the page describes exactly one product: with
+    # several (e.g. the current one unpriced plus a priced recommendation),
+    # any price picked here could belong to another product.
+    if len(products) == 1 and len(candidates) == 1:
         return _merge_facts(candidates)
     return None
 

@@ -286,8 +286,11 @@ class RadarCollector(collect.Collector):
                     "policy-%s.html" % name,
                     "html",
                 )
-            if not self.skip_offsite:
-                self.collect_offsite()
+        if not self.skip_offsite:
+            # Site-age lookups (first snapshot, not public-only) live on other
+            # hosts: they run even when the store refused us (e.g. a 429 on
+            # the homepage stopped every further store request).
+            self.collect_offsite()
         elif all(r.get("http_status") is None for r in self.requests):
             # Nothing answered: two off-site lookups tell "this machine is
             # offline" (network_unavailable) from "this address is dead".
