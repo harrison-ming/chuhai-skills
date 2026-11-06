@@ -1,0 +1,15 @@
+{
+  "name": "moveset-store-teardown",
+  "version": "0.2.2",
+  "description": "Tear down any public Shopify store from public data: store identity and age, catalog size, price bands, discounts, launch cadence, theme, apps, Markets and tracking tags. Read-only, no login, no API key. Delivers a PDF report with evidence labels and a product spreadsheet.",
+  "author": {
+    "name": "Moveset",
+    "url": "https://moveset.io"
+  },
+  "homepage": "https://moveset.io/en/skills/shopify-store-teardown?ref=claude-directory",
+  "repository": "https://github.com/harrison-ming/chuhai-skills",
+  "license": "MIT",
+  "keywords": ["shopify", "ecommerce", "competitor-analysis", "store-analysis", "cross-border-ecommerce"],
+  "icon": ".claude-plugin/icon.png",
+  "skills": ["./"]
+}
