@@ -141,14 +141,39 @@ LOWER_BOUND_RE = re.compile(r"至少|(?i:\bat least\b)")
 PRODUCT_WORDS_RE = re.compile(r"商品|(?i:\bproducts?\b)")
 
 
+# A number as written in prose: optional currency symbol, digits with
+# optional thousands separators, optional decimals. Matched only at a token
+# boundary, so "11,500" never yields 1,500 and "250.00" never yields 250.
+NUMBER_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9_.])(?<!\d,)([$\u00a5\u20ac\u00a3\uffe5]\s?)?"
+    r"(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?![A-Za-z0-9_]|,\d)"
+)
+
+
+def _numbers(text):
+    """Whole-number counts written in text (prices and decimals skipped)."""
+    out = set()
+    for m in NUMBER_TOKEN_RE.finditer(text or ""):
+        currency, digits, decimals = m.groups()
+        if currency or decimals:
+            continue  # "$12.50", "250.00": a price or a decimal, not a count
+        out.add(int(digits.replace(",", "")))
+    return out
+
+
 def _has_number(text, value):
-    """True when ``value`` (an int) appears as a whole number in text."""
+    """True when the whole number ``value`` appears in text as a count."""
     if value is None:
         return False
-    return bool(re.search(r"(?<![\d.,])%s(?![\d])" % re.escape(str(value)), text))
+    try:
+        return int(value) in _numbers(text)
+    except (TypeError, ValueError):
+        return False
 
 
-SENTENCE_END_RE = re.compile(r"(?<=[.;!?])\s+|[\u3002\uff1b\uff01\uff1f]|\|")
+# ASCII . ; ! ? end a sentence wherever they are (a "." between two digits
+# is a decimal point), plus full-width sentence marks and table cells.
+SENTENCE_END_RE = re.compile(r"[;!?]|(?<!\d)\.|\.(?!\d)|[\u3002\uff1b\uff01\uff1f]|\|")
 
 
 def _sentences(line):
@@ -158,13 +183,7 @@ def _sentences(line):
 
 def _mentions_count(line, count):
     """True when the product count appears in line (1234 or 1,234)."""
-    if count is None:
-        return False
-    try:
-        n = int(count)
-    except (TypeError, ValueError):
-        return False
-    return _has_number(line, n) or ("{:,}".format(n) in line and n >= 1000)
+    return _has_number(line, count)
 
 
 def _body_lines(md_text):

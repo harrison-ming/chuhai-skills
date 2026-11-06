@@ -240,6 +240,19 @@ class TestCoverageRules(unittest.TestCase):
         )
         self.assertIn(("error", "price_sample_count_wrong"), kinds(r))
 
+    def test_sample_count_tokens(self):
+        ok = (
+            "价格: 基于 12 个商品页抽样 (共约 19 款).",
+            "价格基于12个商品页抽样, 最低 $12.50 (共约 19 款).",
+        )
+        for text in ok:
+            r = check_report.check_text(self.body_with(text), SAMPLED)
+            self.assertTrue(r.ok, (text, kinds(r)))
+        r = check_report.check_text(
+            self.body_with("商品页抽样显示最低 $12.50, 共约 19 款."), SAMPLED
+        )
+        self.assertIn(("error", "price_sample_count_wrong"), kinds(r))
+
     def test_population_missing_is_warning(self):
         r = check_report.check_text(
             self.body_with("价格基于 12 个商品页抽样, 店铺限制了批量读取."), SAMPLED
@@ -285,6 +298,21 @@ class TestCoverageRules(unittest.TestCase):
         partial["products"].update(count=500, count_is_lower_bound=False)
         r = check_report.check_text(self.body_with("在售 500 款, 数据不完整."), partial)
         self.assertEqual(kinds(r), [])
+        # round 3: prices, longer numbers and ";" without a space do not count
+        partial["products"].update(count=250, count_is_lower_bound=True)
+        for text in (
+            "在售 250 款. 最低价至少 $250.00.",
+            "在售 250 款;报告至少列出 3 个建议.",
+            "价格至少 250.00 美元. 共 250 款.",
+        ):
+            r = check_report.check_text(self.body_with(text), partial)
+            self.assertIn(("error", "partial_count_no_lower_bound"), kinds(r), text)
+        partial["products"]["count"] = 1500
+        r = check_report.check_text(self.body_with("在售至少 11,500 款."), partial)
+        self.assertIn(("error", "partial_count_no_lower_bound"), kinds(r))
+        r = check_report.check_text(self.body_with("在售至少1,500款."), partial)
+        self.assertTrue(r.ok, kinds(r))
+        partial["products"].update(count=500, count_is_lower_bound=False)
         partial["coverage"]["rate_limited_endpoints"] = []  # partial, no 429
         self.assertEqual(kinds(check_report.check_text(GOOD, partial)), [])
 

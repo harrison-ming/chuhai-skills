@@ -573,10 +573,23 @@ def _offer_facts(offers):
     return prices, highs, compare, currencies, avail, urls
 
 
-def _ld_product_facts(node):
-    """Price facts of one Product / ProductGroup node, or None (no price)."""
+def _ld_ref(node):
+    """Normalized ``@id`` of a JSON-LD node, or None."""
+    ref = node.get("@id") if isinstance(node, dict) else None
+    return ref.strip() if isinstance(ref, str) and ref.strip() else None
+
+
+def _ld_product_facts(node, by_ref=None):
+    """Price facts of one Product / ProductGroup node, or None (no price).
+
+    ``by_ref``: {@id: node} of the page, to resolve ``hasVariant`` entries
+    given as references ({"@id": "#red"}) to the full variant nodes.
+    """
     offers = node.get("offers")
-    variants = [v for v in _ld_items(node.get("hasVariant"))]
+    variants = [
+        (by_ref or {}).get(_ld_ref(v), v) if "offers" not in v else v
+        for v in _ld_items(node.get("hasVariant"))
+    ]
     if offers is None and variants:
         offers = [v.get("offers") for v in variants]
     prices, highs, compare, currencies, avail, urls = _offer_facts(offers)
@@ -638,9 +651,8 @@ def _from_json_ld(src, handle=None):
     node; otherwise None (the caller falls back to the page's meta price, no
     guessing).
     """
-    candidates = []
-    product_ids = []  # every Product / ProductGroup node, priced or not
-    variant_ids = set()  # variants of a ProductGroup belong to it
+    nodes = []  # every Product / ProductGroup node, priced or not
+    by_ref = {}
     for raw in LD_JSON_RE.findall(src):
         doc = None
         for text in (raw.strip(), html.unescape(raw.strip())):
@@ -653,14 +665,25 @@ def _from_json_ld(src, handle=None):
             continue
         for node in _ld_nodes(doc):
             if _ld_is(node, "Product") or _ld_is(node, "ProductGroup"):
-                product_ids.append(id(node))
-                variant_ids.update(id(v) for v in _ld_items(node.get("hasVariant")))
-                facts = _ld_product_facts(node)
-                if facts is not None:
-                    facts["_id"] = id(node)
-                    candidates.append(facts)
-    products = [i for i in product_ids if i not in variant_ids]
-    candidates = [c for c in candidates if c["_id"] not in variant_ids]
+                nodes.append(node)
+                ref = _ld_ref(node)
+                if ref and (ref not in by_ref or "offers" not in by_ref[ref]):
+                    by_ref[ref] = node  # prefer the full node over a stub
+    # variants of a ProductGroup belong to it, inline or as {"@id"} references
+    variant_ids, variant_refs = set(), set()
+    for node in nodes:
+        for v in _ld_items(node.get("hasVariant")):
+            variant_ids.add(id(v))
+            if _ld_ref(v):
+                variant_refs.add(_ld_ref(v))
+    products = [
+        n for n in nodes if id(n) not in variant_ids and _ld_ref(n) not in variant_refs
+    ]
+    candidates = []
+    for node in products:
+        facts = _ld_product_facts(node, by_ref)
+        if facts is not None:
+            candidates.append(facts)
     if not candidates:
         return None
     matched = [c for c in candidates if handle and _matches_handle(c, handle)]

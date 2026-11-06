@@ -985,6 +985,44 @@ class TestProductPageParse(unittest.TestCase):
         facts = summarize.parse_product_page(src)
         self.assertEqual((facts["price"], facts["price_max"]), (20.0, 25.0))
 
+    def test_group_with_referenced_variants(self):
+        graph = {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "ProductGroup",
+                    "@id": "https://shop.example/products/tee#group",
+                    "name": "Tee",
+                    "url": "https://shop.example/products/tee",
+                    "hasVariant": [{"@id": "#red"}, {"@id": "#blue"}],
+                },
+                {
+                    "@type": "Product",
+                    "@id": "#red",
+                    "offers": {
+                        "@type": "Offer",
+                        "price": "20.00",
+                        "priceCurrency": "USD",
+                    },
+                },
+                {
+                    "@type": "Product",
+                    "@id": "#blue",
+                    "offers": {
+                        "@type": "Offer",
+                        "price": "26.00",
+                        "priceCurrency": "USD",
+                    },
+                },
+            ],
+        }
+        src = '<script type="application/ld+json">%s</script>' % json.dumps(graph)
+        for handle in ("tee", None, "other"):
+            facts = summarize.parse_product_page(src, handle)
+            self.assertIsNotNone(facts, handle)
+            self.assertEqual((facts["price"], facts["price_max"]), (20.0, 26.0))
+            self.assertEqual(facts["title"], "Tee")
+
     def test_no_price(self):
         self.assertIsNone(summarize.parse_product_page("<html>hi</html>"))
         self.assertIsNone(summarize.parse_product_page(""))
