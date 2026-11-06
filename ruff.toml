@@ -1,0 +1,2 @@
+# The skills support Python 3.8+ (see CONTRIBUTING.md); keep formatter output 3.8-compatible.
+target-version = "py38"

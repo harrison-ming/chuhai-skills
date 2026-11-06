@@ -773,24 +773,23 @@ class TestCollectLocal(FixtureCase):
         try:
             out = os.path.join(self.tmp, "run")
             buf = io.StringIO()
-            with (
-                contextlib.redirect_stdout(buf),
-                mock.patch.object(collect, "ensure_public_url", return_value=True),
-            ):
-                rc = collect.main(
-                    [
-                        "http://127.0.0.1:%d/products/whatever" % port,
-                        "--out",
-                        out,
-                        "--depth",
-                        "L1",
-                        "--delay",
-                        "0",
-                        "--timeout",
-                        "5",
-                        "--skip-offsite",
-                    ]
-                )
+            # Python 3.8 has no parenthesised multi-item ``with``: nest instead.
+            with contextlib.redirect_stdout(buf):
+                with mock.patch.object(collect, "ensure_public_url", return_value=True):
+                    rc = collect.main(
+                        [
+                            "http://127.0.0.1:%d/products/whatever" % port,
+                            "--out",
+                            out,
+                            "--depth",
+                            "L1",
+                            "--delay",
+                            "0",
+                            "--timeout",
+                            "5",
+                            "--skip-offsite",
+                        ]
+                    )
         finally:
             server.shutdown()
             server.server_close()
